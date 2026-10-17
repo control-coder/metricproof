@@ -1,0 +1,786 @@
+[
+ {
+  "label": "truth",
+  "case": 1,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "plan 的 kind 为 summary、group_by 为 null，期间取 2026-08-01T00:00:00 至 2026-09-01T00:00:00 的左闭右开区间，与“2026年8月的成交额和订单数”这一汇总问题一致，未发现字段错误。",
+  "usage": {
+   "prompt_tokens": 928,
+   "completion_tokens": 142,
+   "cached_tokens": 0,
+   "total_tokens": 1070,
+   "seconds": 3.1
+  }
+ },
+ {
+  "label": "truth",
+  "case": 1,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "kind 为 summary、group_by 为 null，期间为 2026-08-01 至 2026-09-01 的左闭右开区间，与“2026年8月的成交额和订单数”所问一致，未做多余分组，接受。",
+  "usage": {
+   "prompt_tokens": 928,
+   "completion_tokens": 142,
+   "cached_tokens": 0,
+   "total_tokens": 1070,
+   "seconds": 3.183
+  }
+ },
+ {
+  "label": "truth",
+  "case": 2,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题问整份数据的总成交额，plan 为 kind=summary、group_by=null，且未限定期间故 start、end 均为 null，与问题一致，予以接受。",
+  "usage": {
+   "prompt_tokens": 888,
+   "completion_tokens": 91,
+   "cached_tokens": 448,
+   "total_tokens": 979,
+   "seconds": 8.456
+  }
+ },
+ {
+  "label": "truth",
+  "case": 2,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题为整份数据的总成交额，kind 取 summary、group_by 为空、start 与 end 均为 null 表示不限定期间，与问题完全对应，审查通过。",
+  "usage": {
+   "prompt_tokens": 881,
+   "completion_tokens": 83,
+   "cached_tokens": 0,
+   "total_tokens": 964,
+   "seconds": 6.27
+  }
+ },
+ {
+  "label": "truth",
+  "case": 3,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题为9月1日至9月15日（含15日）的成交额汇总，plan 的 kind 为 summary、group_by 为 null，期间采用左闭右开 2026-09-01T00:00:00 至 2026-09-16T00:00:00，与问题完全对应，无字段错误。",
+  "usage": {
+   "prompt_tokens": 934,
+   "completion_tokens": 175,
+   "cached_tokens": 0,
+   "total_tokens": 1109,
+   "seconds": 3.165
+  }
+ },
+ {
+  "label": "truth",
+  "case": 3,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "kind 为 summary 且 group_by 为 null，符合“成交额是多少”的单值汇总问题；期间 start 为 2026-09-01T00:00:00、end 为 2026-09-16T00:00:00，正确实现了 9 月 1 日至 9 月 15 日含 15 日的左闭右开口径。",
+  "usage": {
+   "prompt_tokens": 935,
+   "completion_tokens": 180,
+   "cached_tokens": 0,
+   "total_tokens": 1115,
+   "seconds": 5.885
+  }
+ },
+ {
+  "label": "truth",
+  "case": 4,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题为7月份整体成交汇总，kind 取 summary、group_by 为 null 正确；期间按左闭右开取 2026-07-01T00:00:00 至 2026-08-01T00:00:00，与“7月份”一致。未发现字段错误，予以通过。",
+  "usage": {
+   "prompt_tokens": 925,
+   "completion_tokens": 153,
+   "cached_tokens": 448,
+   "total_tokens": 1078,
+   "seconds": 8.734
+  }
+ },
+ {
+  "label": "truth",
+  "case": 4,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题所问为7月整体成交订单数与金额，plan 的 kind 为 summary、group_by 为 null，期间为 2026-07-01T00:00:00 至 2026-08-01T00:00:00 的左闭右开区间，与问题一致，无字段错误。",
+  "usage": {
+   "prompt_tokens": 930,
+   "completion_tokens": 128,
+   "cached_tokens": 448,
+   "total_tokens": 1058,
+   "seconds": 3.136
+  }
+ },
+ {
+  "label": "truth",
+  "case": 5,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "plan 的 kind 为 trend、group_by 为 payment_date，期间为 2026-08-01 至 2026-09-01 的左闭右开区间，完全对应“8月每天成交额走势”的提问，无字段错误。",
+  "usage": {
+   "prompt_tokens": 938,
+   "completion_tokens": 108,
+   "cached_tokens": 448,
+   "total_tokens": 1046,
+   "seconds": 2.645
+  }
+ },
+ {
+  "label": "truth",
+  "case": 5,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题为8月每天成交额走势，plan 的 kind=trend、group_by=payment_date，且期间为 2026-08-01 至 2026-09-01 左闭右开，与问题一致，予以接受。",
+  "usage": {
+   "prompt_tokens": 938,
+   "completion_tokens": 104,
+   "cached_tokens": 448,
+   "total_tokens": 1042,
+   "seconds": 3.111
+  }
+ },
+ {
+  "label": "truth",
+  "case": 6,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "kind 为 trend、group_by 为 payment_date，且期间取 2026-09-01T00:00:00 至 2026-10-01T00:00:00（左闭右开），与“按天看9月的成交额趋势”完全对应；问题未要求两期对比，comparison 置空正确。",
+  "usage": {
+   "prompt_tokens": 936,
+   "completion_tokens": 161,
+   "cached_tokens": 448,
+   "total_tokens": 1097,
+   "seconds": 5.897
+  }
+ },
+ {
+  "label": "truth",
+  "case": 6,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题为按天查看9月成交额趋势，plan 的 kind=trend、group_by=payment_date 与之对应，期间 2026-09-01T00:00:00 至 2026-10-01T00:00:00 为正确的左闭右开9月区间，start/end 与 comparison 设置均无误。",
+  "usage": {
+   "prompt_tokens": 935,
+   "completion_tokens": 163,
+   "cached_tokens": 448,
+   "total_tokens": 1098,
+   "seconds": 5.533
+  }
+ },
+ {
+  "label": "truth",
+  "case": 7,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题要求整个数据期间的每日成交额趋势，plan 的 kind 为 trend、group_by 为 payment_date，且 start/end 均为 null 表示覆盖全部数据期间，与问题一致。未发现字段错误，予以接受。",
+  "usage": {
+   "prompt_tokens": 896,
+   "completion_tokens": 112,
+   "cached_tokens": 448,
+   "total_tokens": 1008,
+   "seconds": 7.997
+  }
+ },
+ {
+  "label": "truth",
+  "case": 7,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题要求整个数据期间的每日成交额趋势，plan 中 kind=trend、group_by=payment_date 与之对应，start/end 均为 null 表示覆盖全部数据期间，设置正确，未发现字段错误。",
+  "usage": {
+   "prompt_tokens": 903,
+   "completion_tokens": 100,
+   "cached_tokens": 448,
+   "total_tokens": 1003,
+   "seconds": 3.335
+  }
+ },
+ {
+  "label": "truth",
+  "case": 8,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题为各渠道成交额排行，plan 的 kind 为 ranking、group_by 为 channel，且未限定期间故 start/end 为 null，均与问题一致。",
+  "usage": {
+   "prompt_tokens": 894,
+   "completion_tokens": 80,
+   "cached_tokens": 448,
+   "total_tokens": 974,
+   "seconds": 2.294
+  }
+ },
+ {
+  "label": "truth",
+  "case": 8,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题为各渠道成交额排行，plan 的 kind=ranking、group_by=channel 与之对应；问题未限定期间，start/end 为 null 表示全部数据，设置正确。未发现字段错误。",
+  "usage": {
+   "prompt_tokens": 898,
+   "completion_tokens": 87,
+   "cached_tokens": 448,
+   "total_tokens": 985,
+   "seconds": 4.568
+  }
+ },
+ {
+  "label": "truth",
+  "case": 9,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题为7月按品类成交额排名，plan 的 kind=ranking、group_by=category，期间 2026-07-01T00:00:00 至 2026-08-01T00:00:00 符合左闭右开，未限定期间外的比较期为 null 也合理，审查通过。",
+  "usage": {
+   "prompt_tokens": 943,
+   "completion_tokens": 164,
+   "cached_tokens": 448,
+   "total_tokens": 1107,
+   "seconds": 4.152
+  }
+ },
+ {
+  "label": "truth",
+  "case": 9,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题问7月按品类成交额排名，plan 的 kind 为 ranking、group_by 为 category，且期间为 2026-07-01T00:00:00 至 2026-08-01T00:00:00 的左闭右开区间，均与问题一致，予以接受。",
+  "usage": {
+   "prompt_tokens": 945,
+   "completion_tokens": 159,
+   "cached_tokens": 448,
+   "total_tokens": 1104,
+   "seconds": 3.861
+  }
+ },
+ {
+  "label": "truth",
+  "case": 10,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "kind 为 ranking、group_by 为 channel，符合“9月各渠道销售额从高到低排列”的排行要求；期间 2026-09-01T00:00:00 至 2026-10-01T00:00:00 为9月的左闭右开区间，正确；未限定其他维度，方案无误。",
+  "usage": {
+   "prompt_tokens": 935,
+   "completion_tokens": 160,
+   "cached_tokens": 448,
+   "total_tokens": 1095,
+   "seconds": 4.138
+  }
+ },
+ {
+  "label": "truth",
+  "case": 10,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题所问为9月各渠道销售额的排名，plan 的 kind 取 ranking、group_by 取 channel，期间为 2026-09-01 至 2026-10-01 的左闭右开区间，均与问题一致，审查通过。",
+  "usage": {
+   "prompt_tokens": 938,
+   "completion_tokens": 132,
+   "cached_tokens": 448,
+   "total_tokens": 1070,
+   "seconds": 3.604
+  }
+ },
+ {
+  "label": "truth",
+  "case": 11,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "kind 为 ranking，group_by 为 category，与“各品类成交额排名”一致；期间为 8 月左闭右开，start=2026-08-01T00:00:00、end=2026-09-01T00:00:00 正确。未发现字段错误。",
+  "usage": {
+   "prompt_tokens": 938,
+   "completion_tokens": 149,
+   "cached_tokens": 448,
+   "total_tokens": 1087,
+   "seconds": 5.237
+  }
+ },
+ {
+  "label": "truth",
+  "case": 11,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "kind 为 ranking、group_by 为 category，期间为 2026-08-01 至 2026-09-01 的左闭右开区间，与“8月各品类成交额排名”一致，未发现字段错误。",
+  "usage": {
+   "prompt_tokens": 936,
+   "completion_tokens": 107,
+   "cached_tokens": 448,
+   "total_tokens": 1043,
+   "seconds": 3.414
+  }
+ },
+ {
+  "label": "truth",
+  "case": 12,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "plan 的 kind 为 share、group_by 为 category，问题未限定期间故 start、end 为 null，均与问题“各品类成交额占总成交额比例”一致，予以接受。",
+  "usage": {
+   "prompt_tokens": 903,
+   "completion_tokens": 89,
+   "cached_tokens": 448,
+   "total_tokens": 992,
+   "seconds": 5.636
+  }
+ },
+ {
+  "label": "truth",
+  "case": 12,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题问各品类成交额占总成交额的比例，plan 的 kind 为 share、group_by 为 category，且问题未限定期间，start/end 取 null 表示全部数据，均与问题一致。",
+  "usage": {
+   "prompt_tokens": 902,
+   "completion_tokens": 93,
+   "cached_tokens": 448,
+   "total_tokens": 995,
+   "seconds": 4.16
+  }
+ },
+ {
+  "label": "truth",
+  "case": 13,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "kind 为 share、group_by 为 channel，且期间为 2026-08-01T00:00:00 至 2026-09-01T00:00:00 的左闭右开区间，与“8月各渠道的成交额占比”一致；未限定期间对比，previous 字段为 null 正确。",
+  "usage": {
+   "prompt_tokens": 940,
+   "completion_tokens": 156,
+   "cached_tokens": 448,
+   "total_tokens": 1096,
+   "seconds": 5.631
+  }
+ },
+ {
+  "label": "truth",
+  "case": 13,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "kind 为 share、group_by 为 channel，期间为 2026-08-01T00:00:00 至 2026-09-01T00:00:00 的左闭右开区间，均与“8月各渠道的成交额占比”一致，无字段错误。",
+  "usage": {
+   "prompt_tokens": 936,
+   "completion_tokens": 151,
+   "cached_tokens": 448,
+   "total_tokens": 1087,
+   "seconds": 4.06
+  }
+ },
+ {
+  "label": "truth",
+  "case": 14,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "kind 为 share、group_by 为 category，与“9月各品类金额占比”一致；期间 2026-09-01T00:00:00 至 2026-10-01T00:00:00 为左闭右开，正确覆盖 9 月，问题未做两期对比故 comparison 为空亦正确。",
+  "usage": {
+   "prompt_tokens": 940,
+   "completion_tokens": 160,
+   "cached_tokens": 448,
+   "total_tokens": 1100,
+   "seconds": 4.582
+  }
+ },
+ {
+  "label": "truth",
+  "case": 14,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "plan 的 kind 为 share、group_by 为 category，且期间为 2026-09-01 至 2026-10-01 的左闭右开区间，与“9月各品类金额占比”完全对应，无字段错误。",
+  "usage": {
+   "prompt_tokens": 938,
+   "completion_tokens": 124,
+   "cached_tokens": 448,
+   "total_tokens": 1062,
+   "seconds": 2.387
+  }
+ },
+ {
+  "label": "truth",
+  "case": 15,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "kind 为 comparison，本期为 2026-09-01 至 2026-10-01、上期为 2026-08-01 至 2026-09-01，均为左闭右开且与问题所问的9月对8月一致；group_by 为空也符合两期总量对比的问法，未发现字段错误。",
+  "usage": {
+   "prompt_tokens": 961,
+   "completion_tokens": 186,
+   "cached_tokens": 448,
+   "total_tokens": 1147,
+   "seconds": 5.584
+  }
+ },
+ {
+  "label": "truth",
+  "case": 15,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题为9月与8月成交额的两期对比，plan 的 kind 为 comparison，本期 2026-09-01 至 2026-10-01、上期 2026-08-01 至 2026-09-01，均为左闭右开且对应所问期间，group_by 为 null 也符合不按维度拆分的要求，审查通过。",
+  "usage": {
+   "prompt_tokens": 959,
+   "completion_tokens": 171,
+   "cached_tokens": 448,
+   "total_tokens": 1130,
+   "seconds": 6.059
+  }
+ },
+ {
+  "label": "truth",
+  "case": 16,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题为8月与7月成交额对比，plan 的 kind 为 comparison，group_by 为空，本期为 2026-08-01 至 2026-09-01（左闭右开），上期为 2026-07-01 至 2026-08-01，均与问题一致，予以通过。",
+  "usage": {
+   "prompt_tokens": 966,
+   "completion_tokens": 151,
+   "cached_tokens": 448,
+   "total_tokens": 1117,
+   "seconds": 4.327
+  }
+ },
+ {
+  "label": "truth",
+  "case": 16,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题为8月与7月成交额的两期对比，plan 的 kind 为 comparison、group_by 为 null 正确；本期 2026-08-01 至 2026-09-01、上期 2026-07-01 至 2026-08-01，均为左闭右开且符合问题所指的两个自然月，未限定其他维度。",
+  "usage": {
+   "prompt_tokens": 965,
+   "completion_tokens": 175,
+   "cached_tokens": 448,
+   "total_tokens": 1140,
+   "seconds": 5.042
+  }
+ },
+ {
+  "label": "truth",
+  "case": 17,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "kind 为 comparison 且 group_by 为 null，符合两期成交额对比之问；本期为 9 月 16 日至 10 月 1 日零点、上期为 9 月 1 日至 9 月 16 日零点，均为左闭右开，与问题中“16日起”和“1日至15日（含15日）”一致，无字段错误。",
+  "usage": {
+   "prompt_tokens": 977,
+   "completion_tokens": 191,
+   "cached_tokens": 448,
+   "total_tokens": 1168,
+   "seconds": 13.996
+  }
+ },
+ {
+  "label": "truth",
+  "case": 17,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "kind 为 comparison、group_by 为 null，符合两期成交额对比的所问形式；本期 2026-09-16 至 2026-10-01、上期 2026-09-01 至 2026-09-16，均为左闭右开且与数据范围（截至 9 月 30 日）一致。未发现字段错误，予以接受。",
+  "usage": {
+   "prompt_tokens": 983,
+   "completion_tokens": 295,
+   "cached_tokens": 0,
+   "total_tokens": 1278,
+   "seconds": 7.548
+  }
+ },
+ {
+  "label": "truth",
+  "case": 18,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "kind 为 comparison 且未设置分组维度，符合“9月和7月成交额增长率”的两期对比之问；本期为 2026-09-01 至 2026-10-01、上期为 2026-07-01 至 2026-08-01，均为左闭右开且与问题期间一致，字段取值正确。",
+  "usage": {
+   "prompt_tokens": 966,
+   "completion_tokens": 173,
+   "cached_tokens": 448,
+   "total_tokens": 1139,
+   "seconds": 7.042
+  }
+ },
+ {
+  "label": "truth",
+  "case": 18,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题所问为9月与7月的成交额增长率对比，plan 中 kind 为 comparison，本期为 2026-09-01 至 2026-10-01（左闭右开），上期为 2026-07-01 至 2026-08-01，且 group_by 为空，均与问题一致。",
+  "usage": {
+   "prompt_tokens": 967,
+   "completion_tokens": 147,
+   "cached_tokens": 448,
+   "total_tokens": 1114,
+   "seconds": 4.949
+  }
+ },
+ {
+  "label": "truth",
+  "case": 19,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题为数据质量检查，kind 取 quality、group_by 为 null、未限定期间故 start/end 为 null，均符合题意；纳入状态属服务端已确认口径，不在审查范围内，予以接受。",
+  "usage": {
+   "prompt_tokens": 892,
+   "completion_tokens": 118,
+   "cached_tokens": 448,
+   "total_tokens": 1010,
+   "seconds": 4.481
+  }
+ },
+ {
+  "label": "truth",
+  "case": 19,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题为数据质量检查，plan 的 kind 取 quality、group_by 为 null，且未限定期间故 start/end 均为 null，与问题原文一致，符合契约要求。",
+  "usage": {
+   "prompt_tokens": 894,
+   "completion_tokens": 99,
+   "cached_tokens": 448,
+   "total_tokens": 993,
+   "seconds": 5.678
+  }
+ },
+ {
+  "label": "truth",
+  "case": 20,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "问题询问各状态订单数及重复、缺失情况，kind 为 quality 且固定输出各状态订单数、重复订单数和缺失值数，group_by 为 null 符合要求；问题未限定期间，start、end 取 null 表示全部数据，亦正确。未发现字段错误。",
+  "usage": {
+   "prompt_tokens": 892,
+   "completion_tokens": 131,
+   "cached_tokens": 448,
+   "total_tokens": 1023,
+   "seconds": 4.006
+  }
+ },
+ {
+  "label": "truth",
+  "case": 20,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "问题为数据质量类，kind 取 quality、group_by 为 null，且 quality 固定输出总行数、各状态订单数、重复与缺失统计，无需分组；未限定期间故 start/end 为 null，符合左闭右开与全部数据的约定，各字段均与问题对应。",
+  "usage": {
+   "prompt_tokens": 896,
+   "completion_tokens": 190,
+   "cached_tokens": 448,
+   "total_tokens": 1086,
+   "seconds": 5.824
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 1,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "问题问的是2026年8月，但 plan 的期间 start 应为 2026-08-01T00:00:00、end 应为 2026-09-01T00:00:00（左闭右开），现填的是 2026-07-01 至 2026-08-01，统计的是7月数据，与所问期间不符。",
+  "usage": {
+   "prompt_tokens": 931,
+   "completion_tokens": 194,
+   "cached_tokens": 448,
+   "total_tokens": 1125,
+   "seconds": 3.995
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 1,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "问题问的是2026年8月的成交额和订单数，期间应为左闭右开的2026-08-01T00:00:00至2026-09-01T00:00:00，而 plan 中的 start=2026-07-01T00:00:00、end=2026-08-01T00:00:00 对应的是7月。kind=summary 与 group_by=null 均符合该汇总类问题，仅期间字段需更正。",
+  "usage": {
+   "prompt_tokens": 931,
+   "completion_tokens": 275,
+   "cached_tokens": 448,
+   "total_tokens": 1206,
+   "seconds": 4.324
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 5,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "问题问的是8月每天的成交额走势，但 plan 的期间被设为 2026-09-01T00:00:00 至 2026-10-01T00:00:00，属于9月。按左闭右开约定，start 应为 2026-08-01T00:00:00，end 应为 2026-09-01T00:00:00。",
+  "usage": {
+   "prompt_tokens": 939,
+   "completion_tokens": 215,
+   "cached_tokens": 448,
+   "total_tokens": 1154,
+   "seconds": 3.785
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 5,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "问题问的是8月每天的成交额走势，按左闭右开口径 start 应为 2026-08-01T00:00:00、end 应为 2026-09-01T00:00:00，而 plan 中填的是 2026-09-01 至 2026-10-01（即9月数据），期间取错，其余 kind 与 group_by 无误。",
+  "usage": {
+   "prompt_tokens": 942,
+   "completion_tokens": 211,
+   "cached_tokens": 448,
+   "total_tokens": 1153,
+   "seconds": 9.63
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 8,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "问题问的是各渠道成交额排行，group_by 应为 channel 而不是 category；kind 为 ranking、期间为空均正确，仅分组维度需修改。",
+  "usage": {
+   "prompt_tokens": 895,
+   "completion_tokens": 76,
+   "cached_tokens": 448,
+   "total_tokens": 971,
+   "seconds": 6.143
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 8,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "问题问的是各渠道成交额排行，group_by 应为 channel，但计划中填的是 category。请将 group_by 改为 channel，其余字段可保持不变。",
+  "usage": {
+   "prompt_tokens": 893,
+   "completion_tokens": 79,
+   "cached_tokens": 448,
+   "total_tokens": 972,
+   "seconds": 3.099
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 13,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "问题问的是“各渠道”的成交额占比，group_by 应取 channel，而 plan 中填的是 category（商品分类）。期间 2026-08-01 至 2026-09-01 的左闭右开设置与 kind=share 均正确，请修正分组维度后重跑。",
+  "usage": {
+   "prompt_tokens": 933,
+   "completion_tokens": 122,
+   "cached_tokens": 448,
+   "total_tokens": 1055,
+   "seconds": 8.625
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 13,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "问题问的是各渠道的成交额占比，group_by 应取 channel，而 plan 中写成了 category。期间与 kind（share）无误，其余字段可保持不变。",
+  "usage": {
+   "prompt_tokens": 932,
+   "completion_tokens": 81,
+   "cached_tokens": 448,
+   "total_tokens": 1013,
+   "seconds": 7.872
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 15,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "comparison 的期间颠倒了：问题的本期是9月，被比较的期是8月。start 应为 2026-09-01T00:00:00、end 应为 2026-10-01T00:00:00，previous_start 应为 2026-08-01T00:00:00、previous_end 应为 2026-09-01T00:00:00。",
+  "usage": {
+   "prompt_tokens": 965,
+   "completion_tokens": 338,
+   "cached_tokens": 448,
+   "total_tokens": 1303,
+   "seconds": 5.964
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 15,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "问题问的是9月相比8月，本期应为9月，即 start=2026-09-01T00:00:00、end=2026-10-01T00:00:00；被比较期为8月，即 previous_start=2026-08-01T00:00:00、previous_end=2026-09-01T00:00:00。当前 plan 把本期与比较期颠倒了。",
+  "usage": {
+   "prompt_tokens": 956,
+   "completion_tokens": 247,
+   "cached_tokens": 448,
+   "total_tokens": 1203,
+   "seconds": 5.032
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 3,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "问题所问为9月1日到9月15日（含15日），期间左闭右开，end 应取 2026-09-16T00:00:00，而 plan 中写成了 2026-09-15T00:00:00，会漏掉15日当天的数据。其余字段（kind=summary、group_by=null、start=2026-09-01T00:00:00）符合问题要求。",
+  "usage": {
+   "prompt_tokens": 936,
+   "completion_tokens": 207,
+   "cached_tokens": 448,
+   "total_tokens": 1143,
+   "seconds": 6.307
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 3,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "问题问的是9月1日到9月15日（含15日），期间为左闭右开，end 应取 2026-09-16T00:00:00，而 plan 中写成了 2026-09-15T00:00:00，会漏掉9月15日全天的数据。其余字段（kind=summary、group_by=null）符合所问。",
+  "usage": {
+   "prompt_tokens": 934,
+   "completion_tokens": 187,
+   "cached_tokens": 448,
+   "total_tokens": 1121,
+   "seconds": 4.996
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 10,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "问题限定了9月期间，plan 中 start 和 end 不应为 null，应取 2026-09-01T00:00:00 至 2026-10-01T00:00:00（左闭右开）；kind=ranking 与 group_by=channel 与所问的按渠道销售额降序排行一致，其余字段无误。",
+  "usage": {
+   "prompt_tokens": 900,
+   "completion_tokens": 192,
+   "cached_tokens": 448,
+   "total_tokens": 1092,
+   "seconds": 4.945
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 10,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "问题限定为9月，但 plan 的 start、end 均为 null，表示全部数据而非9月期间。按左闭右开口径，start 应为 2026-09-01T00:00:00、end 应为 2026-10-01T00:00:00；kind 为 ranking、group_by 为 channel 是正确的。",
+  "usage": {
+   "prompt_tokens": 903,
+   "completion_tokens": 193,
+   "cached_tokens": 448,
+   "total_tokens": 1096,
+   "seconds": 4.928
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 17,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "本期与被比较期颠倒了：问题问的是9月下半月相比上半月增长多少，本期应为下半月，即 start=2026-09-16T00:00:00、end=2026-10-01T00:00:00，上半月应作为被比较期，即 previous_start=2026-09-01T00:00:00、previous_end=2026-09-16T00:00:00。",
+  "usage": {
+   "prompt_tokens": 975,
+   "completion_tokens": 397,
+   "cached_tokens": 448,
+   "total_tokens": 1372,
+   "seconds": 7.155
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 17,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "comparison 的两期设置颠倒了：问题本期为9月下半月（16日起），start 应为 2026-09-16T00:00:00、end 应为 2026-10-01T00:00:00；被比较的上半月应放 previous_start=2026-09-01T00:00:00、previous_end=2026-09-16T00:00:00。",
+  "usage": {
+   "prompt_tokens": 974,
+   "completion_tokens": 354,
+   "cached_tokens": 448,
+   "total_tokens": 1328,
+   "seconds": 12.564
+  }
+ }
+]

@@ -1,0 +1,266 @@
+{
+  "seed": 20260926,
+  "mode": "fixed-three-role-demo-real-docker",
+  "numerical": {
+    "passed": 20,
+    "total": 20,
+    "median_seconds": 1.327,
+    "p95_seconds": 1.444,
+    "tokens": 0,
+    "cases": [
+      {
+        "case": 1,
+        "kind": "summary",
+        "passed": true,
+        "seconds": 1.257,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 2,
+        "kind": "trend",
+        "passed": true,
+        "seconds": 1.521,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 3,
+        "kind": "ranking",
+        "passed": true,
+        "seconds": 1.389,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 4,
+        "kind": "share",
+        "passed": true,
+        "seconds": 1.36,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 5,
+        "kind": "comparison",
+        "passed": true,
+        "seconds": 1.358,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 6,
+        "kind": "quality",
+        "passed": true,
+        "seconds": 1.248,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 7,
+        "kind": "summary",
+        "passed": true,
+        "seconds": 1.229,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 8,
+        "kind": "trend",
+        "passed": true,
+        "seconds": 1.444,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 9,
+        "kind": "ranking",
+        "passed": true,
+        "seconds": 1.18,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 10,
+        "kind": "share",
+        "passed": true,
+        "seconds": 1.389,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 11,
+        "kind": "comparison",
+        "passed": true,
+        "seconds": 1.316,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 12,
+        "kind": "quality",
+        "passed": true,
+        "seconds": 1.272,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 13,
+        "kind": "summary",
+        "passed": true,
+        "seconds": 1.232,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 14,
+        "kind": "trend",
+        "passed": true,
+        "seconds": 1.405,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 15,
+        "kind": "ranking",
+        "passed": true,
+        "seconds": 1.331,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 16,
+        "kind": "share",
+        "passed": true,
+        "seconds": 1.323,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 17,
+        "kind": "comparison",
+        "passed": true,
+        "seconds": 1.392,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 18,
+        "kind": "quality",
+        "passed": true,
+        "seconds": 1.255,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 19,
+        "kind": "summary",
+        "passed": true,
+        "seconds": 1.198,
+        "tokens": 0,
+        "failure": null
+      },
+      {
+        "case": 20,
+        "kind": "trend",
+        "passed": true,
+        "seconds": 1.39,
+        "tokens": 0,
+        "failure": null
+      }
+    ]
+  },
+  "memory": {
+    "passed": 8,
+    "total": 8,
+    "cases": [
+      {
+        "name": "待确认不默认使用",
+        "passed": true
+      },
+      {
+        "name": "跨会话复用并保留来源",
+        "passed": true
+      },
+      {
+        "name": "跨项目隔离",
+        "passed": true
+      },
+      {
+        "name": "同结构不同语义隔离",
+        "passed": true
+      },
+      {
+        "name": "结构变化不复用",
+        "passed": true
+      },
+      {
+        "name": "同名冲突须提供当前版本",
+        "passed": true
+      },
+      {
+        "name": "新版本不改写旧快照",
+        "passed": true
+      },
+      {
+        "name": "失效后不再默认使用",
+        "passed": true
+      }
+    ]
+  },
+  "faults": {
+    "passed": 8,
+    "total": 8,
+    "cases": [
+      {
+        "name": "test_real_permissions_network_and_file_isolation",
+        "passed": true,
+        "seconds": 1.012,
+        "reason": null
+      },
+      {
+        "name": "test_real_timeout_cleanup",
+        "passed": true,
+        "seconds": 1.019,
+        "reason": null
+      },
+      {
+        "name": "test_real_cancel_cleanup",
+        "passed": true,
+        "seconds": 2.268,
+        "reason": null
+      },
+      {
+        "name": "test_real_symlink_rejected",
+        "passed": true,
+        "seconds": 0.923,
+        "reason": null
+      },
+      {
+        "name": "test_real_output_disk_limit",
+        "passed": true,
+        "seconds": 0.974,
+        "reason": null
+      },
+      {
+        "name": "test_real_memory_limit",
+        "passed": true,
+        "seconds": 1.151,
+        "reason": null
+      },
+      {
+        "name": "test_reference_failure_never_self_approved",
+        "passed": true,
+        "seconds": 0.001,
+        "reason": null
+      },
+      {
+        "name": "test_cancel_before_final_save_wins",
+        "passed": true,
+        "seconds": 2.458,
+        "reason": null
+      }
+    ]
+  },
+  "comparison": "未运行真实单 Agent/多 Agent 模型对照；零 token 仅表示固定角色未调用模型。"
+}

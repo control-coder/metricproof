@@ -53,7 +53,19 @@ htmlcov/
 # 运行数据、数据库、临时文件与模型缓存不得提交。
 .tmp/
 # 仅根目录运行产物；src/datalab/artifacts 是业务包，不能被忽略。
-/artifacts/
+# 例外：评测文档引用的逐例结果随仓库发布，便于核对数字出处；其余运行产物仍不提交。
+/artifacts/*
+!/artifacts/evals/
+/artifacts/evals/*
+!/artifacts/evals/fixed-seed.json
+!/artifacts/evals/heldout-single-vs-roles.json
+!/artifacts/evals/heldout-after-shape.json
+!/artifacts/evals/heldout-report.md
+!/artifacts/evals/heldout-after-report.md
+!/artifacts/evals/model-compare-2026-09-30.json
+!/artifacts/evals/review-replay.json
+!/artifacts/evals/analyst-handoff-dev-deepseek.json
+!/artifacts/evals/review-probe/
 *.db
 *.sqlite
 *.sqlite3

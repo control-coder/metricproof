@@ -1,0 +1,786 @@
+[
+ {
+  "label": "truth",
+  "case": 1,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验全部通过，汇总口径（2026-08、payment_time、仅 paid）与 summary 计划一致，未发现分组或期间设置问题。建议后续在核验记录中补齐计划声明的 refund_filter 检查项，便于审阅痕迹完整。",
+  "usage": {
+   "prompt_tokens": 548,
+   "completion_tokens": 272,
+   "cached_tokens": 0,
+   "total_tokens": 820,
+   "seconds": 13.211
+  }
+ },
+ {
+  "label": "truth",
+  "case": 1,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划为单期汇总、按支付时间、仅含已支付订单，期间划分与分组设置合理，且独立核验全部通过，故予以通过；建议后续补充 refund_filter 项的核验记录以完整对应计划中的检查清单。",
+  "usage": {
+   "prompt_tokens": 540,
+   "completion_tokens": 240,
+   "cached_tokens": 0,
+   "total_tokens": 780,
+   "seconds": 7.836
+  }
+ },
+ {
+  "label": "truth",
+  "case": 2,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验 passed 为真且参考汇总（1599 单 / 66327953 分）与结果一致，summary 且无分组、无期间的计划与 kind=summary、rows 为空相符。建议后续将 plan 声明的 group_total、refund_filter 检查在 verification 中明确回填，以便覆盖可追溯。",
+  "usage": {
+   "prompt_tokens": 508,
+   "completion_tokens": 285,
+   "cached_tokens": 0,
+   "total_tokens": 793,
+   "seconds": 19.244
+  }
+ },
+ {
+  "label": "truth",
+  "case": 2,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立参考核验通过，汇总口径（paid、payment_time、无分组）与问题一致；建议确认未设置期间为有意为之，以免与带环比的问题混淆。",
+  "usage": {
+   "prompt_tokens": 514,
+   "completion_tokens": 170,
+   "cached_tokens": 0,
+   "total_tokens": 684,
+   "seconds": 5.744
+  }
+ },
+ {
+  "label": "truth",
+  "case": 3,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划为 2026-09-01 至 2026-09-16 的 paid 状态汇总，期间与分组设置合理，独立 SQL 参考结果与产出一致（275 单 / 11303993 分）。但 verification 记录中缺少 plan 声明的 group_total 与 refund_filter 两项明细，建议后续补齐核验记录以便完整追溯。",
+  "usage": {
+   "prompt_tokens": 543,
+   "completion_tokens": 693,
+   "cached_tokens": 0,
+   "total_tokens": 1236,
+   "seconds": 17.298
+  }
+ },
+ {
+  "label": "truth",
+  "case": 3,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划为汇总类且以 payment_time 限定 2026-09-01 至 2026-09-16、仅含 paid 状态，与汇总口径相符；独立 SQL 参考核验全部通过，汇总值 275 单/11303993 分一致。建议后续在 group_by 为空时仍明确 group_total 检查的适用性说明即可。",
+  "usage": {
+   "prompt_tokens": 544,
+   "completion_tokens": 250,
+   "cached_tokens": 0,
+   "total_tokens": 794,
+   "seconds": 17.805
+  }
+ },
+ {
+  "label": "truth",
+  "case": 4,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划为2026年7月按支付时间的汇总、口径限定为已支付订单，与核验参考（538单、21917398分）逐项一致，独立参考检查通过；建议后续将退款过滤检查也纳入核验记录以便完整留痕。",
+  "usage": {
+   "prompt_tokens": 545,
+   "completion_tokens": 289,
+   "cached_tokens": 0,
+   "total_tokens": 834,
+   "seconds": 9.618
+  }
+ },
+ {
+  "label": "truth",
+  "case": 4,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划为 2026 年 7 月按支付时间统计的 paid 订单汇总，粒度与期间合理；独立 SQL 参考核验各项均通过，结果可接受。建议后续明确原始问题与核验清单的对应关系（如 group_by 为空时的 group_total 检查），以便更完整地复核。",
+  "usage": {
+   "prompt_tokens": 547,
+   "completion_tokens": 159,
+   "cached_tokens": 0,
+   "total_tokens": 706,
+   "seconds": 5.762
+  }
+ },
+ {
+  "label": "truth",
+  "case": 5,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划为按支付日期的 8 月趋势分析，状态过滤为 paid，与问题口径和期间分组相符；独立 SQL 参考、分组合计等关键检查均通过，各日与合计数据一致。可进入下一环节。",
+  "usage": {
+   "prompt_tokens": 1679,
+   "completion_tokens": 136,
+   "cached_tokens": 192,
+   "total_tokens": 1815,
+   "seconds": 4.757
+  }
+ },
+ {
+  "label": "truth",
+  "case": 5,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划为 2026-08 按支付日期的日趋势，口径（paid、payment_time）与分组合理，独立核验全部通过且分组合计与总计一致（527 单/22615662 分）。建议后续核验记录中显式列出 refund_filter 结果，以便完整对应计划中的检查项。",
+  "usage": {
+   "prompt_tokens": 1678,
+   "completion_tokens": 530,
+   "cached_tokens": 192,
+   "total_tokens": 2208,
+   "seconds": 9.34
+  }
+ },
+ {
+  "label": "truth",
+  "case": 6,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划为2026年9月按支付日期的付费订单趋势分析，期间与分组合理，独立核验全部通过且与参考数据一致。但计划中的 refund_filter 检查未在 verification 中体现（被 download_table 替代），建议后续补充退款过滤的独立核验。",
+  "usage": {
+   "prompt_tokens": 1639,
+   "completion_tokens": 220,
+   "cached_tokens": 192,
+   "total_tokens": 1859,
+   "seconds": 6.168
+  }
+ },
+ {
+  "label": "truth",
+  "case": 6,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划为按 payment_date 分组、限定 paid 状态的 2026-09 趋势分析，与独立核验的逐日参考值及总计（534 单、21794893 分）一致，各关键检查均通过。但计划声明的 refund_filter 检查未出现在核验记录中（仅有 download_table），建议在核验中补齐该检查或从计划中移除，以免口径说明与记录不一致。",
+  "usage": {
+   "prompt_tokens": 1644,
+   "completion_tokens": 565,
+   "cached_tokens": 192,
+   "total_tokens": 2209,
+   "seconds": 11.361
+  }
+ },
+ {
+  "label": "truth",
+  "case": 7,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验全部关键检查通过，按 payment_date 的日趋势分组与仅含 paid 状态的口径合理，期间为全量无指定区间也与计划一致。建议留意计划中的 refund_filter 检查在核验记录里未单独列出，但不影响本次结论。",
+  "usage": {
+   "prompt_tokens": 3843,
+   "completion_tokens": 379,
+   "cached_tokens": 192,
+   "total_tokens": 4222,
+   "seconds": 11.12
+  }
+ },
+ {
+  "label": "truth",
+  "case": 7,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划采用按支付日期的付费订单趋势分组，期间为全量数据且与核验参考口径一致；独立参考、分组合计与下载表校验均通过，予以接受。建议后续补齐计划中声明的 refund_filter 核验记录，使计划与 verification 的检查项一一对应。",
+  "usage": {
+   "prompt_tokens": 3844,
+   "completion_tokens": 197,
+   "cached_tokens": 192,
+   "total_tokens": 4041,
+   "seconds": 7.082
+  }
+ },
+ {
+  "label": "truth",
+  "case": 8,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验全部通过，分组订单数与金额合计（1599 单 / 66327953 分）与参考结果一致。计划按渠道分组、仅计已支付订单、时间字段取 payment_time 均合理，但起止期间为空表示全量区间，且计划中的 refund_filter 检查未在核验明细中单列，请确认与原问题口径一致。",
+  "usage": {
+   "prompt_tokens": 641,
+   "completion_tokens": 488,
+   "cached_tokens": 192,
+   "total_tokens": 1129,
+   "seconds": 11.502
+  }
+ },
+ {
+  "label": "truth",
+  "case": 8,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划与排名问题相符：按渠道分组、口径为已支付订单、指标版本 rule-v1，独立 SQL 参考与结果逐项一致且分组合计与总计吻合。建议后续把计划中的 refund_filter 检查也纳入核验记录，目前核验清单里对应项缺失。",
+  "usage": {
+   "prompt_tokens": 645,
+   "completion_tokens": 561,
+   "cached_tokens": 192,
+   "total_tokens": 1206,
+   "seconds": 13.861
+  }
+ },
+ {
+  "label": "truth",
+  "case": 9,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划按品类对2026年7月已支付订单做排名，期间与分组维度合理，且独立参考、分组合计等核验项全部通过，与结果一致，予以通过。",
+  "usage": {
+   "prompt_tokens": 678,
+   "completion_tokens": 109,
+   "cached_tokens": 192,
+   "total_tokens": 787,
+   "seconds": 4.844
+  }
+ },
+ {
+  "label": "truth",
+  "case": 9,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划与排名问题相符：按品类分组、仅含已支付订单、以 payment_time 覆盖 2026 年 7 月，期间与分组合理；独立核验全部通过且各组订单数与金额合计（538 单 / 21917398 分）与总计一致，排名按金额降序正确。建议后续将 plan 中列出的 refund_filter 检查同步纳入 verification 记录，便于完整留痕。",
+  "usage": {
+   "prompt_tokens": 675,
+   "completion_tokens": 463,
+   "cached_tokens": 192,
+   "total_tokens": 1138,
+   "seconds": 10.82
+  }
+ },
+ {
+  "label": "truth",
+  "case": 10,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划采用按渠道排序、口径为已支付订单、期间为2026年9月且以支付时间划分，分组与期间设定合理；独立参考计算及分组合计等关键检查均通过，各组订单数与金额之和与总计一致，予以通过。",
+  "usage": {
+   "prompt_tokens": 677,
+   "completion_tokens": 145,
+   "cached_tokens": 192,
+   "total_tokens": 822,
+   "seconds": 4.552
+  }
+ },
+ {
+  "label": "truth",
+  "case": 10,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划的排序口径（按渠道分组、统计 2026-09 单一期间、仅计已支付、按支付时间过滤）与问题相符，期间和分组设置合理。独立核验的各项检查（independent_reference、group_total、download_table）均通过，参考值与结果一致。仅提示：计划中列出的 refund_filter 检查未出现在核验记录里，建议后续在计划或核验中对齐该项。",
+  "usage": {
+   "prompt_tokens": 673,
+   "completion_tokens": 409,
+   "cached_tokens": 192,
+   "total_tokens": 1082,
+   "seconds": 10.063
+  }
+ },
+ {
+  "label": "truth",
+  "case": 11,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划与问题相符：按品类对2026年8月已支付订单做排名，期间、分组与状态过滤均合理；独立核验各项检查全部通过，分组合计与总计一致，予以通过。建议后续将 refund_filter 等计划声明的检查项一并记录在 verification 中，便于追溯。",
+  "usage": {
+   "prompt_tokens": 674,
+   "completion_tokens": 178,
+   "cached_tokens": 192,
+   "total_tokens": 852,
+   "seconds": 5.15
+  }
+ },
+ {
+  "label": "truth",
+  "case": 11,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划为按类目的排名统计，期间2026-08-01至2026-09-01、仅含paid状态，与分组和口径设置一致，独立核验全部通过且分组合计与总计相符。建议后续补充计划中声明的refund_filter核验记录，以便完整留痕。",
+  "usage": {
+   "prompt_tokens": 677,
+   "completion_tokens": 224,
+   "cached_tokens": 192,
+   "total_tokens": 901,
+   "seconds": 6.766
+  }
+ },
+ {
+  "label": "truth",
+  "case": 12,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验三项检查均通过，分组结果与参考合计一致。但计划未设置期间（start/end 为空）且声明的 refund_filter 检查未在核验记录中体现，建议补充说明无期间筛选的原因并回填该检查结果。",
+  "usage": {
+   "prompt_tokens": 693,
+   "completion_tokens": 280,
+   "cached_tokens": 192,
+   "total_tokens": 973,
+   "seconds": 9.423
+  }
+ },
+ {
+  "label": "truth",
+  "case": 12,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立核验全部通过且分组订单数、金额与合计逐项吻合，share 口径与按 category 分组的计划一致。但计划声明的 refund_filter 检查未出现在核验记录中，且期间起止均为 null（全期间），请确认与原始问题的时间范围要求相符。",
+  "usage": {
+   "prompt_tokens": 696,
+   "completion_tokens": 626,
+   "cached_tokens": 0,
+   "total_tokens": 1322,
+   "seconds": 15.466
+  }
+ },
+ {
+  "label": "truth",
+  "case": 13,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验全部通过，分组金额与订单数合计（527 单、22615662 分）与总计一致，占比合计为 1，期间（2026-08-01 至 2026-09-01）、按支付时间、按渠道分组均与问题相符。计划中的 refund_filter 检查未出现在 verification 列表中，但 included_statuses 仅含 paid 已隐含排除退款，故予以通过。",
+  "usage": {
+   "prompt_tokens": 727,
+   "completion_tokens": 459,
+   "cached_tokens": 0,
+   "total_tokens": 1186,
+   "seconds": 11.038
+  }
+ },
+ {
+  "label": "truth",
+  "case": 13,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划按渠道分组、以支付时间限定 2026 年 8 月且仅统计已支付订单，口径清晰合理；独立核验的三项关键检查全部通过，分组金额与总额一致，予以通过。",
+  "usage": {
+   "prompt_tokens": 732,
+   "completion_tokens": 119,
+   "cached_tokens": 192,
+   "total_tokens": 851,
+   "seconds": 4.428
+  }
+ },
+ {
+  "label": "truth",
+  "case": 14,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划的问题类型、分组维度、期间（2026-09）与支付状态过滤均与问题相符，独立 SQL 核验各项全部通过，分组占比合计为 1。建议补充说明 refund_filter 检查在核验记录中未显式列出，但不影响本次结论。",
+  "usage": {
+   "prompt_tokens": 728,
+   "completion_tokens": 235,
+   "cached_tokens": 192,
+   "total_tokens": 963,
+   "seconds": 8.091
+  }
+ },
+ {
+  "label": "truth",
+  "case": 14,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划的口径（2026年9月、payment_time、paid 状态、按 category 计算占比）与份额类问题相符，期间和分组设置合理；独立核验全部通过，分组金额与订单数合计与总计完全一致、份额合计为1。建议补充说明 refund_filter 检查的结果，但不影响本次通过。",
+  "usage": {
+   "prompt_tokens": 729,
+   "completion_tokens": 340,
+   "cached_tokens": 192,
+   "total_tokens": 1069,
+   "seconds": 8.352
+  }
+ },
+ {
+  "label": "truth",
+  "case": 15,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划为环比对比（2026年9月对8月），口径为已支付订单、按支付时间过滤，与问题相符；独立SQL参考计算的关键检查全部通过，期间与分组设置合理，予以通过。",
+  "usage": {
+   "prompt_tokens": 639,
+   "completion_tokens": 123,
+   "cached_tokens": 192,
+   "total_tokens": 762,
+   "seconds": 4.039
+  }
+ },
+ {
+  "label": "truth",
+  "case": 15,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划采用环比对比口径，期间划分（2026-09 与 2026-08）与支付时间字段合理，仅统计已支付订单，与问题相符；独立核验的全部关键检查均通过，核验值与结果一致，予以通过。",
+  "usage": {
+   "prompt_tokens": 643,
+   "completion_tokens": 94,
+   "cached_tokens": 192,
+   "total_tokens": 737,
+   "seconds": 4.755
+  }
+ },
+ {
+  "label": "truth",
+  "case": 16,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划采用环比对比口径，期间（2026年8月对比7月）、时间字段（payment_time）与仅含 paid 状态的范围合理，与对比类问题相符；独立参考核验全部通过且与结果一致，group_by 为空故分组汇总检查不适用。予以通过。",
+  "usage": {
+   "prompt_tokens": 635,
+   "completion_tokens": 167,
+   "cached_tokens": 192,
+   "total_tokens": 802,
+   "seconds": 7.097
+  }
+ },
+ {
+  "label": "truth",
+  "case": 16,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划与问题相符：按支付时间对 2026 年 8 月与 7 月已支付订单进行环比对比，期间划分连续且口径合理；独立核验各关键检查均通过，参考值与结果一致，予以通过。",
+  "usage": {
+   "prompt_tokens": 636,
+   "completion_tokens": 101,
+   "cached_tokens": 192,
+   "total_tokens": 737,
+   "seconds": 3.043
+  }
+ },
+ {
+  "label": "truth",
+  "case": 17,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划采用对比类型，当期与环比期间划分对称、口径为支付时间与已支付状态，与问题相符；独立参考计算全部通过，数据一致，予以通过。",
+  "usage": {
+   "prompt_tokens": 636,
+   "completion_tokens": 165,
+   "cached_tokens": 192,
+   "total_tokens": 801,
+   "seconds": 6.998
+  }
+ },
+ {
+  "label": "truth",
+  "case": 17,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划为环比对比，当期与对比期均为15天且以payment_time划分，口径一致；独立核验全部通过，与参考值一致。建议后续补全refund_filter检查的核验明细以便追溯。",
+  "usage": {
+   "prompt_tokens": 638,
+   "completion_tokens": 179,
+   "cached_tokens": 192,
+   "total_tokens": 817,
+   "seconds": 7.036
+  }
+ },
+ {
+  "label": "truth",
+  "case": 18,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "审查未通过：核验记录中缺少计划声明的 refund_filter 检查项（group_total 在 group_by 为 null 时可豁免），需补充执行或说明不适用；另外当前期为 2026-09，环比上期却取 2026-07 而非 2026-08，期间不连续，需修正上期区间后重新核验。",
+  "usage": {
+   "prompt_tokens": 637,
+   "completion_tokens": 441,
+   "cached_tokens": 192,
+   "total_tokens": 1078,
+   "seconds": 12.207
+  }
+ },
+ {
+  "label": "truth",
+  "case": 18,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "独立核验全部通过，但计划期间不一致：当期为2026年9月，对比期却取2026年7月（跳过了8月），未构成连续可比期间。请将 previous_start/previous_end 修正为 2026-08-01 至 2026-09-01 后重新计算并核验。",
+  "usage": {
+   "prompt_tokens": 637,
+   "completion_tokens": 426,
+   "cached_tokens": 192,
+   "total_tokens": 1063,
+   "seconds": 9.659
+  }
+ },
+ {
+  "label": "truth",
+  "case": 19,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验全部通过，参考结果与交付表一致，状态分布与退款过滤口径合理；建议后续补充 group_total、refund_filter 两项检查的显式核验记录以完整对应计划。",
+  "usage": {
+   "prompt_tokens": 529,
+   "completion_tokens": 161,
+   "cached_tokens": 192,
+   "total_tokens": 690,
+   "seconds": 5.397
+  }
+ },
+ {
+  "label": "truth",
+  "case": 19,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立核验各项检查均通过，结果与参考逐项一致，质量审计覆盖全部状态，予以通过。但计划中声明的 group_total 检查与 group_by=null 不匹配、refund_filter 检查也未在 verification 中出现，建议后续对齐检查声明与实际执行项，避免计划内部不一致。",
+  "usage": {
+   "prompt_tokens": 530,
+   "completion_tokens": 496,
+   "cached_tokens": 192,
+   "total_tokens": 1026,
+   "seconds": 13.731
+  }
+ },
+ {
+  "label": "truth",
+  "case": 20,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验全部通过，质量检查计划不设期间与分组符合问题类型。但计划声明的 group_total、refund_filter 两项在核验记录中未见对应结果，且 group_by 为空时 group_total 意义有限，建议后续统一计划与核验的检查项；本次无失败项，予以通过。",
+  "usage": {
+   "prompt_tokens": 529,
+   "completion_tokens": 317,
+   "cached_tokens": 192,
+   "total_tokens": 846,
+   "seconds": 10.126
+  }
+ },
+ {
+  "label": "truth",
+  "case": 20,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立核验全部通过，参考结果与交付记录一致，质量检查的计划类型、状态范围与无分组设定合理。建议后续质量类计划明确标注不适用的 group_total/refund_filter 检查，避免核验记录与检查项清单不完全对应。",
+  "usage": {
+   "prompt_tokens": 533,
+   "completion_tokens": 421,
+   "cached_tokens": 192,
+   "total_tokens": 954,
+   "seconds": 12.134
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 1,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划为 2026 年 7 月按 payment_time 的已支付订单汇总，期间与分组合理，独立核验全部通过且参考值一致。但计划声明的 refund_filter 检查未出现在 verification 记录中，建议后续补齐该检查项的记录。",
+  "usage": {
+   "prompt_tokens": 543,
+   "completion_tokens": 280,
+   "cached_tokens": 192,
+   "total_tokens": 823,
+   "seconds": 7.485
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 1,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立核验全部通过，汇总口径（2026-07、仅 paid、按 payment_time）与计划一致。建议补充说明计划中的 refund_filter 检查未在核验记录中单列，以免后续复核产生歧义。",
+  "usage": {
+   "prompt_tokens": 545,
+   "completion_tokens": 288,
+   "cached_tokens": 192,
+   "total_tokens": 833,
+   "seconds": 8.084
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 5,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划按 payment_date 分组、统计 2026-09 期间 paid 订单趋势，期间与分组设置合理，独立参考计算各项检查均通过。但计划中的 refund_filter 检查未出现在核验记录中（仅见 download_table），请确认退款过滤规则已被独立核验覆盖。",
+  "usage": {
+   "prompt_tokens": 1642,
+   "completion_tokens": 261,
+   "cached_tokens": 0,
+   "total_tokens": 1903,
+   "seconds": 6.879
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 5,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立核验三项关键检查全部通过，趋势按 payment_date 分组、2026-09-01 至 2026-10-01 期间及仅统计 paid 状态的设置合理，分组小计与总计一致。建议补充说明计划中的 refund_filter 检查未出现在核验记录中，以及环比期间为空的原因，以便后续追溯。",
+  "usage": {
+   "prompt_tokens": 1640,
+   "completion_tokens": 222,
+   "cached_tokens": 0,
+   "total_tokens": 1862,
+   "seconds": 8.56
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 8,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立参考核验各项均通过，分组汇总与总计一致，计划与按类目排名的口径相符。但计划声明的 refund_filter 检查未出现在核验记录中，建议补充该项明细或确认其已包含在 paid 状态过滤内。",
+  "usage": {
+   "prompt_tokens": 640,
+   "completion_tokens": 371,
+   "cached_tokens": 0,
+   "total_tokens": 1011,
+   "seconds": 11.136
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 8,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立核验全部关键检查通过，分组、口径与合计数一致，按品类排名的计划设置合理；但计划未限定起止时间且仅纳入 paid 状态，请确认与原始问题的时间范围及退款处理要求相符。",
+  "usage": {
+   "prompt_tokens": 639,
+   "completion_tokens": 218,
+   "cached_tokens": 192,
+   "total_tokens": 857,
+   "seconds": 9.276
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 13,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划按支付时间、2026年8月、仅已支付状态统计品类金额占比，与问题相符；独立核验三项关键检查全部通过，四个品类金额合计与总额一致、份额合计约为1，可接受。建议后续补充说明 refund_filter 检查的核验明细以便追溯。",
+  "usage": {
+   "prompt_tokens": 728,
+   "completion_tokens": 341,
+   "cached_tokens": 192,
+   "total_tokens": 1069,
+   "seconds": 15.341
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 13,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "计划按品类统计2026年8月已支付订单占比，期间、分组与状态口径合理，独立参考计算的分组金额与占比逐项一致且合计相符。仅提示计划中的 refund_filter 检查在核验记录中显示为 download_table，建议后续统-check 名称，但不影响本次结果采信。",
+  "usage": {
+   "prompt_tokens": 725,
+   "completion_tokens": 226,
+   "cached_tokens": 192,
+   "total_tokens": 951,
+   "seconds": 8.297
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 15,
+  "rep": 0,
+  "accepted": false,
+  "feedback": "计划的对比期间不合理：previous（2026-09-01 至 10-01）晚于本期（2026-08-01 至 09-01），环比的上一期应在本期之前，请修正期间顺序后重新核验；另外计划声明了 group_total 检查但 group_by 为空，需说明或移除该检查。",
+  "usage": {
+   "prompt_tokens": 644,
+   "completion_tokens": 333,
+   "cached_tokens": 0,
+   "total_tokens": 977,
+   "seconds": 7.152
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 15,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "计划中的对比期 previous_start/previous_end 被设为 2026-09-01 至 2026-10-01，位于当期（2026-08-01 至 2026-09-01）之后，环比基准期应在当期之前，应改为 2026-07-01T00:00:00 至 2026-08-01T00:00:00 并重新核验；此外计划声明的 group_total、refund_filter 核验项未在 verification 中体现，需补齐或在计划中修正后再提交。",
+  "usage": {
+   "prompt_tokens": 638,
+   "completion_tokens": 412,
+   "cached_tokens": 192,
+   "total_tokens": 1050,
+   "seconds": 7.755
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 3,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划为单期汇总，统计口径为 paid 状态、按 payment_time 过滤 2026-09-01 至 2026-09-15，期间与分组设置合理，且独立 SQL 核验的全部关键检查均通过。未发现需修正之处，予以通过。",
+  "usage": {
+   "prompt_tokens": 545,
+   "completion_tokens": 231,
+   "cached_tokens": 192,
+   "total_tokens": 776,
+   "seconds": 6.372
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 3,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立参考核验已通过且与结果逐项一致，期间、paid 状态过滤与 summary 类型设置合理。但计划中的 group_total、refund_filter 检查未在核验记录中体现（group_by 为空时 group_total 可豁免），建议补充说明或补记 refund_filter 的核验结果以便完整留痕。",
+  "usage": {
+   "prompt_tokens": 542,
+   "completion_tokens": 476,
+   "cached_tokens": 192,
+   "total_tokens": 1018,
+   "seconds": 13.943
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 10,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "计划按渠道进行全期间已支付订单排名，分组与指标版本明确，独立核验的三项检查（参考值一致性、分组合计、退款过滤）均通过，分组订单数合计与总额与参考值吻合，审查通过。",
+  "usage": {
+   "prompt_tokens": 647,
+   "completion_tokens": 110,
+   "cached_tokens": 192,
+   "total_tokens": 757,
+   "seconds": 5.288
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 10,
+  "rep": 1,
+  "accepted": true,
+  "feedback": "独立参考与分组合计完全一致（409+422+393+375=1599，金额合计亦吻合），核心检查均通过，予以接受。建议后续在核验记录中补充计划声明的 refund_filter 检查项，并确认 start/end 为空代表全量区间而非遗漏。",
+  "usage": {
+   "prompt_tokens": 644,
+   "completion_tokens": 474,
+   "cached_tokens": 192,
+   "total_tokens": 1118,
+   "seconds": 12.472
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 17,
+  "rep": 0,
+  "accepted": true,
+  "feedback": "独立核验全部通过，环比差额 813093 分与增长率 0.077505 与参考值一致，期间划分与仅计已支付状态的口径合理。计划中的 refund_filter 核验记录未见单独展示，建议在结果说明中补充退款处理口径的确认；group_by 为空故 group_total 不适用。",
+  "usage": {
+   "prompt_tokens": 639,
+   "completion_tokens": 423,
+   "cached_tokens": 192,
+   "total_tokens": 1062,
+   "seconds": 13.69
+  }
+ },
+ {
+  "label": "wrong",
+  "case": 17,
+  "rep": 1,
+  "accepted": false,
+  "feedback": "对比基准期（previous 2026-09-16~10-01）完全晚于当期（09-01~09-16），与“previous”语义不符，期间设定需修正或明确说明为前后半月对比；另外计划中的 group_total、refund_filter 两项检查未在核验记录中体现，需补齐后再提交。",
+  "usage": {
+   "prompt_tokens": 639,
+   "completion_tokens": 835,
+   "cached_tokens": 192,
+   "total_tokens": 1474,
+   "seconds": 20.294
+  }
+ }
+]
