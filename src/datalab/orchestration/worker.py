@@ -7,7 +7,7 @@ from celery import Celery
 
 from datalab.artifacts.derive import derive
 from datalab.datasets.service import DatasetStore
-from datalab.execution.runner import DockerRunner
+from datalab.execution.runner import DockerRunner, ExecutionError
 from datalab.orchestration.services import ExecutionServices
 from datalab.orchestration.workflow import State, Workflow, TERMINAL
 from datalab.roles.guided import GuidedBackend
@@ -61,8 +61,11 @@ def process_task(task_id: str):
     thread = threading.Thread(target=heartbeat, daemon=True)
     thread.start()
     task._on_transition = lambda current: repository.save(current, token) if current.state not in TERMINAL else None
-    runner = DockerRunner(DatasetStore(settings.artifact_root / 'datasets'), settings.artifact_root / 'runs', image=settings.executor_image)
+    runner = None
     try:
+        # 沙箱构造放在 try 内：缺少 Docker 时任务以 SANDBOX_UNAVAILABLE 失败并释放租约，
+        # 不会留在已领取状态由心跳无限续租，也不降级为宿主机执行。
+        runner = DockerRunner(DatasetStore(settings.artifact_root / 'datasets'), settings.artifact_root / 'runs', image=settings.executor_image)
         workflow = Workflow(RoleRuntime(role_backend(row['request'])), ExecutionServices(runner))
         if task.state == State.WAITING_CONFIRMATION:
             task = workflow.resume(task,task.metric,cancelled=cancelled)
@@ -130,7 +133,12 @@ def process_task(task_id: str):
     except Exception as error:
         # 工作进程错误不能把任务永久留为执行中；不输出底层连接或数据内容。
         task.state = State.FAILED
-        task.failure = 'MODEL_ERROR' if isinstance(error, (ModelCallError, ModelConfigError)) else 'WORKER_ERROR'
+        if isinstance(error, (ModelCallError, ModelConfigError)):
+            task.failure = 'MODEL_ERROR'
+        elif isinstance(error, ExecutionError) and runner is None:
+            task.failure = 'SANDBOX_UNAVAILABLE'
+        else:
+            task.failure = 'WORKER_ERROR'
         try:
             repository.save(task,token,release=True)
         except Exception:

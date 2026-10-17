@@ -112,5 +112,5 @@ npm run build --prefix frontend
 
 - `CLEANUP_PENDING`：读取对应执行清单中的 `container_name`，只检查和移除该容器；不要运行清理全部 Docker 资源的命令。
 - 宿主进程被强制终止后，自动回收遗留容器的功能尚未实现，需要按执行清单人工核对。
-- Docker 不可用时任务记为失败，不会回退到宿主执行。
+- Docker 不可用时任务记为失败（未安装 Docker 时失败原因为 `SANDBOX_UNAVAILABLE`，并释放租约），不会回退到宿主机执行。
 - 运行产物默认保留在 `artifacts/` 中，不会自动删除数据库、用户文件或证据。
