@@ -29,6 +29,7 @@
 - 模型可选 MiMo 或 DeepSeek（OpenAI 兼容接口），也可以用不调用模型的固定演示模式，一条命令即可切换。
 - FastAPI + PostgreSQL + Redis/Celery：数据库是任务状态的权威，用租约处理重复投递，租约过期后从检查点恢复一次，任务创建支持 Idempotency-Key（前端在重试时沿用同一个键），投递失败自动补发，取消与终态提交通过行锁协调。
 - React + TypeScript 四页面：数据工作台、分析任务、报告详情、项目记忆。
+- MCP 服务：把查询数据与口径、提交分析、查询任务、读取产物与取消包装成 7 个工具，供 Claude Desktop 等外部 Agent 调用；只转发到本机接口，口径确认仍需用户在界面完成。
 
 ## 界面
 
@@ -98,6 +99,8 @@ python -B scripts/serve.py
 
 接入真实模型时，先复制 `.env.example` 为 `.env` 并填写密钥，再运行 `python -B scripts/switch_model.py mimo`。镜像源、模型配置与排障见 [docs/development.md](docs/development.md)。
 
+通过 MCP 接入外部 Agent：`python -m pip install -e ".[mcp]"`，服务启动后在客户端配置 stdio 命令 `python -m datalab.api.mcp_server`。工具清单与边界见 [docs/api.md](docs/api.md#mcp-服务)。
+
 ## 测试
 
 ```powershell
@@ -134,7 +137,7 @@ CI 在每次推送到 `main` 和每个 Pull Request 时运行以上三项，并�
 
 ```text
 src/datalab/
-  api/            HTTP 接口、访问约束、产物下载
+  api/            HTTP 接口、访问约束、产物下载、MCP 服务
   datasets/       CSV 规范化、字段映射、质量检查、数据版本
   orchestration/  状态机、预算、Celery worker、租约与补发
   roles/          三角色运行时、提示、固定演示后端、模型适配

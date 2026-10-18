@@ -43,7 +43,7 @@ class ModelProfile:
 class ModelConfig:
     active: str
     profiles: dict[str, ModelProfile]
-    max_calls: int = 6
+    max_calls: int = 8
     max_tokens: int = 150000
     seconds: float = 600
 
@@ -112,7 +112,7 @@ def load_model_config(path: Path | None = None) -> ModelConfig:
             _number(values, prefix + 'REVIEWER_MAX_OUTPUT_TOKENS', 2048, int, 256, 32768),
             _number(values, prefix + 'REVIEWER_TIMEOUT', 60.0, float, 1, 300))
     return ModelConfig(active, profiles,
-        _number(values, 'DATALAB_MODEL_MAX_CALLS', 6, int, 3, 12),
+        _number(values, 'DATALAB_MODEL_MAX_CALLS', 8, int, 3, 12),
         _number(values, 'DATALAB_MODEL_MAX_TOKENS', 150000, int, 1000, 500000),
         _number(values, 'DATALAB_MODEL_TIME_SECONDS', 600.0, float, 30, 600))
 

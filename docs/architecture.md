@@ -52,7 +52,7 @@ flowchart TB
 | Analyst | 计划、尝试产物 ID、必要反馈 | 只写 `analyze(data, plan)` 函数 | 代码只进入受限容器 |
 | Reviewer | 问题、数据概况、计划、产物 ID、核验检查名与结论 | `accepted` 与 `feedback` | 不执行代码；收不到独立参考数值 |
 
-服务端 `BoundTools` 把角色和当前任务绑定到固定工具白名单；模型响应不能声明自身身份、启用 bash 或传入工具注册表。计划常量、CSV 读写、编码与公式注入防护由 `execution/analysis_frame.py` 生成，组装后的脚本仍进入同一容器并接受独立核验。角色交接中的计划不带 `checks`，核验项由服务端决定。
+服务端 `BoundTools` 把角色和当前任务绑定到固定工具白名单，每个角色只有一个工具：Planner 读数据概况（`profile`），Analyst 提交沙箱运行（`execute_python`），Reviewer 调用独立核验（`verify`）。记忆读取与口径确认由编排层在调用前后完成，不作为角色工具。模型响应不能声明自身身份、启用 bash 或传入工具注册表。计划常量、CSV 读写、编码与公式注入防护由 `execution/analysis_frame.py` 生成，组装后的脚本仍进入同一容器并接受独立核验。角色交接中的计划不带 `checks`，核验项由服务端决定。
 
 ### 模型可见字段与 trace
 
@@ -81,7 +81,7 @@ stateDiagram-v2
 任一非终态都可以进入 `FAILED` 或 `CANCELLED`；失败原因记录为失败码，如 `MODEL_ERROR`、`REVIEW_REJECTED`。
 
 - 缺少确认口径时进入 `WAITING_CONFIRMATION` 并释放 worker；确认快照保存后从计划边界重新排队。等待期间不计时，恢复后已用的调用、token 和时间不归零。
-- 预算：固定演示默认 6 次调用、12000 token、120 秒；模型任务由 `.env` 配置，默认 6 次、15 万 token、600 秒。单次请求超时取供应商超时与剩余预算的较小值，不自动重试。
+- 预算：固定演示默认 8 次调用、12000 token、120 秒；模型任务由 `.env` 配置，默认 8 次、15 万 token、600 秒。8 次是代码修正、核验反馈和驳回后重规划全部触发时的最长路径（Planner 2 次、Analyst 4 次、Reviewer 2 次），由 `LONGEST_PATH_CALLS` 给出并有测试对照。预算调低后，驳回时剩余调用不足 3 次（重规划、重新执行、再审查各一次）就不开始重规划，直接采用已通过核验的结果并把驳回意见记入时间线。单次请求超时取供应商超时与剩余预算的较小值，不自动重试。
 - 代码执行失败最多修正一次。独立核验失败时，程序把定位信息直接回传 Analyst，最多一次，不调用 Reviewer。反馈只给出错误位置，不给期望值：`independent_reference` 报告不一致的字段路径与类型（如 `comparison.growth` 的 value、`total.order_count` 的 type），`download_table` 报告文件缺失、列顺序错误、列不符、行数不符或具体行列；转发前按白名单只保留定位字段。
 - Reviewer 只在核验通过后调用，只判断计划是否读对问题（类型、分组、期间），不审查口径、核验项或数值。驳回交回 Planner 复核：维持原计划则采用已通过核验的结果并把意见记入时间线；给出新计划则重新执行、核验和审查，再次驳回则以失败码 `REVIEW_REJECTED` 失败。
 - 审查是咨询性的。Reviewer 或复核 Planner 超时、截断、连接失败、输出不合契约或预算耗尽时，跳过审查并记录 `review_skipped`，采用已通过独立核验的结果。Reviewer 单独使用较低输出上限（默认 2048 token）和较短超时（默认 60 秒）。

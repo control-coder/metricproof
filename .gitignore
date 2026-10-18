@@ -62,6 +62,8 @@ htmlcov/
 !/artifacts/evals/heldout-after-shape.json
 !/artifacts/evals/heldout-report.md
 !/artifacts/evals/heldout-after-report.md
+!/artifacts/evals/heldout-budget8.json
+!/artifacts/evals/heldout-budget8-report.md
 !/artifacts/evals/model-compare-2026-09-30.json
 !/artifacts/evals/review-replay.json
 !/artifacts/evals/analyst-handoff-dev-deepseek.json

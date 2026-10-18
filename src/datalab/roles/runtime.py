@@ -16,10 +16,11 @@ class Role(StrEnum):
     REVIEWER = "Reviewer"
 
 
+# 每个角色只绑定一个工具。记忆读取与口径确认由编排层在调用前后完成，不作为角色工具暴露。
 PERMISSIONS = {
-    Role.PLANNER: frozenset({"profile", "read_memory", "request_confirmation"}),
-    Role.ANALYST: frozenset({"execute_python", "read_artifact"}),
-    Role.REVIEWER: frozenset({"verify", "read_artifact"}),
+    Role.PLANNER: frozenset({"profile"}),
+    Role.ANALYST: frozenset({"execute_python"}),
+    Role.REVIEWER: frozenset({"verify"}),
 }
 
 
@@ -33,7 +34,8 @@ class ModelCallError(RuntimeError):
 
 @dataclass
 class CallBudget:
-    max_calls: int = 6
+    # 默认次数等于三类回退全部触发时的最长调用路径（见 workflow.LONGEST_PATH_CALLS）。
+    max_calls: int = 8
     max_tokens: int = 12000
     seconds: float = 120
     calls: int = 0
@@ -44,6 +46,9 @@ class CallBudget:
     def __post_init__(self):
         if self.max_calls < 1 or self.max_tokens < 1 or not 0 < self.seconds <= 600:
             raise ValueError("预算必须是正数且总时限不超过 600 秒")
+
+    def remaining_calls(self) -> int:
+        return self.max_calls - self.calls
 
     def remaining_time(self) -> float:
         return self.seconds - self.spent_seconds - (0 if self.started is None else time.monotonic() - self.started)

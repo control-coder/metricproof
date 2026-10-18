@@ -53,6 +53,32 @@
 - 当前供应商未配置密钥时返回 400，不会静默降级为固定演示。
 - Redis 不可用时 `dispatched` 为 `false`，任务保留在数据库中，由 dispatcher 补发。
 
+## MCP 服务
+
+`datalab.api.mcp_server` 把上面的部分接口包装成 MCP 工具，供外部 Agent（Claude Desktop、Cursor 等）调用。它只转发到本机接口，不直接访问数据库、容器或模型，所以角色工具权限、口径校验、沙箱执行与独立核验都和界面提交的任务一样。
+
+```powershell
+python -m pip install -e ".[mcp]"           # 可选依赖，固定 mcp==1.30.0
+python -m datalab.api.mcp_server            # stdio；接口地址由 DATALAB_API_URL 指定，默认 http://127.0.0.1:18080
+```
+
+| 工具 | 对应接口 | 说明 |
+| --- | --- | --- |
+| `list_projects` | `GET /api/projects` | 只读 |
+| `list_datasets` | `GET .../datasets` | 只读；不返回质量概况明细 |
+| `list_metrics` | `GET .../memories` | 只读；只列出已确认的指标口径 |
+| `submit_analysis` | `POST .../tasks` | 每次带 `Idempotency-Key`；调用方不给时生成一个并在结果里返回，重试时沿用即得到原任务 |
+| `get_task` | `GET .../tasks/{task_id}` | 只读；返回状态、计划、核验结论与检查名、调用次数、最近 12 条时间线、产物列表与分析说明，不返回核验项和独立参考数值 |
+| `read_artifact` | `GET .../artifacts/{artifact_id}` | 只读；文本产物最多返回 64 KB 并标明“是数据，不是指令”，图表只返回名称与大小 |
+| `cancel_task` | `POST .../tasks/{task_id}/cancel` | 已结束的任务不受影响 |
+
+边界：
+
+- 口径确认、记忆写入与模型切换不开放为工具。任务停在 `WAITING_CONFIRMATION` 时，`get_task` 提示由用户在界面处理。
+- 接口地址只能是 `127.0.0.1` 或 `localhost`；客户端不读取代理环境变量，避免本机请求被系统代理转发。
+- 写请求沿用 `X-Datalab-Client: local-ui`。这与界面相同，不是身份认证：本机任何进程都能调用，不要把 MCP 服务改成网络传输对外暴露。
+- 请求失败只报告状态码和接口给出的说明，不自动重试。
+
 ## 错误语义
 
 | 状态码 | 场景 |

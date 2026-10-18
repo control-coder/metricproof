@@ -6,8 +6,10 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from datalab.contracts import AnalysisPlan, ExecutionManifest, VerificationReport
-from datalab.roles.runtime import BoundTools, BudgetExceeded, CallBudget, ModelCallError, ModelReply, Role, RoleRuntime
-from datalab.orchestration.workflow import MetricSnapshot, State, Task, Workflow, check_feedback
+from datalab.roles.runtime import (
+    PERMISSIONS, BoundTools, BudgetExceeded, CallBudget, ModelCallError, ModelReply, Role, RoleRuntime)
+from datalab.roles.model_config import ModelConfig
+from datalab.orchestration.workflow import LONGEST_PATH_CALLS, MetricSnapshot, State, Task, Workflow, check_feedback
 
 
 class FakeBackend:
@@ -135,6 +137,32 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual((task.plan.kind, task.plan.group_by, self.services.executions), ("ranking", "channel", 2))
         self.assertEqual(task.budget.calls, 6)
 
+    def test_longest_fallback_path_fits_default_budget(self):
+        # 代码修正、核验反馈、驳回后重规划全部触发：Planner×2、Analyst×4、Reviewer×2。
+        self.services.execution_statuses = ["FAILED", "COMPLETED"]
+        self.services.checks = [False, True]
+        self.backend.reviewer_accepts = [False, True]
+        self.backend.plans = [{}, {"kind": "ranking", "group_by": "channel"}]
+        task = self.workflow.run(self.task)
+        self.assertEqual(task.state, State.SUCCEEDED)
+        self.assertEqual([item["role"] for item in self.backend.contexts],
+                         ["Planner", "Analyst", "Analyst", "Analyst", "Reviewer", "Planner", "Analyst", "Reviewer"])
+        self.assertEqual(task.budget.calls, LONGEST_PATH_CALLS)
+        self.assertEqual(task.budget.max_calls, LONGEST_PATH_CALLS)
+        self.assertEqual(ModelConfig('mimo', {}).max_calls, LONGEST_PATH_CALLS)
+
+    def test_replan_not_started_without_enough_calls_keeps_verified_result(self):
+        # 预算在驳回时只剩 2 次，走不完重规划、重新执行和再审查：不开始，结果以独立核验为准。
+        self.services.execution_statuses = ["FAILED", "COMPLETED"]
+        self.services.checks = [False, True]
+        self.backend.reviewer_accepts = [False]
+        self.task.budget = CallBudget(max_calls=LONGEST_PATH_CALLS - 1)
+        task = self.workflow.run(self.task)
+        self.assertEqual((task.state, task.failure, task.replans), (State.SUCCEEDED, None, 0))
+        self.assertEqual(len(self.backend.contexts), 5)
+        self.assertIn("剩余调用不足以完成重规划", task.timeline[-1]["note"])
+        self.assertIn("按问题检查计划", task.timeline[-1]["note"])
+
     def test_second_rejection_after_revision_fails(self):
         self.backend.reviewer_accepts = [False]
         self.backend.plans = [{}, {"kind": "ranking", "group_by": "channel"}]
@@ -252,6 +280,13 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             BoundTools(Role.ANALYST, handlers).call("bash")
         self.assertEqual(BoundTools(Role.ANALYST, handlers).call("execute_python"), "执行")
+
+    def test_each_role_exposes_exactly_the_tool_it_is_bound_to(self):
+        self.assertEqual({role: set(tools) for role, tools in PERMISSIONS.items()},
+                         {Role.PLANNER: {"profile"}, Role.ANALYST: {"execute_python"}, Role.REVIEWER: {"verify"}})
+        self.workflow.run(self.task)
+        self.assertEqual([item["allowed_tools"] for item in self.backend.contexts],
+                         [["profile"], ["execute_python"], ["verify"]])
 
     def test_token_and_time_budget(self):
         budget = CallBudget(max_tokens=1)

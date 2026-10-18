@@ -34,6 +34,15 @@ ALLOWED = {
     # Reviewer 认为计划与问题不符时回到 Planner 复核，而不是让只能改代码的 Analyst 重写。
     State.VERIFYING: {State.EXECUTING, State.PLANNING, State.SUCCEEDED},
 }
+# 三类回退各自的次数上限。
+MAX_CODE_CORRECTIONS = 1
+MAX_FEEDBACKS = 1
+MAX_REPLANS = 1
+# 三类回退全部触发时的最长调用路径：Planner 与 Reviewer 各 1 + MAX_REPLANS 次，
+# Analyst 为 1 + MAX_REPLANS 次再加两类修正。默认调用预算与它相等。
+LONGEST_PATH_CALLS = 3 * (1 + MAX_REPLANS) + MAX_CODE_CORRECTIONS + MAX_FEEDBACKS
+# 开始一次复核重规划之后，Planner、Analyst、Reviewer 各需一次调用。
+REPLAN_CALLS = 3
 # 角色不负责核验项，交接中不附带计划的 checks，避免把服务端核验当成自己的待办。
 ROLE_PLAN_EXCLUDE = ("checks",)
 
@@ -344,7 +353,7 @@ class Workflow:
                     task.move(State.CANCELLED, "容器执行已取消")
                     return task
                 if manifest.status != "COMPLETED":
-                    if manifest.status == "FAILED" and task.code_corrections < 1:
+                    if manifest.status == "FAILED" and task.code_corrections < MAX_CODE_CORRECTIONS:
                         task.code_corrections += 1
                         # 只回传本角色自己的代码和受控失败原因，不传宿主错误详情。
                         task.feedback = {"type": "execution_failure", "artifact_id": manifest.run_id,
@@ -365,7 +374,7 @@ class Workflow:
             task.verifications.append(check)
             if not check.passed:
                 # 数值不符由程序直接判定，不再调用 Reviewer：它无法改变结论，其意见还可能夹带参考数值。
-                if task.review_feedbacks >= 1:
+                if task.review_feedbacks >= MAX_FEEDBACKS:
                     task.failure = "VERIFICATION_FAILED"
                     task.move(State.FAILED, "核验反馈次数已用尽")
                     return task
@@ -391,10 +400,13 @@ class Workflow:
             if review["accepted"]:
                 task.move(State.SUCCEEDED, "独立核验通过，Reviewer 确认计划与问题相符")
                 return task
-            if task.replans >= 1:
+            if task.replans >= MAX_REPLANS:
                 task.failure = "REVIEW_REJECTED"
                 task.move(State.FAILED, "修订后的计划仍被 Reviewer 驳回")
                 return task
+            if task.budget.remaining_calls() < REPLAN_CALLS:
+                # 剩余调用走不完重规划、重新执行和再审查，就不开始：已通过独立核验的结果不应因预算中途耗尽而失败。
+                return self._skip_review(task, "Planner 复核", BudgetExceeded("剩余调用不足以完成重规划"), review["feedback"])
             task.replans += 1
             # 计划问题只有 Planner 能改；Analyst 对同一计划重写代码只会得到同样的核验结果。
             try:
