@@ -7,13 +7,14 @@ from datalab.artifacts.derive import derive
 from datalab.contracts import AnalysisPlan
 from datalab.execution.codegen import fixed_code
 from datalab.execution.runner import DockerRunner, OutputSpec
-from datalab.verification.reference import verify
-from datalab.verification.table import verify_table
+from datalab.verification.metamorphic import Sandbox, runner_execute
+from datalab.verification.suite import run_checks
 
 
-def run_fixed(runner: DockerRunner, plan: AnalysisPlan, project_id: str) -> dict:
+def run_fixed(runner: DockerRunner, plan: AnalysisPlan, project_id: str, *, metamorphic: bool = False) -> dict:
     run_id = str(uuid4())
-    manifest = runner.execute_python(run_id, plan.dataset_version, fixed_code(plan), 30, OutputSpec(),
+    code = fixed_code(plan)
+    manifest = runner.execute_python(run_id, plan.dataset_version, code, 30, OutputSpec(),
                                      project_id=project_id, metric_version=plan.metric_version)
     folder = runner.root / run_id
     (folder / "plan.json").write_text(json.dumps(plan.payload(), ensure_ascii=False, indent=2), encoding="utf-8")
@@ -21,10 +22,12 @@ def run_fixed(runner: DockerRunner, plan: AnalysisPlan, project_id: str) -> dict
     if manifest.status == "COMPLETED":
         try:
             actual = json.loads((folder / "output/result.json").read_text(encoding="utf-8"))
-            verification = verify(runner.store.directory(plan.dataset_version) / "orders.csv", plan, actual)
-            table_ok = verify_table(folder / "output/table.csv", verification.reference)
-            verification.checks.append({"name": "download_table", "passed": table_ok})
-            verification.passed = verification.passed and table_ok
+            if not isinstance(actual, dict):
+                raise TypeError
+            # 与工作流使用同一组检查；固定演示没有调用预算，蜕变重跑按单次时限执行。
+            sandbox = Sandbox(code, runner_execute(runner, plan, project_id)) if metamorphic else None
+            verification = run_checks(runner.store.directory(plan.dataset_version) / "orders.csv", plan, actual,
+                                      folder / "output/table.csv", sandbox=sandbox)
             report["verification"] = asdict(verification)
             report["status"] = "SUCCEEDED" if verification.passed else "FAILED"
             if verification.passed:

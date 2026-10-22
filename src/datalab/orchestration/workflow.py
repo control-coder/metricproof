@@ -52,7 +52,15 @@ def role_plan(plan: AnalysisPlan) -> dict:
 
 
 # 核验问题只允许这些定位字段进入角色交接；核验端即使误加了数值也不会被转发。
-ISSUE_KEYS = ("path", "issue", "expected_type", "row", "columns")
+ISSUE_KEYS = ("path", "issue", "expected_type", "row", "columns", "relation")
+# 服务端核验项名称；词表外的名称换成 other。
+CHECK_NAMES = frozenset({
+    "artifact_format", "independent_reference", "group_total", "download_table", "invariants",
+    "reference_agreement", "metamorphic"})
+# 蜕变关系名称（verification/metamorphic.py）。
+RELATION_NAMES = frozenset({"permutation", "irrelevant_rows", "window_split"})
+# 两份服务端参考互相不一致说明参考本身有缺陷，Analyst 改代码无济于事：直接失败，不标为已核验。
+SERVER_FAULT_CHECKS = frozenset({"reference_agreement"})
 # 输出契约的全部键名。核验路径来自模型代码写出的 result.json，键名可能取自订单文本；
 # 不在契约内的键一律换成占位符，避免数据内容经“错误位置”回流到提示里。
 RESULT_KEYS = frozenset({
@@ -61,7 +69,13 @@ RESULT_KEYS = frozenset({
     "row_count", "duplicate_orders", "missing_values", "status_counts", "paid", "refunded", "cancelled"})
 ISSUE_NAMES = frozenset({
     "missing", "unexpected", "type", "value", "length", "file_missing", "invalid_json", "unreadable",
-    "column_order", "columns_mismatch", "row_count", "row_content"})
+    "column_order", "columns_mismatch", "row_count", "row_content",
+    # 结果不变量（verification/invariants.py）
+    "kind_mismatch", "negative", "bound", "zero_count_amount", "sum_mismatch", "ratio_mismatch", "share_sum",
+    "delta_mismatch", "unsorted", "duplicate_group", "invalid_group", "group_out_of_range", "empty_group",
+    "rows_not_empty",
+    # 蜕变关系与参考一致性
+    "result_changed", "not_additive", "execution_failed", "disagreement"})
 EXPECTED_TYPES = frozenset({"bool", "int", "str", "null", "list", "object", "other"})
 PATH_TOKEN = re.compile(r"\[\d{1,6}\]|[^.\[\]]+")
 UNKNOWN_KEY = "<key>"
@@ -85,10 +99,12 @@ def check_feedback(check: VerificationReport) -> list[dict]:
     """把核验结果收敛为检查名、结论与错误位置，不含独立参考数值。"""
     items = []
     for item in check.checks:
-        entry = {"name": item.get("name"), "passed": item.get("passed")}
+        entry = {"name": item.get("name") if item.get("name") in CHECK_NAMES else "other", "passed": item.get("passed")}
         issues = [{key: issue[key] for key in ISSUE_KEYS if key in issue}
                   for issue in (item.get("issues") or [])[:12] if isinstance(issue, dict)]
         for issue in issues:
+            if "relation" in issue and issue["relation"] not in RELATION_NAMES:
+                issue["relation"] = "other"
             if "path" in issue:
                 issue["path"] = safe_path(issue["path"])
             if "issue" in issue and issue["issue"] not in ISSUE_NAMES:
@@ -372,6 +388,10 @@ class Workflow:
             reviewer_tools = BoundTools(Role.REVIEWER, {"verify": lambda: self.services.verify(task, manifest)})
             check = reviewer_tools.call("verify")
             task.verifications.append(check)
+            if any(item.get("name") in SERVER_FAULT_CHECKS and not item.get("passed") for item in check.checks):
+                task.failure = "REFERENCE_DISAGREEMENT"
+                task.move(State.FAILED, "两份服务端参考不一致，结果不能标为已核验")
+                return task
             if not check.passed:
                 # 数值不符由程序直接判定，不再调用 Reviewer：它无法改变结论，其意见还可能夹带参考数值。
                 if task.review_feedbacks >= MAX_FEEDBACKS:

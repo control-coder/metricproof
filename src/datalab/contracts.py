@@ -17,8 +17,9 @@ class AnalysisPlan:
     end: str | None = None
     previous_start: str | None = None
     previous_end: str | None = None
-    # 与服务端实际执行的核验项一致；状态过滤已由独立参考覆盖，不声明不存在的检查。
-    checks: tuple[str, ...] = ("independent_reference", "group_total", "download_table")
+    # 与服务端每次都执行的核验项一致；状态过滤已由独立参考覆盖，不声明不存在的检查。
+    # 蜕变关系（metamorphic）由运行配置开启，不在默认声明中。
+    checks: tuple[str, ...] = ("independent_reference", "group_total", "download_table", "invariants", "reference_agreement")
     time_field: str = "payment_time"
 
     def __post_init__(self):

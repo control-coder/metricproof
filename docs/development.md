@@ -41,7 +41,7 @@ python -B scripts/serve.py                  # API、worker 与 dispatcher
 
 - `Ctrl+C` 停止 `serve.py` 启动的子进程。
 - `python -B scripts/local_services.py stop` 只停止本项目的容器，保留数据库卷和本机配置。
-- 连接配置保存在被忽略的 `artifacts/local/runtime.json`，再次运行 `start` 会复用它，不会清空数据。
+- 连接配置保存在被忽略的 `artifacts/local/runtime.json`，再次运行 `start` 会复用它，不会清空数据。在其中加入 `"metamorphic_checks": true` 可开启蜕变关系核验（默认关闭，每个任务多约 4 次沙箱运行，见[架构文档](architecture.md#核验)），重启 worker 后生效。
 - 18080 端口被占用时，请先排查占用者。
 
 只想验证容器闭环、不启动服务时，可以运行：
@@ -93,6 +93,8 @@ npm run build --prefix frontend
 | `node frontend/tests/browser-flow.mjs` | 用本机 Edge 跑完整的四页面流程，包括桌面与移动宽度，以及“响应丢失后重试沿用同一个 Idempotency-Key 并拿回原任务”；设置 `DATALAB_SHOT_DIR` 时把四页截图写到该目录（README 的截图用 `docs/images`） |
 | `python -B scripts/verify_scale.py` | 十万行模拟订单的规模验证 |
 | `python -B evals/run_suite.py` | 固定种子评测：20 项数值、8 项记忆、8 项故障，不调用模型 |
+
+`tests/datalab/test_execution.py` 的 Docker 用例包括蜕变关系在真实容器中的重跑；`test_verification_layers.py` 离线覆盖不变量、两份参考的性质测试（240 组随机数据与计划）和蜕变关系。
 
 运行完后用 `Remove-Item Env:DATALAB_DOCKER_TESTS` 清除开关。`scripts/test_postgres.py` 只清理自己创建的容器；`DATALAB_POSTGRES_TESTS=1` 配合 `DATALAB_TEST_DATABASE_URL` 也可以指向一个专用测试库，但不要指向含业务数据的库。
 

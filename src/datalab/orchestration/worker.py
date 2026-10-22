@@ -66,7 +66,8 @@ def process_task(task_id: str):
         # 沙箱构造放在 try 内：缺少 Docker 时任务以 SANDBOX_UNAVAILABLE 失败并释放租约，
         # 不会留在已领取状态由心跳无限续租，也不降级为宿主机执行。
         runner = DockerRunner(DatasetStore(settings.artifact_root / 'datasets'), settings.artifact_root / 'runs', image=settings.executor_image)
-        workflow = Workflow(RoleRuntime(role_backend(row['request'])), ExecutionServices(runner))
+        workflow = Workflow(RoleRuntime(role_backend(row['request'])),
+                            ExecutionServices(runner, metamorphic=settings.metamorphic_checks))
         if task.state == State.WAITING_CONFIRMATION:
             task = workflow.resume(task,task.metric,cancelled=cancelled)
         elif task.state != State.QUEUED:

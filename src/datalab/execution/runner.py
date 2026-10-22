@@ -18,6 +18,10 @@ from datalab.contracts import ExecutionManifest
 from datalab.datasets.service import DatasetStore
 
 
+# 服务端变换输入的上限：数据集本身不超过 20 MB，变换只追加少量行。
+MAX_INPUT_BYTES = 32 * 1024 * 1024
+
+
 class ExecutionError(RuntimeError):
     """执行失败或控制服务不可用；不能视为成功。"""
 
@@ -100,13 +104,17 @@ class DockerRunner:
 
     def execute_python(self, run_id: str, dataset_version: str, code: str, timeout: float,
                        output_spec: OutputSpec, *, project_id: str, metric_version: str,
-                       cancelled: threading.Event | None = None) -> ExecutionManifest:
+                       cancelled: threading.Event | None = None, orders_csv: bytes | None = None) -> ExecutionManifest:
+        """orders_csv 只供服务端核验传入本任务数据的变换版本（如蜕变关系），仍写入同一只读输入挂载，
+        容器参数与默认路径完全相同；不接受模型或请求方提供的内容。"""
         if str(UUID(run_id)) != run_id:
             raise ValueError("任务标识必须为规范 UUID")
         if not math.isfinite(timeout) or not 0 < timeout <= 120:
             raise ValueError("执行时限必须位于 0 到 120 秒之间")
         if len(code.encode("utf-8")) > 256 * 1024:
             raise ValueError("代码超过限额")
+        if orders_csv is not None and (type(orders_csv) is not bytes or len(orders_csv) > MAX_INPUT_BYTES):
+            raise ValueError("服务端输入超过限额")
         self.store.get(dataset_version, project_id)
         folder = (self.root / run_id).resolve()
         if folder.parent != self.root:
@@ -114,7 +122,10 @@ class DockerRunner:
         folder.mkdir(exist_ok=False)
         inputs = folder / "input"
         inputs.mkdir()
-        shutil.copyfile(self.store.directory(dataset_version) / "orders.csv", inputs / "orders.csv")
+        if orders_csv is None:
+            shutil.copyfile(self.store.directory(dataset_version) / "orders.csv", inputs / "orders.csv")
+        else:
+            (inputs / "orders.csv").write_bytes(orders_csv)
         (inputs / "analysis.py").write_text(code, encoding="utf-8")
         shutil.copyfile(Path(__file__).with_name("container_entry.py"), inputs / "runner.py")
         manifest = ExecutionManifest(run_id, dataset_version, metric_version, "", "input/analysis.py", [], 0, "FAILED")

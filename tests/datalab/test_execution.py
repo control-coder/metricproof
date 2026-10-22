@@ -93,6 +93,21 @@ class DockerIntegrationTests(RunnerFixture):
         self.assertTrue(report["verification"]["passed"])
         self.assert_no_container(report["run_id"])
 
+    def test_real_metamorphic_reruns_in_same_sandbox(self):
+        # 固定代码在真实容器中满足三条蜕变关系；每次重跑都是独立容器且被清理。
+        plan = AnalysisPlan(self.version.dataset_version, "trusted-v1", kind="trend", group_by="payment_date",
+                            included_statuses=("paid",))
+        before = {path.name for path in self.runner.root.iterdir()} if self.runner.root.exists() else set()
+        report = run_fixed(self.runner, plan, "demo", metamorphic=True)
+        self.assertEqual(report["status"], "SUCCEEDED", report)
+        final = report["verification"]["checks"][-1]
+        self.assertEqual((final["name"], final["passed"]), ("metamorphic", True), final)
+        self.assertEqual({item["status"] for item in final["relations"]}, {"passed"})
+        runs = {path.name for path in self.runner.root.iterdir()} - before
+        self.assertEqual(len(runs), 5)
+        for run_id in runs:
+            self.assert_no_container(run_id)
+
     def assert_no_container(self, run_id):
         metadata = json.loads((self.runner.root / run_id / "manifest.json").read_text(encoding="utf-8"))
         remaining = self.runner._control("ps", "-aq", "--filter", "name=^/" + metadata["container_name"] + "$")

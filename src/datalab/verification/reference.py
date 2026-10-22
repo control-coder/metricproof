@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from datalab.contracts import AnalysisPlan, VerificationReport
+from datalab.verification.invariants import group_total
 
 
 def _fraction(numerator: int, denominator: int) -> str | None:
@@ -99,11 +100,5 @@ def verify(path: Path, plan: AnalysisPlan, actual: dict) -> VerificationReport:
         checks[0]["issues"] = diffs[:MAX_DIFFS]
         checks[0]["issue_count"] = len(diffs)
     if plan.group_by and plan.kind != "quality":
-        rows = actual.get("rows", [])
-        total = actual.get("total", {})
-        try:
-            balanced = sum(row["amount_cents"] for row in rows) == total["amount_cents"] and sum(row["order_count"] for row in rows) == total["order_count"]
-        except (KeyError, TypeError):
-            balanced = False
-        checks.append({"name": "group_total", "passed": balanced})
+        checks.append({"name": "group_total", "passed": group_total(actual)})
     return VerificationReport(all(check["passed"] for check in checks), checks, expected)

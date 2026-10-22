@@ -2,6 +2,7 @@
 
 组装后的脚本仍在同一受限容器中执行并接受独立核验，框架不改变安全边界，只减少模型需要生成的确定性代码。
 """
+import ast
 import json
 
 HEAD = '''import csv
@@ -75,6 +76,23 @@ with open("/output/table.csv", "w", encoding="utf-8-sig", newline="") as _handle
 def assemble(plan: dict, code: str) -> str:
     # 计划以 JSON 字符串字面量写入，模型输出不能改变计划常量。
     return HEAD.replace('__PLAN__', repr(json.dumps(plan, ensure_ascii=False))) + code + TAIL
+
+
+def rebind(script: str, changes: dict) -> str | None:
+    """把框架脚本中的计划常量替换部分字段后重新组装，模型代码原样保留；非框架脚本返回 None。
+
+    只供服务端蜕变核验改写期间边界；计划常量按字面量解析，不执行脚本内容。
+    """
+    prefix, marker = HEAD.split('__PLAN__')
+    if not (script.startswith(prefix) and script.endswith(TAIL) and marker in script):
+        return None
+    try:
+        plan = json.loads(ast.literal_eval(script[len(prefix):script.index(marker)]))
+    except (ValueError, SyntaxError):
+        return None
+    if not isinstance(plan, dict):
+        return None
+    return assemble({**plan, **changes}, model_part(script))
 
 
 def model_part(script: str) -> str:

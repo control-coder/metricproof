@@ -18,7 +18,7 @@ flowchart TB
     WF --> R[Reviewer]
     A --> FRAME[analysis_frame<br/>服务端代码框架]
     FRAME --> EXE[execution<br/>受限容器]
-    EXE --> VER[verification<br/>独立 SQL 参考与表格比对]
+    EXE --> VER[verification<br/>独立参考、表格比对、不变量与蜕变关系]
     VER --> R
     VER --> ART[artifacts<br/>图表与模板说明]
     W --> DB
@@ -34,7 +34,7 @@ flowchart TB
 | `roles/` | 三角色运行时与工具白名单、固定演示后端、OpenAI 兼容模型适配与提示 |
 | `memory/` | 业务记忆的范围、版本、确认、失效与冲突，PostgreSQL 实现 |
 | `execution/` | 六类固定分析、代码框架组装、Docker runner 与容器内收集器 |
-| `verification/` | 独立 SQL 参考复算与下载表比对 |
+| `verification/` | 独立 SQL 参考复算与下载表比对；不依赖参考值的结果不变量、蜕变关系，以及第二份纯 Python 参考 |
 | `artifacts/` | 核验通过后的确定性图表与模板化说明 |
 | `storage/` | 项目、数据集、任务快照与产物索引 |
 
@@ -78,7 +78,7 @@ stateDiagram-v2
     SUCCEEDED --> [*]
 ```
 
-任一非终态都可以进入 `FAILED` 或 `CANCELLED`；失败原因记录为失败码，如 `MODEL_ERROR`、`REVIEW_REJECTED`。
+任一非终态都可以进入 `FAILED` 或 `CANCELLED`；失败原因记录为失败码，如 `MODEL_ERROR`、`REVIEW_REJECTED`、`REFERENCE_DISAGREEMENT`（两份服务端参考不一致，见[核验](#核验)）。
 
 - 缺少确认口径时进入 `WAITING_CONFIRMATION` 并释放 worker；确认快照保存后从计划边界重新排队。等待期间不计时，恢复后已用的调用、token 和时间不归零。
 - 预算：固定演示默认 8 次调用、12000 token、120 秒；模型任务由 `.env` 配置，默认 8 次、15 万 token、600 秒。8 次是代码修正、核验反馈和驳回后重规划全部触发时的最长路径（Planner 2 次、Analyst 4 次、Reviewer 2 次），由 `LONGEST_PATH_CALLS` 给出并有测试对照。预算调低后，驳回时剩余调用不足 3 次（重规划、重新执行、再审查各一次）就不开始重规划，直接采用已通过核验的结果并把驳回意见记入时间线。单次请求超时取供应商超时与剩余预算的较小值，不自动重试。
@@ -98,6 +98,32 @@ stateDiagram-v2
 - 生命周期：超时、取消、异常都会强制移除本次容器；无法确认清理时标为 `CLEANUP_PENDING`，不返回成功。容器正常退出只记 `COMPLETED`，不等于分析成功。
 
 容器内产生的任何字节都不可信。数值正确性由宿主的独立 SQL 参考复算 `result.json`，并独立比对下载 CSV。
+
+## 核验
+
+所有检查由 `verification/suite.py` 的 `run_checks` 统一执行，工作流（`ExecutionServices.verify`）与固定演示（`pipeline.run_fixed`）调用同一入口。现有六类分析都写得出参考 SQL，所以“与参考逐项一致”是主判据；后面三层不需要知道正确值，是为以后放开任务（写不出参考的分析）准备的。
+
+| 检查 | 需要参考值 | 成本 | 做什么 |
+| --- | --- | --- | --- |
+| `independent_reference`、`group_total` | 是 | 宿主内 | SQL 参考逐字段比较（含 JSON 类型）；分组行之和等于总计 |
+| `download_table` | 是 | 宿主内 | 下载 CSV 与参考逐行逐列比对 |
+| `invariants` | 否 | 宿主内 | 只用输出契约、计划和结果自身数字检查自洽：计数与金额为非负整数，没有订单的总计金额为 0；分组唯一、每组至少一单、各组之和等于总计；占比等于本行金额 / 总额的 6 位小数字符串，合计与 1 的偏差不超过 行数 × 0.5e-6；排行按金额降序、组名升序，其他按组名升序；按日分组为合法日期且落在 [start, end) 内；对比的 delta 等于本期减上期，growth 等于 delta / 上期金额（上期为 0 时为 null）；质量结果的状态计数之和等于行数，键只能是三种状态 |
+| `reference_agreement` | 否（比较两份参考） | 宿主内 | 第二份参考（`python_reference.py`：纯 Python 逐行累加，比值用整数银行家舍入，不用 SQL、不共享计算代码）与 SQL 参考逐项比较。不一致说明服务端参考本身有缺陷，任务以 `REFERENCE_DISAGREEMENT` 直接失败，不回传 Analyst |
+| `metamorphic` | 否 | 每条关系 1–2 次沙箱运行 | 在同一受限容器里用服务端变换过的输入重跑本次尝试的同一份代码，只比较几次输出彼此的关系，见下 |
+
+蜕变关系（`verification/metamorphic.py`）：
+
+- `permutation`：订单行按固定种子打乱，结果必须完全相同。
+- `irrelevant_rows`：追加按计划必然被排除的合成订单，结果必须完全相同。合成订单有两种：状态不在口径内、时间在期间内（优先放在起点上）；状态在口径内、时间恰在期间终点或起点前一秒。对比分析的合成时间同时避开本期与上期。quality 统计全部行，不适用。
+- `window_split`：summary、trend、ranking 在数据中位于中间的一个支付时间处把期间切成两段，两段的总计与各组之和必须等于全期间结果。切点上恰有订单，所以两段的边界都会被用到。share 与 comparison 含比值、quality 不按期间，不适用；只能识别服务端框架脚本和固定脚本，其他脚本记为不适用。
+
+变换输入通过 `DockerRunner.execute_python(..., orders_csv=...)` 写进同一个只读输入挂载，容器参数与默认路径逐项相同（有离线测试对照），参数不接受模型或请求方提供的内容。每次重跑使用新的任务目录和容器。剩余预算时间少于 5 秒时跳过后续关系并记为 `skipped`，跳过不算失败。只在前面的检查全部通过时才运行，前面已失败时结论不会变，不再花沙箱时间。
+
+蜕变关系由运行配置 `artifacts/local/runtime.json` 的 `"metamorphic_checks": true` 开启（`Settings.metamorphic_checks`，默认 `false`）；固定演示用 `run_fixed(..., metamorphic=True)`。默认关闭，是因为现有六类都有独立参考，蜕变关系不改变结论，每个任务却要多 4 次沙箱运行。以后加入写不出参考的分析类型时，计划对这些类型默认开启。
+
+反馈与提示注入：新检查的问题只含字段路径、关系名和封闭词表里的问题类型，不含数值。工作流转发前对检查名（`CHECK_NAMES`）、关系名（`RELATION_NAMES`）和问题类型（`ISSUE_NAMES`）逐项白名单过滤，词表外一律换成 `other`；路径仍经 `safe_path` 处理。按项目规则，第二份数值实现必须是服务端代码，不能让模型再算一遍。
+
+不变量与蜕变关系看不到计划读错题（参考跟着计划走），也看不到恰好自洽的错误口径；Analyst 提示没有为新问题类型补充说明，问题名本身是自解释的英文词。
 
 ## 业务记忆
 

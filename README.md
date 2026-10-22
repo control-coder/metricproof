@@ -143,7 +143,7 @@ src/datalab/
   roles/          三角色运行时、提示、固定演示后端、模型适配
   memory/         业务记忆的版本、确认与冲突（PostgreSQL）
   execution/      六类分析、代码框架、Docker runner
-  verification/   独立 SQL 参考与下载表比对
+  verification/   独立 SQL 参考、下载表比对、结果不变量、蜕变关系与第二份 Python 参考
   artifacts/      图表与模板说明
   storage/        项目、任务与产物索引
 frontend/         React + TypeScript + Vite 四页面与浏览器流程测试
