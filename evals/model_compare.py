@@ -87,9 +87,9 @@ GUESS = (COMMON + '\n\n角色：口径判断。项目没有保存任何已确认
          '（可选 paid、refunded、cancelled）。\n输出：{"included_statuses": ["..."]}')
 
 
-def dataset_bytes():
-    """固定种子的模拟订单：三个月、四渠道、四品类、三种状态。"""
-    rng = random.Random(SEED)
+def dataset_bytes(seed=SEED):
+    """固定种子的模拟订单：三个月、四渠道、四品类、三种状态。错误注入基准用其他种子生成同分布的数据。"""
+    rng = random.Random(seed)
     out = io.StringIO()
     writer = csv.writer(out, lineterminator='\n')
     writer.writerow(['order_id', 'payment_time', 'amount', 'status', 'channel', 'category'])

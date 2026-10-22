@@ -68,6 +68,8 @@ htmlcov/
 !/artifacts/evals/review-replay.json
 !/artifacts/evals/analyst-handoff-dev-deepseek.json
 !/artifacts/evals/review-probe/
+!/artifacts/evals/injection.json
+!/artifacts/evals/injection-report.md
 *.db
 *.sqlite
 *.sqlite3
