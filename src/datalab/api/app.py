@@ -14,8 +14,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from datalab.contracts import AnalysisPlan
-from datalab.datasets.service import DatasetError, DatasetStore, FIELDS, MAX_BYTES
+from datalab.contracts import AMOUNT_KINDS, AnalysisPlan, OLIST_STATUSES, ORDER_STATUSES
+from datalab.datasets.service import DatasetError, DatasetStore, FIELDS, MAX_BYTES, schema_of
 from datalab.memory.postgres import PostgresMemoryRepository
 from datalab.memory.service import MemoryConflict, MemoryService, Scope
 from datalab.orchestration.workflow import Task
@@ -34,12 +34,25 @@ class ProjectInput(Payload):
 
 
 class Options(Payload):
-    kind: Literal['summary','trend','ranking','share','comparison','quality'] = 'summary'
-    group_by: Literal['channel','category','payment_date'] | None = None
+    # 后四类与 customer_state 等分组只适用于 Olist 数据，是否与数据结构相符由 AnalysisPlan 校验。
+    kind: Literal['summary','trend','ranking','share','comparison','quality',
+                  'repeat_rate','cohort_retention','delivery_delay','category_sales'] = 'summary'
+    group_by: Literal['channel','category','payment_date',
+                      'customer_state','purchase_date','purchase_month','product_category'] | None = None
     start: str | None = None
     end: str | None = None
     previous_start: str | None = None
     previous_end: str | None = None
+    # 只有 Olist 送达延迟可以改用送达日期；不填时用默认时间字段。
+    time_field: Literal['order_purchase_timestamp','order_delivered_customer_date'] | None = None
+
+
+def plan_options(options: Options) -> dict:
+    """计划选项；未填时间字段时不出现该键，单表请求与之前完全相同。"""
+    value = options.model_dump()
+    if value['time_field'] is None:
+        del value['time_field']
+    return value
 
 
 class OlistImportInput(Payload):
@@ -58,7 +71,9 @@ IDEMPOTENCY_KEY = re.compile(r'[!-~]{1,128}')
 
 def request_fingerprint(payload: TaskInput) -> str:
     """同一个幂等键只对应同一份请求内容；用规范化 JSON 的哈希比较。"""
-    body = json.dumps(payload.model_dump(mode='json'), sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+    value = payload.model_dump(mode='json')
+    value['options'] = plan_options(payload.options)
+    body = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
     return hashlib.sha256(body.encode('utf-8')).hexdigest()
 
 
@@ -66,7 +81,10 @@ class RuleInput(Payload):
     dataset_version: UUID
     name: str = Field(min_length=1,max_length=120)
     definition: str = Field(min_length=1,max_length=2000)
-    included_statuses: list[Literal['paid','refunded','cancelled']]
+    # 单表三种状态或 Olist 状态词表；是否与数据结构相符由记忆服务按结构签名校验。
+    included_statuses: list[Literal[ORDER_STATUSES+OLIST_STATUSES]]
+    # 只适用于 Olist：订单金额来源随口径一起确认，任务不能另行指定。
+    amount_source: Literal['payments','items'] | None = None
 
 
 class ConfirmInput(Payload):
@@ -158,6 +176,18 @@ def create_app(settings: Settings | None = None):
             raise ValueError('所选口径未确认、已失效或不属于当前数据范围')
         return memory.metric_snapshot(match)
 
+    def validate_options(scope,version,options,metric):
+        """按数据结构预检计划选项；Olist 用所选口径的状态与金额来源，未选口径时用占位值只检查形状。"""
+        if schema_of(scope.schema_signature)!='olist':
+            AnalysisPlan(str(version),'input-validation',**options)
+            return
+        kind=options.get('kind','summary')
+        if metric is not None and kind in AMOUNT_KINDS and metric.amount_source is None:
+            raise ValueError('该口径没有确认订单金额来源（payments 或 items），不能用于订单金额分析')
+        AnalysisPlan(str(version),'input-validation',schema='olist',**options,
+                     included_statuses=metric.included_statuses if metric else ('delivered',),
+                     amount_source=metric.amount_source if metric and metric.amount_source else 'payments')
+
     def enqueue(task_id):
         # Redis 暂不可用时保留 PostgreSQL 待投递记录，beat 恢复后补发。
         try:
@@ -234,9 +264,9 @@ def create_app(settings: Settings | None = None):
 
     @app.post('/api/projects/{project_id}/datasets/olist',status_code=201)
     def import_olist(project_id:UUID,payload:OlistImportInput):
-        # 只读取服务端固定的原始目录（scripts/fetch_olist.py 的下载位置），请求不能指定路径或表。
+        # 只读取本机配置固定的原始目录（默认为 scripts/fetch_olist.py 的下载位置），请求不能指定路径或表。
         repository.require_project(str(project_id))
-        metadata=datasets.import_olist(settings.artifact_root / 'olist/raw',project_id=str(project_id),
+        metadata=datasets.import_olist(settings.olist_raw,project_id=str(project_id),
                                        dataset_family=payload.dataset_family)
         repository.add_dataset(metadata)
         return asdict(metadata)
@@ -248,8 +278,10 @@ def create_app(settings: Settings | None = None):
     @app.post('/api/projects/{project_id}/memories',status_code=201)
     def propose(project_id:UUID,payload:RuleInput):
         scope=scoped(project_id,payload.dataset_version)
-        return asdict(memory.propose(scope,'metric',payload.name,
-            {'definition':payload.definition,'included_statuses':payload.included_statuses},'local-user:'+str(uuid4())))
+        content={'definition':payload.definition,'included_statuses':payload.included_statuses}
+        if payload.amount_source is not None:
+            content['amount_source']=payload.amount_source
+        return asdict(memory.propose(scope,'metric',payload.name,content,'local-user:'+str(uuid4())))
 
     @app.post('/api/projects/{project_id}/memories/{memory_id}/confirm')
     def confirm_rule(project_id:UUID,memory_id:UUID,payload:ConfirmInput):
@@ -265,10 +297,10 @@ def create_app(settings: Settings | None = None):
         if idempotency_key is not None and not IDEMPOTENCY_KEY.fullmatch(idempotency_key):
             raise HTTPException(422,'Idempotency-Key 需为 1–128 位可见 ASCII 字符')
         scope=scoped(project_id,payload.dataset_version)
-        options=payload.options.model_dump()
-        # 预先验证类型、分组和期间，避免无效计划反复占用队列。
-        AnalysisPlan(str(payload.dataset_version),'input-validation',**options)
+        options=plan_options(payload.options)
         metric=metric_by_id(scope,payload.memory_id) if payload.memory_id else None
+        # 预先验证类型、分组和期间，避免无效计划反复占用队列。
+        validate_options(scope,payload.dataset_version,options,metric)
         config,state=model_state()
         request={'options':options,'mode':'guided-demo'}
         task=Task(str(project_id),str(payload.dataset_version),payload.question,metric=metric)
@@ -328,7 +360,9 @@ def create_app(settings: Settings | None = None):
     @app.post('/api/projects/{project_id}/tasks/{task_id}/confirm')
     def confirm_task(project_id:UUID,task_id:UUID,payload:TaskConfirmInput):
         row=repository.get_task(str(task_id),str(project_id))
-        metric=metric_by_id(scoped(project_id,row['dataset_version']),payload.memory_id)
+        scope=scoped(project_id,row['dataset_version'])
+        metric=metric_by_id(scope,payload.memory_id)
+        validate_options(scope,row['dataset_version'],row['request'].get('options') or {},metric)
         repository.confirm_task(str(task_id),str(project_id),metric)
         return {'dispatched':enqueue(task_id)}
 

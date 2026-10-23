@@ -5,7 +5,8 @@ from decimal import Decimal
 from pathlib import Path
 
 from datalab.contracts import AnalysisPlan, VerificationReport
-from datalab.verification.invariants import group_total
+from datalab.verification import olist_sql
+from datalab.verification.invariants import ADDITIVE, group_total
 
 
 def _fraction(numerator: int, denominator: int) -> str | None:
@@ -13,6 +14,9 @@ def _fraction(numerator: int, denominator: int) -> str | None:
 
 
 def reference_result(path: Path, plan: AnalysisPlan) -> dict:
+    if plan.schema == "olist":
+        # 多表数据：path 是数据版本目录中的 orders.csv，同目录还有其余规范化表。
+        return olist_sql.reference_result(path.parent, plan)
     db = sqlite3.connect(":memory:")
     db.row_factory = sqlite3.Row
     try:
@@ -100,5 +104,7 @@ def verify(path: Path, plan: AnalysisPlan, actual: dict) -> VerificationReport:
         checks[0]["issues"] = diffs[:MAX_DIFFS]
         checks[0]["issue_count"] = len(diffs)
     if plan.group_by and plan.kind != "quality":
-        checks.append({"name": "group_total", "passed": group_total(actual)})
+        # Olist 新类型只比较可加字段（如品类销售的订单数按订单去重，不可加）；留存没有分组。
+        keys = ADDITIVE.get(plan.kind, ("amount_cents", "order_count"))
+        checks.append({"name": "group_total", "passed": group_total(actual, keys)})
     return VerificationReport(all(check["passed"] for check in checks), checks, expected)

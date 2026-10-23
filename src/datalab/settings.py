@@ -13,6 +13,9 @@ class Settings:
     executor_image: str = 'datalab-executor:py312-v1'
     # 蜕变关系核验：每条关系多一次沙箱运行。当前六类都有独立参考，默认关闭；runtime.json 中 "metamorphic_checks": true 开启。
     metamorphic_checks: bool = False
+    # Olist 原始数据目录（scripts/fetch_olist.py 的下载位置）；只由本机配置决定，请求不能指定。runtime.json 的 "olist_raw" 可改。
+    olist_raw: Path = Path('artifacts/olist/raw')
+
 
     @classmethod
     def load(cls):
@@ -22,4 +25,5 @@ class Settings:
         payload = json.loads(file.read_text(encoding='utf-8'))
         return cls(payload['database_url'], payload['broker_url'], Path(payload['artifact_root']).resolve(),
                    payload.get('executor_image', 'datalab-executor:py312-v1'),
-                   payload.get('metamorphic_checks', False) is True)
+                   payload.get('metamorphic_checks', False) is True,
+                   Path(payload.get('olist_raw', 'artifacts/olist/raw')).resolve())

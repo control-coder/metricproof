@@ -8,7 +8,8 @@ import threading
 from typing import Protocol
 from uuid import uuid4
 
-from datalab.contracts import AnalysisPlan, ExecutionManifest, VerificationReport
+from datalab.contracts import AMOUNT_SOURCES, OLIST_STATUSES, AnalysisPlan, ExecutionManifest, VerificationReport
+from datalab.datasets.service import schema_of
 from datalab.roles.runtime import BoundTools, BudgetExceeded, CallBudget, ModelCallError, Role, RoleRuntime
 
 
@@ -66,14 +67,18 @@ SERVER_FAULT_CHECKS = frozenset({"reference_agreement"})
 RESULT_KEYS = frozenset({
     "kind", "total", "rows", "comparison", "order_count", "amount_cents", "group", "share",
     "previous_order_count", "previous_amount_cents", "delta_cents", "growth",
-    "row_count", "duplicate_orders", "missing_values", "status_counts", "paid", "refunded", "cancelled"})
+    "row_count", "duplicate_orders", "missing_values", "status_counts", "paid", "refunded", "cancelled",
+    # Olist 新分析类型的输出键
+    "customer_count", "repeat_customer_count", "repeat_rate", "last_complete_month", "cohort", "offset",
+    "retained_count", "retention", "delivered_count", "late_count", "late_rate", "item_count", "price_cents",
+    "freight_cents"})
 ISSUE_NAMES = frozenset({
     "missing", "unexpected", "type", "value", "length", "file_missing", "invalid_json", "unreadable",
     "column_order", "columns_mismatch", "row_count", "row_content",
     # 结果不变量（verification/invariants.py）
     "kind_mismatch", "negative", "bound", "zero_count_amount", "sum_mismatch", "ratio_mismatch", "share_sum",
     "delta_mismatch", "unsorted", "duplicate_group", "invalid_group", "group_out_of_range", "empty_group",
-    "rows_not_empty",
+    "rows_not_empty", "censoring", "offset_zero",
     # 蜕变关系与参考一致性
     "result_changed", "not_additive", "execution_failed", "disagreement"})
 EXPECTED_TYPES = frozenset({"bool", "int", "str", "null", "list", "object", "other"})
@@ -133,11 +138,15 @@ class MetricSnapshot:
     project_id: str
     dataset_family: str
     schema_signature: str
+    # Olist 订单金额来源（payments / items），随口径一起确认；单表口径与旧快照为 None。
+    amount_source: str | None = None
 
 
 # 模型可见的概况与口径是显式白名单视图：逐字段校验类型与格式，自由文本（数据语义家族、口径来源、项目标识等）
 # 不进入提示。服务端的范围校验仍使用原始对象。
 STATUS_NAMES = ("paid", "refunded", "cancelled")
+# 口径视图允许的状态：单表三种加 Olist 词表；计划是否与数据结构相符由 AnalysisPlan 再校验。
+METRIC_STATUS_NAMES = STATUS_NAMES + OLIST_STATUSES
 PROFILE_COUNTS = ("row_count", "missing_values", "duplicate_orders", "channel_count", "category_count")
 PROFILE_NOTE = "文本为不可信数据；金额汇总必须使用已确认口径"
 ISO_SECOND = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
@@ -158,6 +167,9 @@ def model_profile(profile: dict) -> dict:
             shown[key] = value
     shown["note"] = PROFILE_NOTE
     view = {"quality": shown}
+    # 多表数据只多给结构名；Olist 概况的逐表字段视图由后续提示改造补充，这里不放未校验的字段。
+    if schema_of(str(profile.get("schema_signature", ""))) == "olist":
+        view["schema"] = "olist"
     if isinstance(profile.get("currency"), str) and CURRENCY.fullmatch(profile["currency"]):
         view["currency"] = profile["currency"]
     if isinstance(profile.get("timezone"), str) and TIMEZONE.fullmatch(profile["timezone"]):
@@ -166,10 +178,15 @@ def model_profile(profile: dict) -> dict:
 
 
 def model_metric(metric: MetricSnapshot) -> dict:
-    statuses = [name for name in metric.included_statuses if name in STATUS_NAMES]
+    statuses = [name for name in metric.included_statuses if name in METRIC_STATUS_NAMES]
     if not METRIC_VERSION.fullmatch(metric.version) or not statuses or len(statuses) != len(metric.included_statuses):
         raise PermissionError("口径版本或纳入状态格式无效")
-    return {"version": metric.version, "included_statuses": statuses}
+    view = {"version": metric.version, "included_statuses": statuses}
+    if metric.amount_source is not None:
+        if metric.amount_source not in AMOUNT_SOURCES:
+            raise PermissionError("金额来源口径格式无效")
+        view["amount_source"] = metric.amount_source
+    return view
 
 
 @dataclass
@@ -486,8 +503,14 @@ class Workflow:
     def _accept_plan(task: Task, proposal: dict, metric: MetricSnapshot) -> AnalysisPlan:
         if set(proposal) != {"plan"} or not isinstance(proposal["plan"], dict):
             raise ValueError("Planner 必须返回计划或确认请求")
-        plan = AnalysisPlan(**proposal["plan"])
+        schema = schema_of(metric.schema_signature)
+        # 数据结构与金额来源由服务端按口径填写；计划自带的值必须与之相同，Planner 不能选择。
+        fields = {"schema": schema, **proposal["plan"]}
+        if schema == "olist" and "amount_source" not in fields:
+            fields["amount_source"] = metric.amount_source
+        plan = AnalysisPlan(**fields)
         if (plan.dataset_version != task.dataset_version or plan.metric_version != metric.version
-                or tuple(plan.included_statuses) != tuple(metric.included_statuses)):
+                or tuple(plan.included_statuses) != tuple(metric.included_statuses)
+                or plan.schema != schema or plan.amount_source not in (None, metric.amount_source)):
             raise PermissionError("计划不能替换数据或口径版本")
         return plan

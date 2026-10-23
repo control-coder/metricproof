@@ -87,7 +87,8 @@ def process_task(task_id: str):
                 if (folder / path).is_file():
                     repository.add_artifact(task.task_id,manifest.run_id,name,f'runs/{manifest.run_id}/{path}',token)
         derived, derived_error = None, None
-        if task.state == State.SUCCEEDED and task.attempts:
+        # Olist 多表结果的图表与说明模板尚未实现，暂不派生（不是失败）。
+        if task.state == State.SUCCEEDED and task.attempts and task.plan.schema == 'orders':
             # 图表与说明只从已通过核验的 result.json 确定性派生；失败不推翻核验结论，只记录原因。
             latest = task.attempts[-1]
             try:
@@ -106,7 +107,7 @@ def process_task(task_id: str):
             claims = []
             if task.state == State.SUCCEEDED and result_artifact:
                 reference = task.verifications[-1].reference
-                if 'total' in reference:
+                if 'amount_cents' in reference.get('total', {}):
                     claims.append({'text': f"确认口径下订单金额合计 {reference['total']['amount_cents'] / 100:.2f}",
                                    'artifact_id': str(result_artifact['artifact_id']), 'result_pointer': '/total/amount_cents'})
             report = {'mode':row['request'].get('mode','guided-demo'),'model':row['request'].get('model'),'task_id':task.task_id,'state':task.state.value,

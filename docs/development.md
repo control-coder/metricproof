@@ -52,7 +52,7 @@ python -B scripts/serve.py                  # API、worker 与 dispatcher
 python -B scripts/fetch_olist.py   # 写入 artifacts/olist/raw/，七张表共约 65 MB，逐个校验字节数、SHA-256 与记录数
 ```
 
-下载失败会重试；任一校验不符时删除该文件并以非零状态退出。已存在且校验通过的文件不重复下载。导入只读取服务端固定的这个目录（`<artifact_root>/olist/raw`），请求不能指定路径：
+下载失败会重试；任一校验不符时删除该文件并以非零状态退出。已存在且校验通过的文件不重复下载。导入只读取本机配置固定的这个目录（runtime.json 的 `olist_raw` 可改，默认即 `artifacts/olist/raw`），请求不能指定路径：
 
 ```powershell
 $headers = @{ 'X-Datalab-Client' = 'local-ui' }

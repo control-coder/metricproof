@@ -6,8 +6,12 @@ from datalab.contracts import AnalysisPlan
 
 
 def fixed_code(plan: AnalysisPlan) -> str:
-    source = Path(__file__).with_name("fixed_analysis.py").read_text(encoding="utf-8")
     payload = repr(json.dumps(plan.payload(), ensure_ascii=False))
+    if plan.schema == "olist":
+        # 多表固定分析读取服务端投影到 /input 的输入表。
+        source = Path(__file__).with_name("fixed_olist.py").read_text(encoding="utf-8")
+        return source + f'\nPLAN = json.loads({payload})\nexport_result(analyze("/input", PLAN), "/output")\n'
+    source = Path(__file__).with_name("fixed_analysis.py").read_text(encoding="utf-8")
     return source + f'\nPLAN = json.loads({payload})\nexport_result(analyze("/input/orders.csv", PLAN), "/output")\n'
 
 

@@ -24,7 +24,7 @@ def run_checks(orders: Path, plan: AnalysisPlan, actual: dict, table: Path, *,
     report.checks.append(download)
     report.checks.append(invariants.check(plan, actual))
     report.checks.append(agreement(orders, plan, report.reference))
-    if sandbox is not None and all(item["passed"] for item in report.checks):
+    if sandbox is not None and plan.schema == "orders" and all(item["passed"] for item in report.checks):
         report.checks.append(metamorphic.check(plan, orders, actual, sandbox))
     report.passed = all(item["passed"] for item in report.checks)
     return report

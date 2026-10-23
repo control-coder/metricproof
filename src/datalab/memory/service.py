@@ -8,6 +8,8 @@ import json
 from typing import ContextManager, Protocol
 from uuid import uuid4
 
+from datalab.contracts import AMOUNT_SOURCES, OLIST_STATUSES, ORDER_STATUSES
+from datalab.datasets.service import schema_of
 from datalab.orchestration.workflow import MetricSnapshot
 
 
@@ -85,10 +87,15 @@ class MemoryService:
         if kind == "metric":
             statuses = content.get("included_statuses")
             definition = content.get("definition")
+            olist = schema_of(scope.schema_signature) == "olist"
+            allowed = OLIST_STATUSES if olist else ORDER_STATUSES
             if (not isinstance(statuses, list) or not statuses or any(not isinstance(item, str) for item in statuses)
-                    or len(statuses) != len(set(statuses)) or not set(statuses) <= {"paid", "refunded", "cancelled"}
+                    or len(statuses) != len(set(statuses)) or not set(statuses) <= set(allowed)
                     or not isinstance(definition, str) or not definition.strip()):
                 raise ValueError("指标必须明确文字定义和订单状态")
+            # Olist 口径可以同时确认订单金额来源；单表口径没有这个字段。
+            if "amount_source" in content and (not olist or content["amount_source"] not in AMOUNT_SOURCES):
+                raise ValueError("金额来源只能是 payments 或 items，且只适用于 Olist 数据")
         if kind == "field_semantics":
             if (content.get("field") not in FIELD_MEANINGS or content.get("field") != name
                     or not isinstance(content.get("meaning"), str) or not content["meaning"].strip()
@@ -173,4 +180,4 @@ class MemoryService:
             raise ValueError("默认计算只能使用已确认指标")
         return MetricSnapshot(f"{entry.memory_id}:v{entry.version}", tuple(entry.content["included_statuses"]),
                               f"{entry.source_run_id};confirmed_by={entry.confirmed_by}", entry.project_id,
-                              entry.dataset_family, entry.schema_signature)
+                              entry.dataset_family, entry.schema_signature, entry.content.get("amount_source"))

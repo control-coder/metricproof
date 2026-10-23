@@ -27,6 +27,10 @@ def ratio(numerator: int, denominator: int) -> str | None:
 
 
 def python_reference(path: Path, plan: AnalysisPlan) -> dict:
+    if plan.schema == "olist":
+        # 多表实现复用本模块的整数比值，模块之间只能延迟导入。
+        from datalab.verification.olist_python import python_reference as olist_reference
+        return olist_reference(path.parent, plan)
     with path.open(encoding="utf-8", newline="") as handle:
         orders = list(csv.DictReader(handle))
     if plan.kind == "quality":

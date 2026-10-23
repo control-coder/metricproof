@@ -174,7 +174,7 @@ class AppIntegrationTests(unittest.TestCase):
         scratch=(Path(__file__).resolve().parents[2]/'.tmp').resolve()
         folder=tempfile.TemporaryDirectory(dir=scratch,prefix='app-olist-')
         self.addCleanup(folder.cleanup)
-        settings=dataclasses.replace(self.settings,artifact_root=Path(folder.name))
+        settings=dataclasses.replace(self.settings,artifact_root=Path(folder.name),olist_raw=Path(folder.name)/'olist/raw')
         with TestClient(create_app(settings),headers={'X-Datalab-Client':'local-ui'}) as client:
             response=client.post(self.base+'/datasets/olist',json={'dataset_family':'olist'})
             self.assertEqual(response.status_code,400)
@@ -188,6 +188,54 @@ class AppIntegrationTests(unittest.TestCase):
             value=response.json()
             self.assertEqual((value['schema'],value['row_count'],value['currency']),('olist',30,'BRL'))
             self.assertIn(value['dataset_version'],[item['dataset_version'] for item in client.get(self.base+'/datasets').json()])
+
+    def test_olist_task_with_confirmed_amount_source_end_to_end(self):
+        # 需要先运行 scripts/fetch_olist.py；导入真实 Olist 数据（约 9 秒），测试结束删除本次数据版本目录。
+        if not (self.settings.olist_raw/'olist_orders_dataset.csv').is_file():
+            self.skipTest('本机没有下载 Olist 原始数据')
+        response=self.client.post(self.base+'/datasets/olist',json={'dataset_family':'olist-brazil'})
+        self.assertEqual(response.status_code,201,response.text)
+        version=response.json()['dataset_version']
+        self.addCleanup(self.remove_dataset,version)
+        rule={'dataset_version':version,'name':'已送达订单','definition':'只计已送达订单，金额取支付合计',
+              'included_statuses':['delivered']}
+        # 单表状态不适用于 Olist 口径；金额来源只能是两种之一。
+        self.assertEqual(self.client.post(self.base+'/memories',json={**rule,'included_statuses':['paid']}).status_code,400)
+        self.assertEqual(self.client.post(self.base+'/memories',json={**rule,'amount_source':'both'}).status_code,422)
+        plain=self.client.post(self.base+'/memories',json={**rule,'name':'仅状态'}).json()['memory_id']
+        self.client.post(self.base+'/memories/'+plain+'/confirm',json={'dataset_version':version,'expected_current_id':None})
+        response=self.client.post(self.base+'/memories',json={**rule,'amount_source':'payments'})
+        self.assertEqual(response.status_code,201,response.text)
+        memory_id=response.json()['memory_id']
+        self.client.post(self.base+'/memories/'+memory_id+'/confirm',json={'dataset_version':version,'expected_current_id':None})
+        task={'dataset_version':version,'question':'各州订单金额排行','options':{'kind':'ranking','group_by':'customer_state'}}
+        # 没有确认金额来源的口径不能用于订单金额分析；单表分组与无意义组合在创建时拒绝。
+        self.assertEqual(self.client.post(self.base+'/tasks',json={**task,'memory_id':plain}).status_code,400)
+        self.assertEqual(self.client.post(self.base+'/tasks',json={**task,'options':{'kind':'ranking','group_by':'channel'}}).status_code,400)
+        self.assertEqual(self.client.post(self.base+'/tasks',json={**task,'options':{'kind':'trend','group_by':'customer_state'}}).status_code,400)
+        # 单表数据上的 Olist 类型同样拒绝。
+        self.assertEqual(self.client.post(self.base+'/tasks',json={'dataset_version':self.dataset,'question':'复购',
+                                                                   'options':{'kind':'repeat_rate'}}).status_code,400)
+        response=self.client.post(self.base+'/tasks',json={**task,'memory_id':memory_id})
+        self.assertEqual(response.status_code,202,response.text)
+        complete=self.wait_task(response.json()['task_id'],{'SUCCEEDED'})
+        plan=complete['snapshot']['plan']
+        self.assertEqual((plan['schema'],plan['amount_source']),('olist','payments'))
+        self.assertTrue(all(item['passed'] for item in complete['snapshot']['verifications'][-1]['checks']))
+        self.assertEqual(complete['snapshot']['verifications'][-1]['reference']['total']['order_count'],96478)
+        response=self.client.post(self.base+'/tasks',json={'dataset_version':version,'question':'复购率',
+                                                          'options':{'kind':'repeat_rate'},'memory_id':plain})
+        self.assertEqual(response.status_code,202,response.text)
+        complete=self.wait_task(response.json()['task_id'],{'SUCCEEDED'})
+        self.assertIsNone(complete['narrative'])
+        self.assertIn('结果表.csv',[item['name'] for item in complete['artifacts']])
+
+    def remove_dataset(self,version):
+        folder=(self.settings.artifact_root/'datasets'/version).resolve()
+        if folder.parent==(self.settings.artifact_root/'datasets').resolve() and (folder/'metadata.json').is_file():
+            for path in folder.iterdir():
+                path.unlink()
+            folder.rmdir()
 
     def test_single_claim_cancel_and_stale_lease(self):
         from datalab.orchestration.workflow import Task

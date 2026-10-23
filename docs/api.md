@@ -20,9 +20,9 @@
 | `POST /api/projects` | `{"name": "..."}`，1–80 字符 |
 | `GET /api/projects/{project_id}/datasets` | 项目下的数据版本 |
 | `POST /api/projects/{project_id}/datasets` | multipart：`file`（`.csv`）、`dataset_family`、`currency`、`timezone`、可选 `mapping`（JSON，源列 → 标准字段）。返回数据版本元信息与写入的字段语义候选数 |
-| `POST /api/projects/{project_id}/datasets/olist` | `{"dataset_family": "..."}`；从服务端固定目录 `<artifact_root>/olist/raw` 导入 Olist 七张已知表（先运行 `scripts/fetch_olist.py`），请求不能指定路径、表或列；币种 BRL、时区 America/Sao_Paulo；返回数据版本元信息（`schema` 为 `olist`，`profile` 含逐表行数、状态计数、时间范围、孤儿行与重复评价计数）。目录缺文件、表头不符、类型错误或连接键不完整时整批拒绝（400，`issues` 只含表名、行号、原因或计数） |
+| `POST /api/projects/{project_id}/datasets/olist` | `{"dataset_family": "..."}`；从本机配置固定的目录（默认 `artifacts/olist/raw`，runtime.json 的 `olist_raw` 可改）导入 Olist 七张已知表（先运行 `scripts/fetch_olist.py`），请求不能指定路径、表或列；币种 BRL、时区 America/Sao_Paulo；返回数据版本元信息（`schema` 为 `olist`，`profile` 含逐表行数、状态计数、时间范围、孤儿行与重复评价计数）。目录缺文件、表头不符、类型错误或连接键不完整时整批拒绝（400，`issues` 只含表名、行号、原因或计数） |
 | `GET /api/projects/{project_id}/memories?dataset_version=` | 当前数据范围内的记忆历史（含待确认、已确认、已替代、已失效） |
-| `POST /api/projects/{project_id}/memories` | 提出指标口径候选：`dataset_version`、`name`、`definition`、`included_statuses`（`paid`/`refunded`/`cancelled`） |
+| `POST /api/projects/{project_id}/memories` | 提出指标口径候选：`dataset_version`、`name`、`definition`、`included_statuses`（单表为 `paid`/`refunded`/`cancelled`；Olist 数据为 Olist 状态词表）；Olist 口径可选 `amount_source`（`payments`/`items`，订单级金额分析必需），单表口径带此字段返回 400 |
 | `POST /api/projects/{project_id}/memories/{memory_id}/confirm` | `dataset_version`、`expected_current_id`（页面看到的当前版本） |
 | `POST /api/projects/{project_id}/memories/{memory_id}/invalidate` | 标记失效，保留内容与来源 |
 | `POST /api/projects/{project_id}/tasks` | 创建任务，返回 202 与 `task_id`、`dispatched`、`mode`。可带 `Idempotency-Key`（1–128 位可见 ASCII）：相同的键和内容返回原任务并附 `replayed: true`，相同的键不同内容返回 422 |
@@ -49,6 +49,7 @@
 ```
 
 - `kind`：`summary`、`trend`、`ranking`、`share`、`comparison`、`quality`。`trend`、`ranking`、`share` 必须提供 `group_by`（`channel`、`category`、`payment_date`）；`comparison` 必须提供 `start`、`end`、`previous_start`、`previous_end`。期间为左闭右开。
+- Olist 数据（`schema` 为 `olist`）另有 `repeat_rate`、`cohort_retention`、`delivery_delay`、`category_sales`，分组可选 `customer_state`、`purchase_date`、`purchase_month`、`product_category`，允许的组合与口径见[架构文档](architecture.md#多表数据olist)；`time_field` 只有送达延迟可以设为 `order_delivered_customer_date`，其余不填。Olist 不支持 `quality`，单表数据不接受这些类型与分组。订单级金额分析使用所选口径的 `amount_source`，选项中不能指定；所选口径没有金额来源时创建或确认任务返回 400。
 - 选项在创建时先校验，无效计划不会进入队列。
 - 固定演示模式下由 `options` 决定执行类型，`question` 只作记录；模型模式下由 Planner 依据 `question` 制定计划。
 - 当前供应商未配置密钥时返回 400，不会静默降级为固定演示。

@@ -59,6 +59,15 @@ flowchart TB
 - 概况（`profile`）：逐表行数、订单状态计数、下单时间范围（`time_min`/`time_max`）与送达、预计送达、评价日期范围、各列空值数、孤儿行计数、无子行计数、重复 review_id 数、不同 customer_unique_id 数、状态为 delivered 但没有送达日期的订单数、两种订单金额来源不一致的订单数与总差额、原始文件 SHA-256。
 - 存储：规范化表平铺写入数据版本目录（`orders.csv`、`customers.csv` 等），原始文件不复制。
 
+分析类型与口径（`verification/olist_sql.py` 模块说明为准，`contracts.OLIST_GROUPS` 列出允许的分组，其他组合在计划校验时拒绝；Olist 数据不支持 quality）：
+
+- 共同：纳入订单 = 订单状态属于已确认口径的状态（Olist 词表），且计划时间字段非空、落在 [start, end) 内。时间字段默认下单时间 `order_purchase_timestamp`，只有送达延迟可以改用送达日期 `order_delivered_customer_date`。比值为 6 位小数字符串，分母为 0 时为 null；金额为整数分。
+- 订单级 summary / trend / ranking / share / comparison：输出与单表契约相同。订单金额来源 `amount_source` 是口径字段，只能随口径由用户确认（`payments`：该单全部支付之和；`items`：全部明细价格加运费之和；没有子行记 0），计划里由服务端按口径填写，Planner 给出不同的值即拒绝。分组可选 `customer_state`、`purchase_date`、`purchase_month`（trend 只能按日或按月）；不按品类或支付方式分组，因为一单可以有多个品类、多种支付方式，分组之和不再等于总计。
+- `repeat_rate`：客户为 customer_unique_id；期间内至少 1 笔纳入订单的客户数 `customer_count`，至少 2 笔的 `repeat_customer_count`，`repeat_rate` 为二者之比。按州分组时，客户归入其期间内第一笔纳入订单（按时间、再按 order_id）所在的州，各州之和等于总计。
+- `cohort_retention`：观察终点 H 为 end（未给 end 时为全部订单最晚下单时间 + 1 秒）；客户首单取 H 之前全部纳入订单中最早的一笔，不受 start 限制，cohort 为首单所在月，start 只筛选 cohort。月份 M 完整当且仅当下个月 1 日零点不晚于 H。每个 cohort 输出 offset 0–6 中月份完整的行 `{cohort, offset, customer_count, retained_count, retention}`，之后右删失、不输出；`total` 给出这些 cohort 的客户总数与 `last_complete_month`。offset 0 的留存恒为 1。
+- `delivery_delay`：只统计状态为 delivered 且送达、预计送达日期都不为空的纳入订单（口径必须含 delivered）；按日期比较，送达日期晚于预计送达日期为延迟，同一天送达不算。输出 `delivered_count`、`late_count`、`late_rate`，可按州分组。
+- `category_sales`：纳入订单的全部明细按商品品类英文名分组；有品类没有翻译时用原品类名，品类为空时为 `unknown`。每组 `order_count`（不同订单数）、`item_count`、`price_cents`、`freight_cents`，按 price_cents 降序、组名升序；总计的订单数按订单去重，所以各组订单数之和可以大于总计。
+
 真实数据（`scripts/fetch_olist.py` 固定的版本）的实测概况：订单、客户各 99441 行，明细 112650、支付 103886、评价 100000、商品 32951、翻译 71 行；下单时间 2016-09-04 至 2018-10-17；严格连接键孤儿行全为 0；2 个品类（13 个商品）没有英文翻译，610 个商品品类为空；775 单没有明细、1 单没有支付；827 个 review_id 对应不止一笔订单；8 单状态为 delivered 却没有送达日期；96096 个不同的 customer_unique_id。按支付合计与按明细价格加运费计算的订单金额有 1349 单不一致，支付合计比明细合计多 16531888 分（165318.88 BRL）。本机导入七张表约 9 秒。
 
 ## 三角色与状态
@@ -148,7 +157,15 @@ Olist 数据版本的容器输入由服务端按计划投影（`datasets/olist.n
 
 蜕变关系由运行配置 `artifacts/local/runtime.json` 的 `"metamorphic_checks": true` 开启（`Settings.metamorphic_checks`，默认 `false`）；固定演示用 `run_fixed(..., metamorphic=True)`。默认关闭，是因为现有六类都有独立参考，蜕变关系不改变结论，每个任务却要多 4 次沙箱运行。以后加入写不出参考的分析类型时，计划对这些类型默认开启。
 
-各层分别能拦下哪类错误，见[评测文档的错误注入基准](evaluation.md#错误注入基准)。
+各层分别能拦下哪类错误，见[评测文档的错误注入基准](evaluation.md#错误注入基准)。错误注入基准只覆盖单表六类。
+
+Olist 数据走同一个 `run_checks`：`independent_reference` 用 `verification/olist_sql.py`（内存 SQLite，连接与聚合用 SQL，留存的月份用 SQL 整数运算），`reference_agreement` 的第二份参考是 `verification/olist_python.py`（逐行连接、月份用 datetime 推算、整数比值）。两份参考读数据版本目录中的完整规范化表，固定分析 `execution/fixed_olist.py` 只读沙箱里的投影输入；`tests/datalab/test_olist_kinds.py` 在 200 份固定种子的合成 Olist 数据 × 2 个随机计划（共 400 组，覆盖全部九类）上断言三者逐项相等且满足不变量，另有手算小例子固定同日送达、首单归州、右删失、未翻译品类等口径细节。`group_total` 对新类型只比较可加字段（复购的客户数与复购客户数、送达延迟的两个计数、品类销售的明细数与金额）；留存没有分组。新类型的不变量：
+
+- 键与类型符合各自契约；计数非负整数；比值等于分子 / 分母的 6 位小数，分母为 0 时为 null；复购客户数 ≤ 客户数、延迟数 ≤ 送达数、留存人数 ≤ cohort 人数、品类订单数 ≤ 明细数（`bound`）。
+- 分组唯一、每组至少一个对象、按契约排序；州名为两个大写字母；可加字段之和等于总计；品类各组订单数之和不少于去重总数、单组不超过总数。
+- 留存：每个 cohort 的 offset 从 0 连续、不超过 6、人数一致，offset 0 留存为 1（`offset_zero`）；不越过最后一个完整月份，也不在完整月份之前提前截断；给了 end 时最后完整月份必须是 end 所在月的上一个月（`censoring`）；cohort 人数之和等于总计，cohort 不早于 start 所在月。
+
+蜕变关系暂不对 Olist 数据运行（开启时也只对单表计划生效）。
 
 反馈与提示注入：新检查的问题只含字段路径、关系名和封闭词表里的问题类型，不含数值。工作流转发前对检查名（`CHECK_NAMES`）、关系名（`RELATION_NAMES`）和问题类型（`ISSUE_NAMES`）逐项白名单过滤，词表外一律换成 `other`；路径仍经 `safe_path` 处理。按项目规则，第二份数值实现必须是服务端代码，不能让模型再算一遍。
 
@@ -159,7 +176,8 @@ Olist 数据版本的容器输入由服务端按计划投影（`datasets/olist.n
 - 范围：每条记忆都属于 `project_id`、`dataset_family` 与 `schema_signature`，先过滤范围再检索。数据家族描述语义，不从 schema 自动推断；字段相同但语义不同时必须重新确认。
 - 生命周期：指标口径与字段语义先以 `pending` 写入，只有用户明确确认或可信预配置后才能被默认使用；新版本确认后旧版本变为 `superseded`，内容不覆盖；失效标记 `invalidated` 并记录操作人和时间。默认检索只返回已确认且生效的条目，数值计算只从已确认的 metric 建立快照，报告保留快照，重放时不会重新选择“最新”口径。
 - 并发：确认时必须带上看到的当前 `memory_id`；页面旧版本或并发确认触发 `MemoryConflict`（HTTP 409）。每个范围使用短事务与事务级咨询锁，同名当前确认版本有部分唯一索引，SQL 全部参数绑定。
-- 字段语义：上传 CSV 时按字段映射写入 `field_semantics` 待确认候选，内容相同时不重复写版本。当前版本中字段语义只作可追溯记录，不进入 Planner 交接或计算。
+- 字段语义：上传 CSV 时按字段映射写入 `field_semantics` 待确认候选，内容相同时不重复写版本。当前版本中字段语义只作可追溯记录，不进入 Planner 交接或计算。Olist 导入不写字段语义候选。
+- Olist 口径：范围由结构签名区分，纳入状态只能取 Olist 词表（单表口径只能取 paid/refunded/cancelled），并可带 `amount_source`（payments 或 items），确认后进入口径快照（`MetricSnapshot.amount_source`）与模型可见的口径视图。没有确认金额来源的口径不能用于订单级金额分析，任务创建或确认时返回 400。
 - `initialize()` 建表并用 `ADD COLUMN IF NOT EXISTS` 补齐后加的列，可重复执行；它不是通用迁移工具，改列类型或删列需要显式迁移。
 
 ## 任务持久化与派发

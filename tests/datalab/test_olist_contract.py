@@ -18,6 +18,7 @@ from datalab.contracts import AnalysisPlan, OLIST_GROUPS, OLIST_KINDS
 from datalab.datasets import olist
 from datalab.datasets.service import DatasetStore
 from datalab.execution.analysis_frame import assemble
+from datalab.execution.pipeline import run_fixed
 from datalab.execution.runner import DockerRunner, OutputSpec, sandbox_inputs
 from datalab.orchestration.workflow import role_plan
 
@@ -211,6 +212,16 @@ class OlistDockerTests(OlistSandboxFixture):
     def setUp(self):
         super().setUp()
         self.runner = DockerRunner(self.store, Path(self.temp.name) / 'runs')
+
+    def test_fixed_code_for_every_new_kind_passes_in_real_container(self):
+        for fields in ({'kind': 'repeat_rate', 'group_by': 'customer_state'}, {'kind': 'cohort_retention'},
+                       {'kind': 'delivery_delay', 'group_by': 'customer_state'}, {'kind': 'category_sales'},
+                       {'kind': 'trend', 'group_by': 'purchase_date', 'amount_source': 'items'}):
+            value = self.plan(**fields, included_statuses=('delivered', 'shipped'))
+            with self.subTest(kind=value.kind):
+                report = run_fixed(self.runner, value, 'demo')
+                self.assertEqual(report['status'], 'SUCCEEDED', report)
+                self.assertNotIn('narrative', report)
 
     def test_framework_receives_only_projected_tables(self):
         value = self.plan('delivery_delay', group_by='customer_state')

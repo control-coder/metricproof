@@ -12,8 +12,12 @@ class GuidedBackend:
         handoff = context['handoff']
         if role == Role.PLANNER:
             metric = handoff['metric']
+            # Olist 数据：结构名来自概况视图，金额来源来自已确认口径，固定演示同样不自行选择。
+            extra = {}
+            if handoff['profile'].get('schema') == 'olist':
+                extra = {'schema': 'olist', 'amount_source': metric.get('amount_source')}
             plan = AnalysisPlan(handoff['dataset_version'], metric['version'],
-                included_statuses=tuple(metric['included_statuses']), **self.options)
+                included_statuses=tuple(metric['included_statuses']), **extra, **self.options)
             return ModelReply({'plan': plan.payload()}, 0)
         if role == Role.ANALYST:
             return ModelReply({'code': fixed_code(AnalysisPlan(**handoff['plan']))}, 0)
