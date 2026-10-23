@@ -42,6 +42,10 @@ class Options(Payload):
     previous_end: str | None = None
 
 
+class OlistImportInput(Payload):
+    dataset_family: str = Field(min_length=1,max_length=120)
+
+
 class TaskInput(Payload):
     dataset_version: UUID
     question: str = Field(min_length=1,max_length=4000)
@@ -227,6 +231,15 @@ def create_app(settings: Settings | None = None):
             return {**asdict(metadata),'field_semantics_candidates':len(candidates)}
         finally:
             await file.close()
+
+    @app.post('/api/projects/{project_id}/datasets/olist',status_code=201)
+    def import_olist(project_id:UUID,payload:OlistImportInput):
+        # 只读取服务端固定的原始目录（scripts/fetch_olist.py 的下载位置），请求不能指定路径或表。
+        repository.require_project(str(project_id))
+        metadata=datasets.import_olist(settings.artifact_root / 'olist/raw',project_id=str(project_id),
+                                       dataset_family=payload.dataset_family)
+        repository.add_dataset(metadata)
+        return asdict(metadata)
 
     @app.get('/api/projects/{project_id}/memories')
     def memories(project_id:UUID,dataset_version:UUID):

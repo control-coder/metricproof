@@ -164,6 +164,31 @@ class AppIntegrationTests(unittest.TestCase):
                                                           'options':{'kind':'comparison'}})
         self.assertEqual(response.status_code,400)
 
+    def test_olist_import_reads_only_the_fixed_directory(self):
+        import dataclasses
+        import random
+        import tempfile
+        from fastapi.testclient import TestClient
+        from olist_bundle import bundle,write
+        from datalab.api.app import create_app
+        scratch=(Path(__file__).resolve().parents[2]/'.tmp').resolve()
+        folder=tempfile.TemporaryDirectory(dir=scratch,prefix='app-olist-')
+        self.addCleanup(folder.cleanup)
+        settings=dataclasses.replace(self.settings,artifact_root=Path(folder.name))
+        with TestClient(create_app(settings),headers={'X-Datalab-Client':'local-ui'}) as client:
+            response=client.post(self.base+'/datasets/olist',json={'dataset_family':'olist'})
+            self.assertEqual(response.status_code,400)
+            self.assertIn({'table':'orders','reason':'文件缺失'},response.json()['issues'])
+            write(Path(folder.name)/'olist/raw',bundle(random.Random(3),30))
+            # 请求不能指定路径或表。
+            self.assertEqual(client.post(self.base+'/datasets/olist',json={'dataset_family':'olist','path':'C:/'}).status_code,422)
+            self.assertEqual(client.post('/api/projects/'+str(uuid4())+'/datasets/olist',json={'dataset_family':'olist'}).status_code,404)
+            response=client.post(self.base+'/datasets/olist',json={'dataset_family':'olist'})
+            self.assertEqual(response.status_code,201,response.text)
+            value=response.json()
+            self.assertEqual((value['schema'],value['row_count'],value['currency']),('olist',30,'BRL'))
+            self.assertIn(value['dataset_version'],[item['dataset_version'] for item in client.get(self.base+'/datasets').json()])
+
     def test_single_claim_cancel_and_stale_lease(self):
         from datalab.orchestration.workflow import Task
         task=Task(self.project,self.dataset,'不派发的领取测试')

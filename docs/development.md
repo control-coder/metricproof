@@ -44,6 +44,24 @@ python -B scripts/serve.py                  # API、worker 与 dispatcher
 - 连接配置保存在被忽略的 `artifacts/local/runtime.json`，再次运行 `start` 会复用它，不会清空数据。在其中加入 `"metamorphic_checks": true` 可开启蜕变关系核验（默认关闭，每个任务多约 4 次沙箱运行，见[架构文档](architecture.md#核验)），重启 worker 后生效。
 - 18080 端口被占用时，请先排查占用者。
 
+### Olist 多表数据（可选）
+
+真实多表数据来自 Olist 公开数据集（CC BY-NC-SA 4.0，见 `THIRD_PARTY_NOTICES.md`），不随仓库分发，需要先下载到被忽略的目录：
+
+```powershell
+python -B scripts/fetch_olist.py   # 写入 artifacts/olist/raw/，七张表共约 65 MB，逐个校验字节数、SHA-256 与记录数
+```
+
+下载失败会重试；任一校验不符时删除该文件并以非零状态退出。已存在且校验通过的文件不重复下载。导入只读取服务端固定的这个目录（`<artifact_root>/olist/raw`），请求不能指定路径：
+
+```powershell
+$headers = @{ 'X-Datalab-Client' = 'local-ui' }
+Invoke-RestMethod -Method Post -Headers $headers -ContentType 'application/json' `
+  -Uri "http://127.0.0.1:18080/api/projects/<project_id>/datasets/olist" -Body '{"dataset_family":"olist-brazil"}'
+```
+
+本机实测导入全部七张表约 9 秒；校验规则与概况字段见[架构文档](architecture.md#多表数据olist)。
+
 只想验证容器闭环、不启动服务时，可以运行：
 
 ```powershell

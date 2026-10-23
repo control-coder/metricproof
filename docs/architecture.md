@@ -29,7 +29,7 @@ flowchart TB
 | 模块 | 职责 |
 | --- | --- |
 | `api/` | HTTP 接口、请求体上限、Host 与写入来源校验、产物下载 |
-| `datasets/` | 标准 CSV 模板与字段映射、质量检查、数据版本与 schema 签名 |
+| `datasets/` | 标准 CSV 模板与字段映射、Olist 多表导入、质量检查、数据版本与 schema 签名 |
 | `orchestration/` | 任务状态机、有界修正、Celery worker、租约与补发 |
 | `roles/` | 三角色运行时与工具白名单、固定演示后端、OpenAI 兼容模型适配与提示 |
 | `memory/` | 业务记忆的范围、版本、确认、失效与冲突，PostgreSQL 实现 |
@@ -39,6 +39,27 @@ flowchart TB
 | `storage/` | 项目、数据集、任务快照与产物索引 |
 
 业务范围：UTF-8 CSV，一行一笔订单，字段为订单编号、支付时间、金额、状态、渠道、品类；单文件最多 20 MB、10 万行；单币种、统一时区，不支持部分退款。分析类型为汇总（summary）、趋势（trend）、排行（ranking）、占比（share）、期间对比（comparison）与数据质量（quality）。不做任意 Excel/PDF、联网、数据库直连、多表关联、预测、机器学习建模或因果推断；分组说明只是描述性分解。
+
+### 多表数据（Olist）
+
+除单表 `orders` 外，数据版本可以是结构固定的 Olist 多表 `olist`（`datasets/olist.py`）。表、列、类型与连接键全部由服务端定义，只从固定目录读取七个已知文件名，不接受任意表或列；结构签名由这份定义计算，与单表签名不同，业务记忆据此分开范围。单表路径的导入、签名与数据版本格式不变（`DatasetVersion.schema` 新增，旧元数据缺省为 `orders`）。
+
+| 表 | 规范化列 | 主键 | 上限（行 / 字节） |
+| --- | --- | --- | --- |
+| `orders` | order_id、customer_id、order_status、order_purchase_timestamp、order_approved_at、order_delivered_carrier_date、order_delivered_customer_date、order_estimated_delivery_date | order_id | 15 万 / 32 MB |
+| `customers` | customer_id、customer_unique_id、customer_state | customer_id | 15 万 / 16 MB |
+| `order_items` | order_id、order_item_id、product_id、seller_id、shipping_limit_date、price_cents、freight_cents | (order_id, order_item_id) | 20 万 / 32 MB |
+| `order_payments` | order_id、payment_sequential、payment_type、payment_installments、payment_value_cents | (order_id, payment_sequential) | 20 万 / 16 MB |
+| `order_reviews` | review_id、order_id、review_score、review_creation_date、review_answer_timestamp | (review_id, order_id) | 15 万 / 32 MB |
+| `products` | product_id、product_category_name | product_id | 5 万 / 8 MB |
+| `category_translation` | product_category_name、product_category_name_english | product_category_name | 1000 / 1 MB |
+
+- 校验：原始表头必须与 Olist 原文完全一致；时间接受空格或 `T` 分隔的秒级本地时间，统一写成 `YYYY-MM-DDTHH:MM:SS`，带偏移即拒绝；批准、揽收、送达三个日期允许为空（Olist 原始数据确有缺失），其余时间必填；金额最多两位小数，转为整数分；订单状态只允许 Olist 词表（delivered、shipped、canceled、unavailable、invoiced、processing、created、approved）；评分 1–5；标识、州缩写、品类名按固定格式。任一行出错整批拒绝，最多报告 20 条（表名、行号、原因），不回显内容。评论正文、城市、邮编、商品尺寸等未用到的自由文本或列不进入规范化表。
+- 连接键：订单→客户、明细→订单、明细→商品、支付→订单、评价→订单任一孤儿行整批拒绝（只报告表名与计数），否则按客户、品类或金额汇总会静默丢行；商品品类→英文翻译允许缺失，只计数；没有明细、支付或评价的订单与没有订单的客户允许存在，计数写进概况。
+- 概况（`profile`）：逐表行数、订单状态计数、下单时间范围（`time_min`/`time_max`）与送达、预计送达、评价日期范围、各列空值数、孤儿行计数、无子行计数、重复 review_id 数、不同 customer_unique_id 数、状态为 delivered 但没有送达日期的订单数、两种订单金额来源不一致的订单数与总差额、原始文件 SHA-256。
+- 存储：规范化表平铺写入数据版本目录（`orders.csv`、`customers.csv` 等），原始文件不复制。
+
+真实数据（`scripts/fetch_olist.py` 固定的版本）的实测概况：订单、客户各 99441 行，明细 112650、支付 103886、评价 100000、商品 32951、翻译 71 行；下单时间 2016-09-04 至 2018-10-17；严格连接键孤儿行全为 0；2 个品类（13 个商品）没有英文翻译，610 个商品品类为空；775 单没有明细、1 单没有支付；827 个 review_id 对应不止一笔订单；8 单状态为 delivered 却没有送达日期；96096 个不同的 customer_unique_id。按支付合计与按明细价格加运费计算的订单金额有 1349 单不一致，支付合计比明细合计多 16531888 分（165318.88 BRL）。本机导入七张表约 9 秒。
 
 ## 三角色与状态
 

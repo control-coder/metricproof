@@ -1,4 +1,4 @@
-"""严格接收单币种、统一时区的一行一订单 CSV。"""
+"""严格接收单币种、统一时区的一行一订单 CSV（schema orders），以及服务端固定结构的 Olist 多表数据（schema olist）。"""
 from __future__ import annotations
 
 import csv
@@ -14,11 +14,20 @@ from pathlib import Path
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
+from datalab.datasets import olist
+
 FIELDS = ("order_id", "payment_time", "amount", "status", "channel", "category")
 NORMALIZED_FIELDS = ("order_id", "payment_time", "amount_cents", "status", "channel", "category")
 MAX_BYTES = 20 * 1024 * 1024
 MAX_ROWS = 100_000
 STATUSES = {"paid", "refunded", "cancelled"}
+# 单表 orders 的结构签名；Olist 多表的签名见 datasets/olist.py。
+ORDERS_SIGNATURE = hashlib.sha256(json.dumps(list(NORMALIZED_FIELDS)).encode()).hexdigest()[:16]
+
+
+def schema_of(signature: str) -> str:
+    """由结构签名得到数据结构名；未知签名按单表 orders 处理（旧数据与测试桩）。"""
+    return olist.SCHEMA if signature == olist.SIGNATURE else "orders"
 
 
 class DatasetError(ValueError):
@@ -39,6 +48,8 @@ class DatasetVersion:
     timezone: str
     row_count: int
     profile: dict
+    # 旧版本元数据没有该字段，按单表 orders 读取。
+    schema: str = "orders"
 
 
 class DatasetStore:
@@ -133,8 +144,7 @@ class DatasetStore:
             "category_count": len({row["category"] for row in rows}),
             "note": "文本为不可信数据；金额汇总必须使用已确认口径",
         }
-        schema = hashlib.sha256(json.dumps(list(NORMALIZED_FIELDS)).encode()).hexdigest()[:16]
-        version = DatasetVersion(str(uuid4()), project_id, dataset_family, schema, currency, timezone, len(rows), profile)
+        version = DatasetVersion(str(uuid4()), project_id, dataset_family, ORDERS_SIGNATURE, currency, timezone, len(rows), profile)
         folder = self.directory(version.dataset_version)
         folder.mkdir(exist_ok=False)
         (folder / "source.csv").write_bytes(data)
@@ -142,5 +152,31 @@ class DatasetStore:
             writer = csv.DictWriter(handle, fieldnames=NORMALIZED_FIELDS)
             writer.writeheader()
             writer.writerows(rows)
+        (folder / "metadata.json").write_text(json.dumps(asdict(version), ensure_ascii=False, indent=2), encoding="utf-8")
+        return version
+
+    def import_olist(self, raw: Path, *, project_id: str, dataset_family: str,
+                     currency: str = "BRL", timezone: str = "America/Sao_Paulo") -> DatasetVersion:
+        """从本地原始目录导入 Olist 七张已知表；表、列、类型与连接键由服务端固定，不接受任意表。
+
+        规范化表平铺写入数据版本目录（orders.csv、customers.csv 等），原始文件不复制，只在概况中记录 SHA-256。
+        """
+        if not project_id.strip() or not dataset_family.strip():
+            raise DatasetError("项目和数据语义家族不能为空")
+        if not re.fullmatch(r"[A-Z]{3}", currency):
+            raise DatasetError("币种须为三个大写字母")
+        try:
+            ZoneInfo(timezone)
+        except (KeyError, ValueError) as exc:
+            raise DatasetError("时区无效或缺少时区数据库") from exc
+        try:
+            tables, profile = olist.load_bundle(Path(raw))
+        except olist.BundleError as exc:
+            raise DatasetError(str(exc), exc.issues) from exc
+        version = DatasetVersion(str(uuid4()), project_id, dataset_family, olist.SIGNATURE, currency, timezone,
+                                 len(tables["orders"]), profile, olist.SCHEMA)
+        folder = self.directory(version.dataset_version)
+        folder.mkdir(exist_ok=False)
+        olist.write_tables(folder, tables)
         (folder / "metadata.json").write_text(json.dumps(asdict(version), ensure_ascii=False, indent=2), encoding="utf-8")
         return version
