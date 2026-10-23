@@ -6,7 +6,7 @@ from uuid import uuid4
 from datalab.artifacts.derive import derive
 from datalab.contracts import AnalysisPlan
 from datalab.execution.codegen import fixed_code
-from datalab.execution.runner import DockerRunner, OutputSpec
+from datalab.execution.runner import DockerRunner, OutputSpec, sandbox_inputs
 from datalab.verification.metamorphic import Sandbox, runner_execute
 from datalab.verification.suite import run_checks
 
@@ -15,7 +15,8 @@ def run_fixed(runner: DockerRunner, plan: AnalysisPlan, project_id: str, *, meta
     run_id = str(uuid4())
     code = fixed_code(plan)
     manifest = runner.execute_python(run_id, plan.dataset_version, code, 30, OutputSpec(),
-                                     project_id=project_id, metric_version=plan.metric_version)
+                                     project_id=project_id, metric_version=plan.metric_version,
+                                     **sandbox_inputs(runner.store, plan))
     folder = runner.root / run_id
     (folder / "plan.json").write_text(json.dumps(plan.payload(), ensure_ascii=False, indent=2), encoding="utf-8")
     report = {"run_id": run_id, "status": "FAILED", "execution": asdict(manifest)}

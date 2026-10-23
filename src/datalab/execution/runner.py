@@ -15,11 +15,14 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from datalab.contracts import ExecutionManifest
+from datalab.datasets import olist
 from datalab.datasets.service import DatasetStore
 
 
 # 服务端变换输入的上限：数据集本身不超过 20 MB，变换只追加少量行。
 MAX_INPUT_BYTES = 32 * 1024 * 1024
+# 多表输入的文件名：小写表名加 .csv，不能与 analysis.py、runner.py 冲突。
+INPUT_NAME = re.compile(r"[a-z][a-z_]{0,31}\.csv")
 
 
 class ExecutionError(RuntimeError):
@@ -40,6 +43,13 @@ class OutputSpec:
             raise ValueError("最多输出三张图")
         if type(self.max_bytes) is not int or not 1 <= self.max_bytes <= 8 * 1024 * 1024:
             raise ValueError("输出大小限额无效")
+
+
+def sandbox_inputs(store: DatasetStore, plan) -> dict:
+    """execute_python 的输入参数：单表数据为空（复制规范化订单），Olist 多表数据为服务端按计划投影的输入表。"""
+    if plan.schema != "olist":
+        return {}
+    return {"input_files": olist.dataset_inputs(store.directory(plan.dataset_version), plan)}
 
 
 class DockerRunner:
@@ -104,9 +114,13 @@ class DockerRunner:
 
     def execute_python(self, run_id: str, dataset_version: str, code: str, timeout: float,
                        output_spec: OutputSpec, *, project_id: str, metric_version: str,
-                       cancelled: threading.Event | None = None, orders_csv: bytes | None = None) -> ExecutionManifest:
+                       cancelled: threading.Event | None = None, orders_csv: bytes | None = None,
+                       input_files: dict[str, bytes] | None = None) -> ExecutionManifest:
         """orders_csv 只供服务端核验传入本任务数据的变换版本（如蜕变关系），仍写入同一只读输入挂载，
-        容器参数与默认路径完全相同；不接受模型或请求方提供的内容。"""
+        容器参数与默认路径完全相同；不接受模型或请求方提供的内容。
+
+        input_files 是多表数据（Olist）由服务端按计划投影出的输入表（文件名 → CSV 字节），写入同一只读挂载；
+        多表数据版本必须提供，单表数据版本不接受。"""
         if str(UUID(run_id)) != run_id:
             raise ValueError("任务标识必须为规范 UUID")
         if not math.isfinite(timeout) or not 0 < timeout <= 120:
@@ -115,14 +129,25 @@ class DockerRunner:
             raise ValueError("代码超过限额")
         if orders_csv is not None and (type(orders_csv) is not bytes or len(orders_csv) > MAX_INPUT_BYTES):
             raise ValueError("服务端输入超过限额")
-        self.store.get(dataset_version, project_id)
+        if input_files is not None and (
+                orders_csv is not None or not isinstance(input_files, dict) or not 1 <= len(input_files) <= 8
+                or any(not isinstance(name, str) or not INPUT_NAME.fullmatch(name) or type(data) is not bytes
+                       for name, data in input_files.items())
+                or sum(len(data) for data in input_files.values()) > MAX_INPUT_BYTES):
+            raise ValueError("服务端输入表无效或超过限额")
+        version = self.store.get(dataset_version, project_id)
+        if (version.schema == "orders") != (input_files is None):
+            raise ValueError("单表数据使用规范化订单，多表数据必须由服务端按计划投影输入")
         folder = (self.root / run_id).resolve()
         if folder.parent != self.root:
             raise ValueError("任务目录越界")
         folder.mkdir(exist_ok=False)
         inputs = folder / "input"
         inputs.mkdir()
-        if orders_csv is None:
+        if input_files is not None:
+            for filename, data in input_files.items():
+                (inputs / filename).write_bytes(data)
+        elif orders_csv is None:
             shutil.copyfile(self.store.directory(dataset_version) / "orders.csv", inputs / "orders.csv")
         else:
             (inputs / "orders.csv").write_bytes(orders_csv)

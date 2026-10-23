@@ -57,8 +57,21 @@ def _shape(result, kind):
     return result
 
 
-with open("/input/orders.csv", encoding="utf-8", newline="") as _handle:
-    _data = list(csv.DictReader(_handle))
+def _load():
+    # 单表：订单行列表；Olist 多表：表名 → 行列表，只含服务端按计划投影的表与列。值都是字符串。
+    if PLAN.get("schema", "orders") != "olist":
+        with open("/input/orders.csv", encoding="utf-8", newline="") as _handle:
+            return list(csv.DictReader(_handle))
+    import os
+    _tables = {}
+    for _name in sorted(os.listdir("/input")):
+        if _name.endswith(".csv"):
+            with open("/input/" + _name, encoding="utf-8", newline="") as _handle:
+                _tables[_name[:-4]] = list(csv.DictReader(_handle))
+    return _tables
+
+
+_data = _load()
 _result = _shape(analyze(_data, dict(PLAN)), PLAN["kind"])
 with open("/output/result.json", "w", encoding="utf-8") as _handle:
     json.dump(_result, _handle, ensure_ascii=False)

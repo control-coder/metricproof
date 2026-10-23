@@ -23,8 +23,9 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from datalab.contracts import AMOUNT_KINDS, AnalysisPlan, OLIST_STATUSES as STATUSES
+
 SCHEMA = "olist"
-STATUSES = ("delivered", "shipped", "canceled", "unavailable", "invoiced", "processing", "created", "approved")
 MAX_ISSUES = 20
 
 # 表名 → 原始文件名、原始表头（必须完全一致）、规范化列 (列名, 源列, 类型)、每表上限 (行数, 字节数)。
@@ -302,3 +303,58 @@ def write_tables(folder: Path, tables: dict[str, list[dict]]):
             writer = csv.DictWriter(handle, fieldnames=columns(name))
             writer.writeheader()
             writer.writerows(rows)
+
+
+def read_tables(folder: Path, names=None) -> dict[str, list[dict]]:
+    """读取数据版本目录中的规范化表（值均为字符串）。"""
+    tables = {}
+    for name in names or TABLES:
+        with (folder / f"{name}.csv").open(encoding="utf-8", newline="") as handle:
+            tables[name] = list(csv.DictReader(handle))
+    return tables
+
+
+def needed(plan: AnalysisPlan) -> dict[str, tuple[str, ...]]:
+    """服务端决定每类分析需要的表与列；容器里只出现这些，不多给评价、卖家等无关数据。
+
+    只投影列，不筛行：按状态、期间过滤和连接都是分析本身的一部分，由被核验的代码完成。
+    """
+    kind = plan.kind
+    if kind == "category_sales":
+        return {"orders": ("order_id", "order_status", plan.time_field),
+                "order_items": ("order_id", "product_id", "price_cents", "freight_cents"),
+                "products": ("product_id", "product_category_name"),
+                "category_translation": ("product_category_name", "product_category_name_english")}
+    orders = ["order_id", "order_status", plan.time_field]
+    if kind == "delivery_delay":
+        orders += [name for name in ("order_delivered_customer_date", "order_estimated_delivery_date") if name not in orders]
+    customers = []
+    if kind in ("repeat_rate", "cohort_retention"):
+        customers = ["customer_id", "customer_unique_id"]
+    if plan.group_by == "customer_state":
+        customers = (customers or ["customer_id"]) + ["customer_state"]
+    tables = {"orders": tuple(orders + (["customer_id"] if customers else []))}
+    if customers:
+        tables["customers"] = tuple(customers)
+    if plan.amount_source == "payments" and kind in AMOUNT_KINDS:
+        tables["order_payments"] = ("order_id", "payment_value_cents")
+    elif plan.amount_source == "items" and kind in AMOUNT_KINDS:
+        tables["order_items"] = ("order_id", "price_cents", "freight_cents")
+    return tables
+
+
+def encode(rows: list[dict], fields: tuple[str, ...]) -> bytes:
+    out = io.StringIO(newline="")
+    writer = csv.DictWriter(out, fieldnames=fields, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return out.getvalue().encode("utf-8")
+
+
+def sandbox_inputs(tables: dict[str, list[dict]], plan: AnalysisPlan) -> dict[str, bytes]:
+    """把规范化表投影成本次分析的容器输入文件（文件名 → CSV 字节）。"""
+    return {f"{name}.csv": encode(tables[name], fields) for name, fields in needed(plan).items()}
+
+
+def dataset_inputs(folder: Path, plan: AnalysisPlan) -> dict[str, bytes]:
+    return sandbox_inputs(read_tables(folder, needed(plan)), plan)

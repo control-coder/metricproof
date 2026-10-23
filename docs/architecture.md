@@ -120,6 +120,12 @@ stateDiagram-v2
 
 容器内产生的任何字节都不可信。数值正确性由宿主的独立 SQL 参考复算 `result.json`，并独立比对下载 CSV。
 
+### 多表输入
+
+Olist 数据版本的容器输入由服务端按计划投影（`datasets/olist.needed`）：只给本类分析用到的表和列（例如复购率只有订单的编号、状态、下单时间、客户编号与客户的 customer_unique_id），所有行原样保留，不预先按状态、期间过滤或连接，这些都由被核验的代码完成；评价表不进入任何分析的输入。投影结果作为 `/input/<表名>.csv` 经 `DockerRunner.execute_python(..., input_files=...)` 写入同一只读挂载，容器参数与单表路径逐项相同（有离线测试对照）。单表数据版本不接受 `input_files`，多表数据版本必须提供；文件名只能是小写表名加 `.csv`，最多 8 个，合计不超过 32 MB。框架尾部（`analysis_frame.TAIL`）按计划的 `schema` 决定 `data`：单表仍是订单行列表；`olist` 是 `{表名: 行列表}`，值都是字符串。
+
+用真实数据（`scripts/verify_olist.py`）在生产限额（256 MB、1 核、30 秒）下测量只读入输入表的开销：每类代表性计划的输入 10.5–18.3 MB、20–31 万行，容器运行（含创建与清理）1.5–2.0 秒，进程峰值 RSS 85–132 MiB，cgroup `memory.peak` 90–137 MiB；宿主投影输入另需 0.8–1.3 秒。内存与时间限额不变。
+
 ## 核验
 
 所有检查由 `verification/suite.py` 的 `run_checks` 统一执行，工作流（`ExecutionServices.verify`）与固定演示（`pipeline.run_fixed`）调用同一入口。现有六类分析都写得出参考 SQL，所以“与参考逐项一致”是主判据；后面三层不需要知道正确值，是为以后放开任务（写不出参考的分析）准备的。

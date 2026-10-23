@@ -4,7 +4,7 @@ import threading
 from uuid import uuid4
 
 from datalab.contracts import ExecutionManifest, VerificationReport
-from datalab.execution.runner import DockerRunner, OutputSpec
+from datalab.execution.runner import DockerRunner, OutputSpec, sandbox_inputs
 from datalab.orchestration.workflow import Task
 from datalab.verification.metamorphic import Sandbox, runner_execute
 from datalab.verification.suite import run_checks
@@ -23,7 +23,8 @@ class ExecutionServices:
 
     def execute(self, task: Task, code: str, timeout: float, cancelled: threading.Event) -> ExecutionManifest:
         return self.runner.execute_python(str(uuid4()), task.dataset_version, code, timeout, OutputSpec(),
-            project_id=task.project_id, metric_version=task.plan.metric_version, cancelled=cancelled)
+            project_id=task.project_id, metric_version=task.plan.metric_version, cancelled=cancelled,
+            **sandbox_inputs(self.runner.store, task.plan))
 
     def code(self, manifest: ExecutionManifest) -> str:
         """读回某次执行尝试实际运行的代码，恢复核验检查点时用于下一次反馈。"""
