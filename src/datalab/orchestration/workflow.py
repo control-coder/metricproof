@@ -8,7 +8,8 @@ import threading
 from typing import Protocol
 from uuid import uuid4
 
-from datalab.contracts import AMOUNT_SOURCES, OLIST_STATUSES, AnalysisPlan, ExecutionManifest, VerificationReport
+from datalab.contracts import (
+    AMOUNT_KINDS, AMOUNT_SOURCES, OLIST_STATUSES, AnalysisPlan, ExecutionManifest, VerificationReport)
 from datalab.datasets.service import schema_of
 from datalab.roles.runtime import BoundTools, BudgetExceeded, CallBudget, ModelCallError, Role, RoleRuntime
 
@@ -506,7 +507,7 @@ class Workflow:
         schema = schema_of(metric.schema_signature)
         # 数据结构与金额来源由服务端按口径填写；计划自带的值必须与之相同，Planner 不能选择。
         fields = {"schema": schema, **proposal["plan"]}
-        if schema == "olist" and "amount_source" not in fields:
+        if schema == "olist" and "amount_source" not in fields and fields.get("kind", "summary") in AMOUNT_KINDS:
             fields["amount_source"] = metric.amount_source
         plan = AnalysisPlan(**fields)
         if (plan.dataset_version != task.dataset_version or plan.metric_version != metric.version

@@ -110,9 +110,10 @@ npm run build --prefix frontend
 | `python -B scripts/test_app.py` | 真实 PostgreSQL、Redis/Celery 与 Docker 的应用集成：确认恢复、下载、重复投递、项目隔离、租约过期后的检查点恢复（含模拟 worker 消失后的端到端恢复）、产物围栏、Idempotency-Key、取消竞争、图表内联 |
 | `node frontend/tests/browser-flow.mjs` | 用本机 Edge 跑完整的四页面流程，包括桌面与移动宽度，以及“响应丢失后重试沿用同一个 Idempotency-Key 并拿回原任务”；设置 `DATALAB_SHOT_DIR` 时把四页截图写到该目录（README 的截图用 `docs/images`） |
 | `python -B scripts/verify_scale.py` | 十万行模拟订单的规模验证 |
+| `python -B scripts/verify_olist.py [--metamorphic]` | 真实 Olist 数据（先运行 `fetch_olist.py`）：七个代表性计划在真实容器中的峰值内存与耗时，以及 `run_fixed` 完整核验；结果写入 `artifacts/olist/scale/olist-result.json` |
 | `python -B evals/run_suite.py` | 固定种子评测：20 项数值、8 项记忆、8 项故障，不调用模型 |
 
-`tests/datalab/test_execution.py` 的 Docker 用例包括蜕变关系在真实容器中的重跑；`test_verification_layers.py` 离线覆盖不变量、两份参考的性质测试（240 组随机数据与计划）和蜕变关系。
+`tests/datalab/test_execution.py` 的 Docker 用例包括蜕变关系在真实容器中的重跑；`test_verification_layers.py` 离线覆盖不变量、两份参考的性质测试（240 组随机数据与计划）和蜕变关系。Olist 相关：`test_olist_import.py`（导入校验）、`test_olist_contract.py`（计划契约与沙箱投影，Docker 用例检查多表输入与新类型的 `run_fixed`）、`test_olist_kinds.py`（三份实现在 400 组合成数据上的性质测试、手算口径、不变量与接线）、`test_olist_verification.py`（多表蜕变关系、金丝雀；Docker 开启且已下载原始数据时在真实数据上跑每类固定分析，约 2 分钟）。`scripts/test_app.py` 在已下载原始数据时另跑一条经 API、worker 与真实数据的 Olist 任务，否则跳过。
 
 运行完后用 `Remove-Item Env:DATALAB_DOCKER_TESTS` 清除开关。`scripts/test_postgres.py` 只清理自己创建的容器；`DATALAB_POSTGRES_TESTS=1` 配合 `DATALAB_TEST_DATABASE_URL` 也可以指向一个专用测试库，但不要指向含业务数据的库。
 
