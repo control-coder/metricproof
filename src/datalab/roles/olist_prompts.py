@@ -25,7 +25,7 @@ PLANNER = COMMON + """
 time_field 默认 order_purchase_timestamp（下单时间），可以不写；只有 delivery_delay 且问题明确要求按送达时间划分期间时才用 order_delivered_customer_date。
 期间均为左闭右开，格式严格为 "YYYY-MM-DDTHH:MM:SS"（无时区偏移），使用数据声明的统一时区；例如“2017年8月”为 start="2017-08-01T00:00:00"、end="2017-09-01T00:00:00"。
 问题未限定期间时 start、end 必须为 null（表示全部数据），不要用 profile 中的 time_min/time_max 或 time_ranges 代替；它们仅用于判断年份和数据覆盖范围。
-cohort_retention 中 start 只筛选首单不早于 start 的客户，end 是观察终点（未给时取数据最晚时间）；“2017年各月新客的留存”为 start="2017-01-01T00:00:00"、end=null。
+cohort_retention 中 start 只筛选首单不早于 start 的客户，end 是观察终点（未给时取数据最晚时间）：“2017年起首次下单的客户的留存”为 start="2017-01-01T00:00:00"、end=null；“观察到 2018 年 6 月底”为 end="2018-07-01T00:00:00"。
 数据跨多个年份：问题只说月份或“上个月”“今年”而没有年份、又无法从问题确定时，返回澄清请求，不要自行猜年份。
 不做预测、因果诊断、评价或卖家分析，也不做上述类型以外的自由连接；无法用上述类型回答、或期间等关键信息确实缺失时，返回澄清请求。
 禁止修改数据版本、指标版本、纳入状态或订单金额来源 amount_source；这些由服务端按已确认口径固定，计划中不要写这些字段。
@@ -39,7 +39,9 @@ ANALYST = COMMON + """
 
 角色：Analyst。根据交接中的 plan 编写分析函数。数据是 Olist 多表，服务端已生成脚本框架：把 /input 下按本次计划投影的表读为 data
 （dict：表名 → list[dict]，值均为字符串），把交接中的 plan 作为 dict 传入，并负责写出 /output/result.json 与 /output/table.csv。
-框架里的 selected、group_key 两个辅助函数只适用于单表订单数据，不要调用；ratio(numerator, denominator) 可用：返回 6 位小数字符串，分母为 0 时为 None。
+框架里的 selected、group_key 两个辅助函数只适用于单表订单数据，不要调用；所有比值（share、growth、repeat_rate、retention、late_rate）
+必须直接调用框架已定义的 ratio(numerator, denominator)，传入两个整数：它返回 Decimal 相除后 format(..., ".6f") 的 6 位小数字符串，分母为 0 时为 None；
+不要自己重新定义 ratio，也不要用 float、round 或百分数。
 框架已导入 csv、json、Decimal、defaultdict。只用标准库；不要读写文件、不要打印。你只需编写函数 def analyze(data, plan) -> dict，返回 result.json 的对象。
 
 data 中只有本类分析需要的表与列（T 为 plan.time_field）：

@@ -76,6 +76,35 @@ class HeldoutTests(unittest.TestCase):
         self.assertFalse(dev & {question for question, _ in heldout.HELDOUT})
 
 
+class OlistQuestionTests(unittest.TestCase):
+    def setUp(self):
+        import olist_questions
+        self.questions = olist_questions
+
+    def test_frozen_fingerprint_unchanged(self):
+        self.assertEqual(self.questions.fingerprint(), self.questions.OLIST_HELDOUT_SHA256)
+
+    def test_kinds_counts_metrics_and_valid_plans(self):
+        from datalab.contracts import AMOUNT_KINDS, OLIST_KINDS
+        kinds = ['clarify' if 'clarify' in fields else fields['kind'] for _, fields, _ in self.questions.HELDOUT]
+        for kind in OLIST_KINDS + ('clarify',):
+            self.assertEqual(kinds.count(kind), 4, kind)
+        for split in (self.questions.DEV, self.questions.HELDOUT):
+            for _, fields, source in split:
+                self.assertIn(source, self.questions.METRICS)
+                if 'clarify' in fields:
+                    continue
+                extra = {'amount_source': source} if fields['kind'] in AMOUNT_KINDS else {}
+                AnalysisPlan(str(uuid4()), 'truth', schema='olist', included_statuses=self.questions.STATUSES, **fields, **extra)
+        # 两种金额来源都在留出集中出现，非金额类型只用 payments 口径。
+        sources = {source for _, fields, source in self.questions.HELDOUT if fields.get('kind') in AMOUNT_KINDS}
+        self.assertEqual(sources, {'payments', 'items'})
+
+    def test_no_overlap_with_dev(self):
+        dev = {question for question, _, _ in self.questions.DEV}
+        self.assertFalse(dev & {question for question, _, _ in self.questions.HELDOUT})
+
+
 class AnalystReplayTests(unittest.TestCase):
     def setUp(self):
         import analyst_replay
