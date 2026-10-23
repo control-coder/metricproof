@@ -19,7 +19,8 @@ from datalab.roles.runtime import CallBudget, RoleRuntime
 from test_model_backend import profile
 
 ROOT = Path(__file__).resolve().parents[2]
-# 既有评测结果（heldout-*.json 等）中的 prompts_sha256。
+# 既有评测结果（heldout-*.json 等）中的 prompts_sha256。评测在 Windows 上运行，指纹按 CRLF 检出的工作区字节计算；
+# 仓库内容是 LF，Linux 的 CI 检出得到的字节不同，所以先统一成 CRLF 再比较，两种检出都校验同一份内容。
 PROMPTS_FILE_SHA256 = '5d1b2280dd3cee36dae0a6e067a3d26c4512dd75cad174a1e11fddb944a94f97'
 # 一条走完 Planner、Analyst（含核验反馈）、Reviewer 驳回与 Planner 复核的单表任务，全部请求 messages 的摘要。
 ORDERS_MESSAGES_SHA256 = 'f821fc925fd81328c85ea47f373b1298df9bad51498f592e030be8893237a8ae'
@@ -91,7 +92,8 @@ def digest(value) -> str:
 
 class OrdersPromptCompatTests(unittest.TestCase):
     def test_prompts_file_fingerprint_unchanged(self):
-        self.assertEqual(hashlib.sha256((ROOT / 'src/datalab/roles/prompts.py').read_bytes()).hexdigest(), PROMPTS_FILE_SHA256)
+        data = (ROOT / 'src/datalab/roles/prompts.py').read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+        self.assertEqual(hashlib.sha256(data).hexdigest(), PROMPTS_FILE_SHA256)
 
     def test_orders_messages_are_byte_identical(self):
         messages = orders_messages()
