@@ -113,7 +113,7 @@ npm run build --prefix frontend
 | `python -B scripts/verify_olist.py [--metamorphic]` | 真实 Olist 数据（先运行 `fetch_olist.py`）：七个代表性计划在真实容器中的峰值内存与耗时，以及 `run_fixed` 完整核验；结果写入 `artifacts/olist/scale/olist-result.json` |
 | `python -B evals/run_suite.py` | 固定种子评测：20 项数值、8 项记忆、8 项故障，不调用模型 |
 
-`tests/datalab/test_execution.py` 的 Docker 用例包括蜕变关系在真实容器中的重跑；`test_verification_layers.py` 离线覆盖不变量、两份参考的性质测试（240 组随机数据与计划）和蜕变关系。Olist 相关：`test_olist_import.py`（导入校验）、`test_olist_contract.py`（计划契约与沙箱投影，Docker 用例检查多表输入与新类型的 `run_fixed`）、`test_olist_kinds.py`（三份实现在 400 组合成数据上的性质测试、手算口径、不变量与接线）、`test_olist_verification.py`（多表蜕变关系、金丝雀；Docker 开启且已下载原始数据时在真实数据上跑每类固定分析，约 2 分钟）。`scripts/test_app.py` 在已下载原始数据时另跑一条经 API、worker 与真实数据的 Olist 任务，否则跳过。
+`tests/datalab/test_execution.py` 的 Docker 用例包括蜕变关系在真实容器中的重跑；`test_verification_layers.py` 离线覆盖不变量、两份参考的性质测试（240 组随机数据与计划）和蜕变关系。Olist 相关：`test_olist_import.py`（导入校验）、`test_olist_contract.py`（计划契约与沙箱投影，Docker 用例检查多表输入与新类型的 `run_fixed`）、`test_olist_kinds.py`（三份实现在 400 组合成数据上的性质测试、手算口径、不变量与接线）、`test_olist_verification.py`（多表蜕变关系、金丝雀；Docker 开启且已下载原始数据时在真实数据上跑每类固定分析，约 2 分钟）。`scripts/test_app.py` 在已下载原始数据时另跑一条经 API、worker 与真实数据的 Olist 任务，否则跳过。`test_olist_roles.py` 用模拟的 OpenAI 兼容服务经真实适配器跑通九类 Olist 工作流并派生图表与说明（Docker 开启时在真实容器中再跑一遍），覆盖澄清、金额来源锁、复核提示与概况金丝雀；`test_prompt_compat.py` 检查单表提示与请求逐字节不变。
 
 运行完后用 `Remove-Item Env:DATALAB_DOCKER_TESTS` 清除开关。`scripts/test_postgres.py` 只清理自己创建的容器；`DATALAB_POSTGRES_TESTS=1` 配合 `DATALAB_TEST_DATABASE_URL` 也可以指向一个专用测试库，但不要指向含业务数据的库。
 

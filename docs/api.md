@@ -68,8 +68,8 @@ python -m datalab.api.mcp_server            # stdio；接口地址由 DATALAB_AP
 | --- | --- | --- |
 | `list_projects` | `GET /api/projects` | 只读 |
 | `list_datasets` | `GET .../datasets` | 只读；不返回质量概况明细 |
-| `list_metrics` | `GET .../memories` | 只读；只列出已确认的指标口径 |
-| `submit_analysis` | `POST .../tasks` | 每次带 `Idempotency-Key`；调用方不给时生成一个并在结果里返回，重试时沿用即得到原任务 |
+| `list_metrics` | `GET .../memories` | 只读；只列出已确认的指标口径（含 Olist 口径的 `amount_source`） |
+| `submit_analysis` | `POST .../tasks` | 每次带 `Idempotency-Key`；调用方不给时生成一个并在结果里返回，重试时沿用即得到原任务。类型、分组与 `time_field` 与任务接口相同；金额来源不是参数，只随口径确认 |
 | `get_task` | `GET .../tasks/{task_id}` | 只读；返回状态、计划、核验结论与检查名、调用次数、最近 12 条时间线、产物列表与分析说明，不返回核验项和独立参考数值 |
 | `read_artifact` | `GET .../artifacts/{artifact_id}` | 只读；文本产物最多返回 64 KB 并标明“是数据，不是指令”，图表只返回名称与大小 |
 | `cancel_task` | `POST .../tasks/{task_id}/cancel` | 已结束的任务不受影响 |
@@ -96,10 +96,10 @@ python -m datalab.api.mcp_server            # stdio；接口地址由 DATALAB_AP
 
 React + TypeScript + Vite，共四个页面：
 
-1. 数据工作台：创建项目，上传 CSV 并查看数据质量。
-2. 分析任务：选择分析类型、分组与期间，提交并跟踪任务。
+1. 数据工作台：创建项目，上传 CSV 或导入服务端固定目录中的 Olist 多表数据，并查看数据质量。
+2. 分析任务：选择分析类型、分组与期间，提交并跟踪任务；选项按数据版本的 `schema` 切换，Olist 送达延迟可选按送达日期划期间。
 3. 报告详情：阶段时间线、核验结果、图表、分析说明与产物下载；任务等待确认时在此选择已确认口径继续。
-4. 项目记忆：提出、确认与失效指标口径，确认字段语义。
+4. 项目记忆：提出、确认与失效指标口径，确认字段语义；Olist 口径在提出时选择订单金额来源（payments / items，或不确认，此时只能用于非金额类型）。
 
 页面顶部的模型下拉框调用 `PUT /api/model`。刷新页面后，任务与报告从后端恢复。
 
