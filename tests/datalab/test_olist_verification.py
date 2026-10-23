@@ -322,4 +322,7 @@ class RealOlistDockerTests(unittest.TestCase):
                 names = [item['name'] for item in report['verification']['checks']]
                 self.assertTrue(all(item['passed'] for item in report['verification']['checks']))
                 self.assertEqual('metamorphic' in names, with_metamorphic)
+                # 核验通过后派生说明与图表（每类至少一张）。
+                self.assertIn('real-v1', report['narrative']['text'])
+                self.assertGreaterEqual(len(report['charts']), 1)
                 print(kind, 'wall', round(time.monotonic() - started, 1), 's; container', report['execution']['elapsed_seconds'], 's')

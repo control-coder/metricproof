@@ -221,7 +221,9 @@ class OlistDockerTests(OlistSandboxFixture):
             with self.subTest(kind=value.kind):
                 report = run_fixed(self.runner, value, 'demo')
                 self.assertEqual(report['status'], 'SUCCEEDED', report)
-                self.assertNotIn('narrative', report)
+                # 核验通过后与单表一样派生说明与图表。
+                self.assertIn(value.metric_version, report['narrative']['text'])
+                self.assertTrue(report['charts'])
 
     def test_framework_receives_only_projected_tables(self):
         value = self.plan('delivery_delay', group_by='customer_state')

@@ -227,8 +227,15 @@ class AppIntegrationTests(unittest.TestCase):
                                                           'options':{'kind':'repeat_rate'},'memory_id':plain})
         self.assertEqual(response.status_code,202,response.text)
         complete=self.wait_task(response.json()['task_id'],{'SUCCEEDED'})
-        self.assertIsNone(complete['narrative'])
-        self.assertIn('结果表.csv',[item['name'] for item in complete['artifacts']])
+        names=[item['name'] for item in complete['artifacts']]
+        self.assertIn('结果表.csv',names)
+        # 核验通过后同样派生说明、图表与报告结论（复购率引用 total.repeat_rate）。
+        self.assertIn('复购率',complete['narrative']['text'])
+        self.assertIn(complete['snapshot']['metric']['version'],complete['narrative']['text'])
+        self.assertIn('图表-1.png',names)
+        report=next(item for item in complete['artifacts'] if item['name']=='核验报告.json')
+        content=self.client.get(self.base+'/artifacts/'+report['artifact_id']).json()
+        self.assertEqual([claim['result_pointer'] for claim in content['claims']],['/total/repeat_rate'])
 
     def remove_dataset(self,version):
         folder=(self.settings.artifact_root/'datasets'/version).resolve()

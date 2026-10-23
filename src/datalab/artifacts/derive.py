@@ -12,6 +12,26 @@ DERIVED_DIR = "derived"
 NARRATIVE_FILE = "narrative.json"
 
 
+# 报告结论：每类分析一条，指向已核验参考结果中的一个总计字段。订单级金额分析（单表与 Olist）沿用原句式。
+# (识别该类结果的总计键, 引用的总计键, 句式, 是否为分)
+CLAIMS = (("amount_cents", "amount_cents", "确认口径下订单金额合计 {}", True),
+          ("repeat_rate", "repeat_rate", "确认口径下复购率 {}", False),
+          ("late_rate", "late_rate", "确认口径下送达延迟率 {}", False),
+          ("price_cents", "price_cents", "确认口径下纳入订单的商品金额合计 {}", True),
+          ("last_complete_month", "customer_count", "确认口径下进入留存 cohort 的客户共 {} 位", False))
+
+
+def claims(reference: dict, artifact_id: str) -> list[dict]:
+    """由独立参考结果生成报告结论；比值为 null 时写明不计算。"""
+    total = reference.get("total") or {}
+    for marker, key, template, cents in CLAIMS:
+        if marker in total:
+            value = total[key]
+            text = f"{value / 100:.2f}" if cents else ("不计算（分母为 0）" if value is None else str(value))
+            return [{"text": template.format(text), "artifact_id": artifact_id, "result_pointer": f"/total/{key}"}]
+    return []
+
+
 def derive(run_folder: Path, plan: dict, *, metric_version: str, included_statuses, currency: str,
            data_range: tuple[str, str] | None) -> dict:
     """读取本次尝试的 result.json，写入 derived/ 下的图表与说明，返回索引信息。

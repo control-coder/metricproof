@@ -5,7 +5,7 @@ import threading
 
 from celery import Celery
 
-from datalab.artifacts.derive import derive
+from datalab.artifacts.derive import claims as report_claims, derive
 from datalab.datasets.service import DatasetStore
 from datalab.execution.runner import DockerRunner, ExecutionError
 from datalab.orchestration.services import ExecutionServices
@@ -87,8 +87,7 @@ def process_task(task_id: str):
                 if (folder / path).is_file():
                     repository.add_artifact(task.task_id,manifest.run_id,name,f'runs/{manifest.run_id}/{path}',token)
         derived, derived_error = None, None
-        # Olist 多表结果的图表与说明模板尚未实现，暂不派生（不是失败）。
-        if task.state == State.SUCCEEDED and task.attempts and task.plan.schema == 'orders':
+        if task.state == State.SUCCEEDED and task.attempts:
             # 图表与说明只从已通过核验的 result.json 确定性派生；失败不推翻核验结论，只记录原因。
             latest = task.attempts[-1]
             try:
@@ -106,10 +105,8 @@ def process_task(task_id: str):
             result_artifact = next((item for item in indexed if item['name'] == '结果.json' and str(item['run_id']) == latest.run_id), None)
             claims = []
             if task.state == State.SUCCEEDED and result_artifact:
-                reference = task.verifications[-1].reference
-                if 'amount_cents' in reference.get('total', {}):
-                    claims.append({'text': f"确认口径下订单金额合计 {reference['total']['amount_cents'] / 100:.2f}",
-                                   'artifact_id': str(result_artifact['artifact_id']), 'result_pointer': '/total/amount_cents'})
+                # 单表与 Olist 订单级金额分析引用金额合计，Olist 新类型引用各自的总计比值或金额。
+                claims = report_claims(task.verifications[-1].reference, str(result_artifact['artifact_id']))
             report = {'mode':row['request'].get('mode','guided-demo'),'model':row['request'].get('model'),'task_id':task.task_id,'state':task.state.value,
                       'dataset_version':task.dataset_version,'metric':asdict(task.metric) if task.metric else None,
                       'plan':task.plan.payload() if task.plan else None,'claims':claims,

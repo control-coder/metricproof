@@ -22,7 +22,10 @@ MAX_CHARTS = 3
 MAX_BARS = 15
 # 日期跨度不超过一年时补齐无订单日期（按口径该日订单为 0），否则只画有订单的日期。
 MAX_FILL_DAYS = 366
-GROUP_TITLES = {"channel": "渠道", "category": "品类", "payment_date": "支付日期"}
+GROUP_TITLES = {"channel": "渠道", "category": "品类", "payment_date": "支付日期",
+                # Olist 多表的分组
+                "customer_state": "州", "purchase_date": "下单日期", "purchase_month": "下单月份", "product_category": "品类"}
+DAILY_GROUPS = ("payment_date", "purchase_date")
 STATUSES = ("paid", "refunded", "cancelled")
 # 优先开源字体，便于在 Linux 上以同名字体复现；找不到中文字体时中文会缺字，但数值与布局不变。
 FONT_CANDIDATES = ("Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei", "SimHei", "WenQuanYi Zen Hei")
@@ -109,11 +112,22 @@ def chart_specs(result: dict, plan: dict) -> list[dict]:
             ("上期", comparison["previous_order_count"], f"{comparison['previous_order_count']:,}"),
             ("本期", total["order_count"], f"{total['order_count']:,}")], "count",
             "/comparison/previous_order_count,/total/order_count", emphasis=1))
+    if kind in OLIST_SPECS:
+        return OLIST_SPECS[kind](result, group)[:MAX_CHARTS]
     rows = result.get("rows") or []
     if not rows:
         return specs[:MAX_CHARTS]
     name = GROUP_TITLES.get(group, "分组")
-    if group == "payment_date":
+    if group == "purchase_month" and kind == "trend":
+        labels = [row["group"] for row in rows]
+        specs.append({"form": "line", "title": "每月金额", "unit": "amount", "source": "/rows", "note": None,
+                      "labels": labels, "values": [row["amount_cents"] / 100 for row in rows],
+                      "texts": [_money(row["amount_cents"]) for row in rows]})
+        specs.append({"form": "column", "title": "每月订单数", "unit": "count", "source": "/rows", "note": None,
+                      "labels": labels, "values": [row["order_count"] for row in rows],
+                      "texts": [f"{row['order_count']:,}" for row in rows]})
+        return specs[:MAX_CHARTS]
+    if group in DAILY_GROUPS:
         days, note = _daily(rows)
         labels = [row["group"] for row in days]
         specs.append({"form": "line", "title": "每日金额", "unit": "amount", "source": "/rows", "note": note,
@@ -135,6 +149,93 @@ def chart_specs(result: dict, plan: dict) -> list[dict]:
                                         for row in folded], "count", "/rows/*/order_count",
                        (note + "；" if note else "") + "顺序与金额图一致"))
     return specs[:MAX_CHARTS]
+
+
+# ---- Olist 多表新类型：比值图配一张计数图，计数大的组排在前面，超过上限的组合并为“其他” ----
+
+def _fold_by(rows: list[dict], key: str, fields: tuple[str, ...]) -> tuple[list[dict], str | None]:
+    """按 key 降序（再按组名）排列；超过上限时把尾部各组的 fields 相加合并为一行。"""
+    ordered = sorted(rows, key=lambda row: (-row[key], str(row["group"])))
+    if len(ordered) <= MAX_BARS:
+        return ordered, None
+    head, rest = ordered[:MAX_BARS - 1], ordered[MAX_BARS - 1:]
+    other = {"group": f"其他 {len(rest)} 组", **{field: sum(row[field] for row in rest) for field in fields}}
+    return head + [other], f"第 {MAX_BARS} 位及之后的 {len(rest)} 组合并为“其他”"
+
+
+def _ratio_bars(title, rows, numerator, denominator, source, note, noun):
+    """比值条形图；标签同时写出分母，样本很小的组不会和大组看起来一样可靠。"""
+    items = []
+    for row in rows:
+        ratio = Decimal(row[numerator]) / Decimal(row[denominator]) if row[denominator] else Decimal(0)
+        text = _percent(ratio) if row[denominator] else "不计算"
+        items.append((row["group"], float(ratio * 100), f"{text}（{row[denominator]:,} {noun}）"))
+    return _bars(title, items, "rate", source, note)
+
+
+def _repeat_specs(result: dict, group) -> list[dict]:
+    total, rows = result["total"], result.get("rows") or []
+    if not rows:
+        return [_bars("下单客户与复购客户", [
+            ("下单客户", total["customer_count"], f"{total['customer_count']:,}"),
+            ("复购客户（≥2 单）", total["repeat_customer_count"], f"{total['repeat_customer_count']:,}")], "customers",
+            "/total/customer_count,/total/repeat_customer_count", emphasis=1)]
+    folded, note = _fold_by(rows, "customer_count", ("customer_count", "repeat_customer_count"))
+    return [_ratio_bars("各州复购率", folded, "repeat_customer_count", "customer_count", "/rows/*/repeat_rate",
+                        (note + "；" if note else "") + "复购客户 / 下单客户，括号内为下单客户数，按下单客户数排序", "位"),
+            _bars("各州下单客户数", [(row["group"], row["customer_count"], f"{row['customer_count']:,}") for row in folded],
+                  "customers", "/rows/*/customer_count", note)]
+
+
+def _cohort_specs(result: dict, group) -> list[dict]:
+    rows = result.get("rows") or []
+    sizes = [row for row in rows if row["offset"] == 0]
+    if not sizes:
+        return []
+    specs = [{"form": "column", "title": "各首单月份的新客户数", "unit": "customers", "source": "/rows/*/customer_count",
+              "note": None, "labels": [row["cohort"] for row in sizes], "values": [row["customer_count"] for row in sizes],
+              "texts": [f"{row['customer_count']:,}" for row in sizes]}]
+    first = [row for row in rows if row["offset"] == 1]
+    if first:
+        ratios = [Decimal(row["retained_count"]) / Decimal(row["customer_count"]) for row in first]
+        censored = [row["cohort"] for row in sizes if row["cohort"] not in {item["cohort"] for item in first}]
+        note = "柱上为比例与仍下单人数"
+        if censored:
+            note += f"；{'、'.join(censored)} 首单后第 1 个月尚未完整（右删失），不显示"
+        specs.append({"form": "column", "title": "首单后第 1 个月仍有下单的客户比例", "unit": "rate",
+                      "source": "/rows/*/retention", "note": note, "labelled": True,
+                      "labels": [row["cohort"] for row in first], "values": [float(ratio * 100) for ratio in ratios],
+                      "texts": [f"{_percent(ratio)}（{row['retained_count']:,}）" for ratio, row in zip(ratios, first)]})
+    return specs
+
+
+def _delivery_specs(result: dict, group) -> list[dict]:
+    total, rows = result["total"], result.get("rows") or []
+    if not rows:
+        on_time = total["delivered_count"] - total["late_count"]
+        return [_bars("已送达订单：按时与延迟", [("按时或提前", on_time, f"{on_time:,}"),
+                                         ("晚于预计送达日期", total["late_count"], f"{total['late_count']:,}")],
+                      "count", "/total/delivered_count,/total/late_count", emphasis=1)]
+    folded, note = _fold_by(rows, "delivered_count", ("delivered_count", "late_count"))
+    return [_ratio_bars("各州送达延迟率", folded, "late_count", "delivered_count", "/rows/*/late_rate",
+                        (note + "；" if note else "") + "延迟订单 / 已送达订单，括号内为已送达订单数，按已送达订单数排序", "笔"),
+            _bars("各州已送达订单数", [(row["group"], row["delivered_count"], f"{row['delivered_count']:,}") for row in folded],
+                  "count", "/rows/*/delivered_count", note)]
+
+
+def _category_specs(result: dict, group) -> list[dict]:
+    rows = result.get("rows") or []
+    if not rows:
+        return []
+    folded, note = _fold_by(rows, "price_cents", ("item_count", "price_cents", "freight_cents"))
+    return [_bars("各品类商品金额", [(row["group"], row["price_cents"] / 100, _money(row["price_cents"])) for row in folded],
+                  "amount", "/rows/*/price_cents", (note + "；" if note else "") + "不含运费"),
+            _bars("各品类明细件数", [(row["group"], row["item_count"], f"{row['item_count']:,}") for row in folded],
+                  "items", "/rows/*/item_count", (note + "；" if note else "") + "顺序与金额图一致")]
+
+
+OLIST_SPECS = {"repeat_rate": _repeat_specs, "cohort_retention": _cohort_specs, "delivery_delay": _delivery_specs,
+               "category_sales": _category_specs}
 
 
 STYLE = {
@@ -210,21 +311,41 @@ def _render_columns(fig, spec):
     values = spec["values"]
     positions = list(range(len(values)))
     ax.bar(positions, values, width=0.6, color=SERIES, linewidth=0)
+    if spec.get("labelled"):
+        # 只用于 Olist 比值柱形图：数值很小时轴刻度不足以读出差异，每根柱写出比例与人数。
+        for position, value, text in zip(positions, values, spec["texts"]):
+            ax.annotate(text, (position, value), xytext=(0, 4), textcoords="offset points",
+                        ha="center", va="bottom", color=INK, fontsize=9)
     _finish_time_axes(ax, spec, max(values, default=0))
+
+
+def _rate_axis(ax):
+    """比值轴：刻度步长只取 1、2、5 的十进倍数，小数位数按步长确定，标签与刻度位置一致。"""
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5, steps=[1, 2, 5, 10]))
+    ticks = [value for value in ax.get_yticks() if value >= 0]
+    step = Decimal(f"{ticks[1] - ticks[0]:.10g}").normalize() if len(ticks) > 1 else Decimal(1)
+    places = max(0, -step.as_tuple().exponent)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:.{places}f}%"))
 
 
 def _finish_time_axes(ax, spec, peak):
     _date_ticks(ax, spec["labels"])
     ax.set_ylim(0, (peak or 1) * 1.18)
-    ax.yaxis.set_major_locator(MaxNLocator(nbins=5, integer=spec["unit"] == "count"))
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
+    if spec["unit"] == "rate":
+        _rate_axis(ax)
+    else:
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5, integer=spec["unit"] in COUNT_UNITS))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
     ax.grid(axis="y", color=GRID, linewidth=1)
     ax.set_axisbelow(True)
     ax.set_xlim(-0.6, len(spec["labels"]) - 0.4)
     _plain_axes(ax)
 
 
-UNITS = {"amount": "金额", "count": "订单数", "percent": "占合计金额比例"}
+UNITS = {"amount": "金额", "count": "订单数", "percent": "占合计金额比例",
+         # Olist 新类型
+         "customers": "客户数", "items": "明细件数", "rate": "比例"}
+COUNT_UNITS = ("count", "customers", "items")
 
 
 def render(spec: dict, path: Path, *, currency: str, font: str | None) -> None:

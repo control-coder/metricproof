@@ -31,8 +31,7 @@ def run_fixed(runner: DockerRunner, plan: AnalysisPlan, project_id: str, *, meta
                                       folder / "output/table.csv", sandbox=sandbox)
             report["verification"] = asdict(verification)
             report["status"] = "SUCCEEDED" if verification.passed else "FAILED"
-            # Olist 多表结果的图表与说明模板尚未实现，暂不派生。
-            if verification.passed and plan.schema == "orders":
+            if verification.passed:
                 version = runner.store.get(plan.dataset_version, project_id)
                 derived = derive(folder, plan.payload(), metric_version=plan.metric_version,
                                  included_statuses=plan.included_statuses, currency=version.currency,
