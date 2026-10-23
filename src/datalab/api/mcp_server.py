@@ -107,16 +107,21 @@ class OrderProofTools:
                                       params={'dataset_version': str(dataset_version)}).json()
         return [{'memory_id': entry['memory_id'], 'name': entry['name'], 'version': entry['version'],
                  'definition': entry['content'].get('definition'),
-                 'included_statuses': entry['content'].get('included_statuses')}
+                 'included_statuses': entry['content'].get('included_statuses'),
+                 'amount_source': entry['content'].get('amount_source')}
                 for entry in entries if entry.get('kind') == 'metric' and entry.get('status') == 'confirmed']
 
     def submit_analysis(self, project_id: ProjectId, dataset_version: DatasetId,
                         question: Annotated[str, Field(min_length=1, max_length=4000, description='分析问题')],
-                        kind: Literal['summary', 'trend', 'ranking', 'share', 'comparison', 'quality'] = 'summary',
-                        group_by: Literal['channel', 'category', 'payment_date'] | None = None,
+                        kind: Literal['summary', 'trend', 'ranking', 'share', 'comparison', 'quality',
+                                      'repeat_rate', 'cohort_retention', 'delivery_delay', 'category_sales'] = 'summary',
+                        group_by: Literal['channel', 'category', 'payment_date', 'customer_state', 'purchase_date',
+                                          'purchase_month', 'product_category'] | None = None,
                         start: Annotated[str | None, Field(description='期间起点（含），YYYY-MM-DD')] = None,
                         end: Annotated[str | None, Field(description='期间终点（不含），YYYY-MM-DD')] = None,
                         previous_start: str | None = None, previous_end: str | None = None,
+                        time_field: Annotated[Literal['order_purchase_timestamp', 'order_delivered_customer_date'] | None, Field(
+                            description='只用于 Olist；送达日期只适用于 delivery_delay，不给时用下单时间')] = None,
                         memory_id: Annotated[UUID | None, Field(description='已确认口径 ID；不给时任务会等待用户确认')] = None,
                         idempotency_key: Annotated[str | None, Field(
                             description='幂等键；重试同一请求时沿用上次返回的键，服务端返回原任务')] = None) -> dict:
@@ -124,12 +129,15 @@ class OrderProofTools:
 
         模型模式下由 Planner 依据问题制定计划，分析类型与期间只作参考；固定演示模式下按这些选项执行。
         trend、ranking、share 需要 group_by；comparison 需要两段期间，期间左闭右开。
+        后四类与 customer_state、purchase_date、purchase_month、product_category 分组只适用于 Olist 多表数据；
+        订单金额来源随所选口径确定，不能在这里指定。
         """
         key = idempotency_key or uuid4().hex
         if not IDEMPOTENCY_KEY.fullmatch(key):
             raise ToolError('幂等键需为 1–128 位可见 ASCII 字符')
         options = {name: value for name, value in (('kind', kind), ('group_by', group_by), ('start', start), ('end', end),
-                   ('previous_start', previous_start), ('previous_end', previous_end)) if value is not None}
+                   ('previous_start', previous_start), ('previous_end', previous_end), ('time_field', time_field))
+                   if value is not None}
         body = {'dataset_version': str(dataset_version), 'question': question, 'options': options}
         if memory_id is not None:
             body['memory_id'] = str(memory_id)

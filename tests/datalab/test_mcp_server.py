@@ -103,6 +103,12 @@ class McpToolTests(unittest.TestCase):
         self.assertEqual((again['task_id'], again['replayed']), (TASK, True))
         with self.assertRaises(ToolError):
             self.tools.submit_analysis(PROJECT, DATASET, '问题', idempotency_key='含中文的键')
+        # Olist 类型与时间字段原样转发；金额来源不是工具参数，只能随口径确认。
+        self.tools.submit_analysis(PROJECT, DATASET, '各州送达延迟率', kind='delivery_delay', group_by='customer_state',
+                                   time_field='order_delivered_customer_date')
+        self.assertEqual(json.loads(self.api.requests[-1].content)['options'],
+                         {'kind': 'delivery_delay', 'group_by': 'customer_state', 'time_field': 'order_delivered_customer_date'})
+        self.assertNotIn('amount_source', OrderProofTools.submit_analysis.__code__.co_varnames)
 
     def test_task_summary_omits_checks_and_reference_values(self):
         summary = self.tools.get_task(PROJECT, TASK)
