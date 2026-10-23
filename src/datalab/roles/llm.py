@@ -7,13 +7,24 @@ import time
 
 import httpx
 
-from datalab.contracts import AnalysisPlan
+from datalab.contracts import AMOUNT_KINDS, AnalysisPlan
 from datalab.execution.analysis_frame import assemble, model_part
+from datalab.roles import olist_prompts
 from datalab.roles.model_config import ModelProfile
 from datalab.roles.prompts import PLANNER_REVIEW, SYSTEM
 from datalab.roles.runtime import ModelCallError, ModelReply, Role
 
 PLAN_FIELDS = ('kind', 'group_by', 'start', 'end', 'previous_start', 'previous_end')
+# Olist 计划还可以选择时间字段；数据结构与金额来源由服务端按数据版本与已确认口径填写。
+OLIST_PLAN_FIELDS = PLAN_FIELDS + ('time_field',)
+
+
+def handoff_schema(handoff: dict) -> str:
+    """由服务端交接判断数据结构：Planner 与 Reviewer 看概况视图，Analyst 看计划。"""
+    profile, plan = handoff.get('profile'), handoff.get('plan')
+    if (isinstance(profile, dict) and profile.get('schema') == 'olist') or (isinstance(plan, dict) and plan.get('schema') == 'olist'):
+        return 'olist'
+    return 'orders'
 FENCE = re.compile(r'^\s*```[a-zA-Z0-9_-]*\s*\n(.*?)\n?```\s*$', re.DOTALL)
 
 
@@ -102,7 +113,10 @@ class ModelBackend:
         message = {'instruction': context['instruction'], 'allowed_tools': context['allowed_tools'], 'handoff': handoff}
         if role == Role.PLANNER and self.options:
             message['ui_options'] = {'note': '用户在界面选择的参考选项；与问题冲突时以问题为准', **self.options}
-        system = SYSTEM[role.value] + (PLANNER_REVIEW if role == Role.PLANNER and 'review' in handoff else '')
+        if handoff_schema(handoff) == 'olist':
+            system = olist_prompts.SYSTEM[role.value] + (olist_prompts.REVIEW if role == Role.PLANNER and 'review' in handoff else '')
+        else:
+            system = SYSTEM[role.value] + (PLANNER_REVIEW if role == Role.PLANNER and 'review' in handoff else '')
         messages = [{'role': 'system', 'content': system},
                     {'role': 'user', 'content': json.dumps(message, ensure_ascii=False)}]
         config = self.client.profile
@@ -134,11 +148,21 @@ class ModelBackend:
         proposal = reply.get('plan')
         if set(reply) != {'plan'} or not isinstance(proposal, dict):
             raise ModelCallError('Planner 输出不符合计划契约')
+        metric = handoff['metric']
+        olist = handoff_schema(handoff) == 'olist'
         # 空字符串与 null 等价，其余类型交由计划契约校验。
-        fields = {key: proposal.get(key) or None for key in PLAN_FIELDS}
+        fields = {key: proposal.get(key) or None for key in (OLIST_PLAN_FIELDS if olist else PLAN_FIELDS)}
         if not isinstance(fields['kind'], str):
             raise ModelCallError('Planner 未给出分析类型')
-        metric = handoff['metric']
+        if olist:
+            if fields['time_field'] is None:
+                del fields['time_field']
+            # 金额来源是已确认口径的一部分：Planner 写了不同的值即拒绝，不静默改回。
+            if proposal.get('amount_source') not in (None, '', metric.get('amount_source')):
+                raise ModelCallError('Planner 不能更改已确认的订单金额来源')
+            fields['schema'] = 'olist'
+            if fields['kind'] in AMOUNT_KINDS:
+                fields['amount_source'] = metric.get('amount_source')
         try:
             plan = AnalysisPlan(handoff['dataset_version'], metric['version'],
                                 included_statuses=tuple(metric['included_statuses']), **fields)
