@@ -1,0 +1,7106 @@
+{
+ "date": "2026-10-23",
+ "git_commit": "b0f7005",
+ "wall_seconds": 1360.2,
+ "config": {
+  "workers": 5,
+  "image": "datalab-executor:py312-v1",
+  "metric_version": "olist-injection-v1",
+  "metamorphic_seed": 20261022,
+  "included_statuses": [
+   "delivered",
+   "shipped",
+   "invoiced",
+   "processing",
+   "approved",
+   "created"
+  ],
+  "model_calls": 0
+ },
+ "heldout_sha256": "aad2fb967cf3bd0d7c3a853f0beafb9f39f0740ddf41e99fb2ad4afdaa2397ca",
+ "catalog_sha256": "d0f24908ec6e47f85449abab0eacdf4c5c055831ae14bba057142576825504d8",
+ "base_code_sha256": "574266c97916c37784cbfbc4b0663b72cce23e88ddb54b014d5934abd0390e41",
+ "operators": [
+  {
+   "name": "end_inclusive",
+   "family": "boundary",
+   "kinds": [
+    "summary",
+    "trend",
+    "ranking",
+    "share",
+    "comparison",
+    "repeat_rate",
+    "delivery_delay",
+    "category_sales"
+   ],
+   "note": "期间终点按闭区间处理"
+  },
+  {
+   "name": "start_exclusive",
+   "family": "boundary",
+   "kinds": [
+    "summary",
+    "trend",
+    "ranking",
+    "share",
+    "comparison",
+    "repeat_rate",
+    "delivery_delay",
+    "category_sales"
+   ],
+   "note": "期间起点按开区间处理"
+  },
+  {
+   "name": "status_filter_dropped",
+   "family": "status",
+   "kinds": [
+    "summary",
+    "trend",
+    "ranking",
+    "share",
+    "comparison",
+    "repeat_rate",
+    "delivery_delay",
+    "category_sales"
+   ],
+   "note": "不按口径状态过滤"
+  },
+  {
+   "name": "status_hardcoded_delivered",
+   "family": "status",
+   "kinds": [
+    "summary",
+    "trend",
+    "ranking",
+    "share",
+    "comparison",
+    "repeat_rate",
+    "delivery_delay",
+    "category_sales"
+   ],
+   "note": "口径状态写死为 delivered"
+  },
+  {
+   "name": "ratio_float",
+   "family": "rounding",
+   "kinds": [
+    "share",
+    "comparison",
+    "repeat_rate",
+    "cohort_retention",
+    "delivery_delay"
+   ],
+   "note": "比值用浮点除法"
+  },
+  {
+   "name": "ratio_five_places",
+   "family": "rounding",
+   "kinds": [
+    "share",
+    "comparison",
+    "repeat_rate",
+    "cohort_retention",
+    "delivery_delay"
+   ],
+   "note": "比值只保留 5 位小数"
+  },
+  {
+   "name": "ranking_ascending",
+   "family": "ordering",
+   "kinds": [
+    "ranking"
+   ],
+   "note": "排行按金额升序"
+  },
+  {
+   "name": "delta_sign_flipped",
+   "family": "comparison",
+   "kinds": [
+    "comparison"
+   ],
+   "note": "差额符号取反"
+  },
+  {
+   "name": "growth_wrong_base",
+   "family": "comparison",
+   "kinds": [
+    "comparison"
+   ],
+   "note": "增长率以本期为分母"
+  },
+  {
+   "name": "date_key_month",
+   "family": "grouping",
+   "kinds": [
+    "trend",
+    "ranking",
+    "share"
+   ],
+   "note": "按日分组截成了月份"
+  },
+  {
+   "name": "total_in_reais",
+   "family": "scale",
+   "kinds": [
+    "summary",
+    "trend",
+    "ranking",
+    "share",
+    "comparison"
+   ],
+   "note": "总计金额误换算为雷亚尔"
+  },
+  {
+   "name": "spurious_group",
+   "family": "rows",
+   "kinds": [
+    "summary",
+    "trend",
+    "ranking",
+    "share",
+    "comparison"
+   ],
+   "note": "多出一行空分组"
+  },
+  {
+   "name": "last_group_dropped",
+   "family": "rows",
+   "kinds": [
+    "summary",
+    "trend",
+    "ranking",
+    "share",
+    "comparison"
+   ],
+   "note": "分组行少了最后一行"
+  },
+  {
+   "name": "amount_source_swapped",
+   "family": "olist_amount",
+   "kinds": [
+    "summary",
+    "trend",
+    "ranking",
+    "share",
+    "comparison"
+   ],
+   "note": "订单金额来源用反（payments 与 items 互换）"
+  },
+  {
+   "name": "repeat_customer_id",
+   "family": "olist_customer",
+   "kinds": [
+    "repeat_rate"
+   ],
+   "note": "复购按 customer_id 而不是 customer_unique_id 计人"
+  },
+  {
+   "name": "repeat_threshold_three",
+   "family": "olist_customer",
+   "kinds": [
+    "repeat_rate"
+   ],
+   "note": "复购总数要求至少 3 单（分组行仍为 2 单）"
+  },
+  {
+   "name": "repeat_state_last_order",
+   "family": "olist_customer",
+   "kinds": [
+    "repeat_rate"
+   ],
+   "note": "客户归入期间内最后一笔订单的州"
+  },
+  {
+   "name": "cohort_customer_id",
+   "family": "olist_cohort",
+   "kinds": [
+    "cohort_retention"
+   ],
+   "note": "留存按 customer_id 计人"
+  },
+  {
+   "name": "cohort_last_order",
+   "family": "olist_cohort",
+   "kinds": [
+    "cohort_retention"
+   ],
+   "note": "cohort 取最后一单（而不是首单）所在月"
+  },
+  {
+   "name": "cohort_start_truncates_first",
+   "family": "olist_cohort",
+   "kinds": [
+    "cohort_retention"
+   ],
+   "note": "start 截断了活动，start 之前已下过单的客户被当成新客"
+  },
+  {
+   "name": "cohort_censoring_off_by_one",
+   "family": "olist_cohort",
+   "kinds": [
+    "cohort_retention"
+   ],
+   "note": "右删失差一个月，输出了不完整的月份"
+  },
+  {
+   "name": "late_timestamp_level",
+   "family": "olist_delivery",
+   "kinds": [
+    "delivery_delay"
+   ],
+   "note": "延迟按时间戳比较，同一天送达也算延迟"
+  },
+  {
+   "name": "delivery_ignores_status",
+   "family": "olist_delivery",
+   "kinds": [
+    "delivery_delay"
+   ],
+   "note": "不限定 delivered 状态"
+  },
+  {
+   "name": "category_drops_unknown",
+   "family": "olist_category",
+   "kinds": [
+    "category_sales"
+   ],
+   "note": "丢弃没有品类的明细（unknown）"
+  },
+  {
+   "name": "category_untranslated_unknown",
+   "family": "olist_category",
+   "kinds": [
+    "category_sales"
+   ],
+   "note": "未翻译品类并入 unknown"
+  },
+  {
+   "name": "category_freight_in_price",
+   "family": "olist_category",
+   "kinds": [
+    "category_sales"
+   ],
+   "note": "品类商品金额混入运费"
+  },
+  {
+   "name": "category_total_orders_summed",
+   "family": "olist_category",
+   "kinds": [
+    "category_sales"
+   ],
+   "note": "总订单数按品类相加，跨品类订单重复计数"
+  }
+ ],
+ "baseline": {
+  "cases": 36,
+  "false_alarms": 0,
+  "records": [
+   {
+    "case": 1,
+    "kind": "summary",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 2,
+    "kind": "summary",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 3,
+    "kind": "summary",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 4,
+    "kind": "summary",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 5,
+    "kind": "trend",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 6,
+    "kind": "trend",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 7,
+    "kind": "trend",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 8,
+    "kind": "trend",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 9,
+    "kind": "ranking",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 10,
+    "kind": "ranking",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 11,
+    "kind": "ranking",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 12,
+    "kind": "ranking",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 13,
+    "kind": "share",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 14,
+    "kind": "share",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 15,
+    "kind": "share",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 16,
+    "kind": "share",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 17,
+    "kind": "comparison",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 18,
+    "kind": "comparison",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 19,
+    "kind": "comparison",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 20,
+    "kind": "comparison",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 21,
+    "kind": "repeat_rate",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 22,
+    "kind": "repeat_rate",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 23,
+    "kind": "repeat_rate",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 24,
+    "kind": "repeat_rate",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 25,
+    "kind": "cohort_retention",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 26,
+    "kind": "cohort_retention",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 27,
+    "kind": "cohort_retention",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 28,
+    "kind": "cohort_retention",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "not_applicable"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 29,
+    "kind": "delivery_delay",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 30,
+    "kind": "delivery_delay",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 31,
+    "kind": "delivery_delay",
+    "layers": {
+     "independent_reference": true,
+     "group_total": null,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 32,
+    "kind": "delivery_delay",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 33,
+    "kind": "category_sales",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 34,
+    "kind": "category_sales",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 35,
+    "kind": "category_sales",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   },
+   {
+    "case": 36,
+    "kind": "category_sales",
+    "layers": {
+     "independent_reference": true,
+     "group_total": true,
+     "download_table": true,
+     "invariants": true,
+     "reference_agreement": true,
+     "metamorphic": true
+    },
+    "invariant_issues": [],
+    "relations": {
+     "permutation": "passed",
+     "irrelevant_rows": "passed",
+     "window_split": "passed"
+    },
+    "metamorphic_issues": []
+   }
+  ]
+ },
+ "code_summary": {
+  "mutant_cases": 324,
+  "exposed": 178,
+  "equivalent": 126,
+  "crashed": 20,
+  "layers": {
+   "independent_reference": {
+    "caught": 178,
+    "total": 178,
+    "rate": 1.0,
+    "wilson95": [
+     0.9789,
+     1.0
+    ]
+   },
+   "group_total": {
+    "caught": 26,
+    "total": 110,
+    "rate": 0.2364,
+    "wilson95": [
+     0.1667,
+     0.3238
+    ]
+   },
+   "download_table": {
+    "caught": 152,
+    "total": 178,
+    "rate": 0.8539,
+    "wilson95": [
+     0.7946,
+     0.8983
+    ]
+   },
+   "invariants": {
+    "caught": 76,
+    "total": 178,
+    "rate": 0.427,
+    "wilson95": [
+     0.3566,
+     0.5004
+    ]
+   },
+   "reference_agreement": {
+    "caught": 0,
+    "total": 178,
+    "rate": 0.0,
+    "wilson95": [
+     0.0,
+     0.0211
+    ]
+   },
+   "metamorphic": {
+    "caught": 39,
+    "total": 178,
+    "rate": 0.2191,
+    "wilson95": [
+     0.1646,
+     0.2854
+    ]
+   },
+   "reference_free_union": {
+    "caught": 105,
+    "total": 178,
+    "rate": 0.5899,
+    "wilson95": [
+     0.5165,
+     0.6595
+    ]
+   }
+  },
+  "metamorphic_relations": {
+   "permutation": 0,
+   "irrelevant_rows": 28,
+   "window_split": 11
+  },
+  "verified_but_wrong": 0,
+  "reference_free_residual": 73,
+  "family": {
+   "boundary": {
+    "cases": 64,
+    "exposed": 1,
+    "equivalent": 63,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 1,
+     "group_total": 0,
+     "download_table": 1,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 1,
+     "reference_free_union": 1
+    }
+   },
+   "comparison": {
+    "cases": 8,
+    "exposed": 8,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 8,
+     "group_total": 0,
+     "download_table": 0,
+     "invariants": 8,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 8
+    }
+   },
+   "grouping": {
+    "cases": 12,
+    "exposed": 2,
+    "equivalent": 10,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 2,
+     "group_total": 0,
+     "download_table": 2,
+     "invariants": 2,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 2
+    }
+   },
+   "olist_amount": {
+    "cases": 20,
+    "exposed": 0,
+    "equivalent": 0,
+    "crashed": 20,
+    "layers": {}
+   },
+   "olist_category": {
+    "cases": 16,
+    "exposed": 15,
+    "equivalent": 1,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 15,
+     "group_total": 0,
+     "download_table": 11,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "olist_cohort": {
+    "cases": 16,
+    "exposed": 14,
+    "equivalent": 2,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 14,
+     "group_total": 0,
+     "download_table": 14,
+     "invariants": 4,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 4
+    }
+   },
+   "olist_customer": {
+    "cases": 12,
+    "exposed": 10,
+    "equivalent": 2,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 10,
+     "group_total": 2,
+     "download_table": 8,
+     "invariants": 2,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 2
+    }
+   },
+   "olist_delivery": {
+    "cases": 8,
+    "exposed": 4,
+    "equivalent": 4,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "ordering": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 4,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 4
+    }
+   },
+   "rounding": {
+    "cases": 40,
+    "exposed": 20,
+    "equivalent": 20,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 20,
+     "group_total": 0,
+     "download_table": 16,
+     "invariants": 20,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 20
+    }
+   },
+   "rows": {
+    "cases": 40,
+    "exposed": 24,
+    "equivalent": 16,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 24,
+     "group_total": 12,
+     "download_table": 24,
+     "invariants": 24,
+     "reference_agreement": 0,
+     "metamorphic": 5,
+     "reference_free_union": 24
+    }
+   },
+   "scale": {
+    "cases": 20,
+    "exposed": 20,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 20,
+     "group_total": 12,
+     "download_table": 12,
+     "invariants": 12,
+     "reference_agreement": 0,
+     "metamorphic": 5,
+     "reference_free_union": 12
+    }
+   },
+   "status": {
+    "cases": 64,
+    "exposed": 56,
+    "equivalent": 8,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 56,
+     "group_total": 0,
+     "download_table": 56,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 28,
+     "reference_free_union": 28
+    }
+   }
+  },
+  "operator": {
+   "amount_source_swapped": {
+    "cases": 20,
+    "exposed": 0,
+    "equivalent": 0,
+    "crashed": 20,
+    "layers": {}
+   },
+   "category_drops_unknown": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "category_freight_in_price": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "category_total_orders_summed": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 0,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "category_untranslated_unknown": {
+    "cases": 4,
+    "exposed": 3,
+    "equivalent": 1,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 3,
+     "group_total": 0,
+     "download_table": 3,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "cohort_censoring_off_by_one": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 4,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 4
+    }
+   },
+   "cohort_customer_id": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "cohort_last_order": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "cohort_start_truncates_first": {
+    "cases": 4,
+    "exposed": 2,
+    "equivalent": 2,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 2,
+     "group_total": 0,
+     "download_table": 2,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "date_key_month": {
+    "cases": 12,
+    "exposed": 2,
+    "equivalent": 10,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 2,
+     "group_total": 0,
+     "download_table": 2,
+     "invariants": 2,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 2
+    }
+   },
+   "delivery_ignores_status": {
+    "cases": 4,
+    "exposed": 0,
+    "equivalent": 4,
+    "crashed": 0,
+    "layers": {}
+   },
+   "delta_sign_flipped": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 0,
+     "invariants": 4,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 4
+    }
+   },
+   "end_inclusive": {
+    "cases": 32,
+    "exposed": 0,
+    "equivalent": 32,
+    "crashed": 0,
+    "layers": {}
+   },
+   "growth_wrong_base": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 0,
+     "invariants": 4,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 4
+    }
+   },
+   "last_group_dropped": {
+    "cases": 20,
+    "exposed": 12,
+    "equivalent": 8,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 12,
+     "group_total": 12,
+     "download_table": 12,
+     "invariants": 12,
+     "reference_agreement": 0,
+     "metamorphic": 5,
+     "reference_free_union": 12
+    }
+   },
+   "late_timestamp_level": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "ranking_ascending": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 4,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 4
+    }
+   },
+   "ratio_five_places": {
+    "cases": 20,
+    "exposed": 20,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 20,
+     "group_total": 0,
+     "download_table": 16,
+     "invariants": 20,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 20
+    }
+   },
+   "ratio_float": {
+    "cases": 20,
+    "exposed": 0,
+    "equivalent": 20,
+    "crashed": 0,
+    "layers": {}
+   },
+   "repeat_customer_id": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 0,
+     "download_table": 4,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "repeat_state_last_order": {
+    "cases": 4,
+    "exposed": 2,
+    "equivalent": 2,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 2,
+     "group_total": 0,
+     "download_table": 2,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "repeat_threshold_three": {
+    "cases": 4,
+    "exposed": 4,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 4,
+     "group_total": 2,
+     "download_table": 2,
+     "invariants": 2,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 2
+    }
+   },
+   "spurious_group": {
+    "cases": 20,
+    "exposed": 12,
+    "equivalent": 8,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 12,
+     "group_total": 0,
+     "download_table": 12,
+     "invariants": 12,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 12
+    }
+   },
+   "start_exclusive": {
+    "cases": 32,
+    "exposed": 1,
+    "equivalent": 31,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 1,
+     "group_total": 0,
+     "download_table": 1,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 1,
+     "reference_free_union": 1
+    }
+   },
+   "status_filter_dropped": {
+    "cases": 32,
+    "exposed": 28,
+    "equivalent": 4,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 28,
+     "group_total": 0,
+     "download_table": 28,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 28,
+     "reference_free_union": 28
+    }
+   },
+   "status_hardcoded_delivered": {
+    "cases": 32,
+    "exposed": 28,
+    "equivalent": 4,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 28,
+     "group_total": 0,
+     "download_table": 28,
+     "invariants": 0,
+     "reference_agreement": 0,
+     "metamorphic": 0,
+     "reference_free_union": 0
+    }
+   },
+   "total_in_reais": {
+    "cases": 20,
+    "exposed": 20,
+    "equivalent": 0,
+    "crashed": 0,
+    "layers": {
+     "independent_reference": 20,
+     "group_total": 12,
+     "download_table": 12,
+     "invariants": 12,
+     "reference_agreement": 0,
+     "metamorphic": 5,
+     "reference_free_union": 12
+    }
+   }
+  }
+ },
+ "metric_lock": {
+  "rate": {
+   "caught": 56,
+   "total": 56,
+   "rate": 1.0,
+   "wilson95": [
+    0.9358,
+    1.0
+   ]
+  },
+  "records": [
+   {
+    "case": 1,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 1,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 2,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 2,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 3,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 3,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 4,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 4,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 5,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 5,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 6,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 6,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 7,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 7,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 8,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 8,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 9,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 9,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 10,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 10,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 11,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 11,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 12,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 12,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 13,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 13,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 14,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 14,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 15,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 15,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 16,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 16,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 17,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 17,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 18,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 18,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 19,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 19,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 20,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 20,
+    "operator": "amount_source_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 21,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 22,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 23,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 24,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 25,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 26,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 27,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 28,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 29,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 30,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 31,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 32,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 33,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 34,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 35,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   },
+   {
+    "case": 36,
+    "operator": "statuses_changed",
+    "outcome": "rejected"
+   }
+  ]
+ },
+ "code_records": [
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 1,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 2,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 3,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 4,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 5,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 6,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 7,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 8,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 9,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 10,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 11,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 12,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 13,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 14,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 15,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 16,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 17,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 18,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 19,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 20,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 29,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 30,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 31,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 32,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 33,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 34,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 35,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "end_inclusive",
+   "family": "boundary",
+   "case": 36,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 1,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 2,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 3,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 4,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 5,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 6,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 7,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 8,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 9,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 10,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 11,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 12,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 13,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 14,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 15,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 16,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 17,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 18,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 19,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 20,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 29,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 30,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 31,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 32,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 33,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 34,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 35,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "start_exclusive",
+   "family": "boundary",
+   "case": 36,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 1,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 2,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 3,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 4,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 5,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 6,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 7,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 8,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 9,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 10,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 11,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 12,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 13,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 14,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 15,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 16,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 17,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 18,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 19,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 20,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 29,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 30,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 31,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 32,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 33,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 34,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 35,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_filter_dropped",
+   "family": "status",
+   "case": 36,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "failed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": [
+    "irrelevant_rows:result_changed"
+   ]
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 1,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 2,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 3,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 4,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 5,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 6,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 7,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 8,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 9,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 10,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 11,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 12,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 13,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 14,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 15,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 16,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 17,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 18,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 19,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 20,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 29,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 30,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 31,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 32,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 33,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 34,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 35,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "status_hardcoded_delivered",
+   "family": "status",
+   "case": 36,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 13,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 14,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 15,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 16,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 17,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 18,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 19,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 20,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 25,
+   "kind": "cohort_retention",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 26,
+   "kind": "cohort_retention",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 27,
+   "kind": "cohort_retention",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 28,
+   "kind": "cohort_retention",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 29,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 30,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 31,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_float",
+   "family": "rounding",
+   "case": 32,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 13,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 14,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch",
+    "share_sum"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 15,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 16,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch",
+    "share_sum"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 17,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 18,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 19,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 20,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 25,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 26,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 27,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 28,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 29,
+   "kind": "delivery_delay",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 30,
+   "kind": "delivery_delay",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 31,
+   "kind": "delivery_delay",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ratio_five_places",
+   "family": "rounding",
+   "case": 32,
+   "kind": "delivery_delay",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ranking_ascending",
+   "family": "ordering",
+   "case": 9,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "unsorted"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ranking_ascending",
+   "family": "ordering",
+   "case": 10,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "unsorted"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ranking_ascending",
+   "family": "ordering",
+   "case": 11,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "unsorted"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "ranking_ascending",
+   "family": "ordering",
+   "case": 12,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "unsorted"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "delta_sign_flipped",
+   "family": "comparison",
+   "case": 17,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "delta_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "delta_sign_flipped",
+   "family": "comparison",
+   "case": 18,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "delta_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "delta_sign_flipped",
+   "family": "comparison",
+   "case": 19,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "delta_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "delta_sign_flipped",
+   "family": "comparison",
+   "case": 20,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "delta_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "growth_wrong_base",
+   "family": "comparison",
+   "case": 17,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "growth_wrong_base",
+   "family": "comparison",
+   "case": 18,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "growth_wrong_base",
+   "family": "comparison",
+   "case": 19,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "growth_wrong_base",
+   "family": "comparison",
+   "case": 20,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "ratio_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 5,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 6,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "invalid_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 7,
+   "kind": "trend",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 8,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "invalid_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 9,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 10,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 11,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 12,
+   "kind": "ranking",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 13,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 14,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 15,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "date_key_month",
+   "family": "grouping",
+   "case": 16,
+   "kind": "share",
+   "status": "equivalent"
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 1,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 2,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 3,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 4,
+   "kind": "summary",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 5,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 6,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 7,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 8,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 9,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 10,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 11,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 12,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 13,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "share_sum",
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 14,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "share_sum",
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 15,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "share_sum",
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 16,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "share_sum",
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 17,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 18,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 19,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "total_in_reais",
+   "family": "scale",
+   "case": 20,
+   "kind": "comparison",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 1,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 2,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 3,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 4,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 5,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group",
+    "invalid_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 6,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group",
+    "invalid_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 7,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group",
+    "invalid_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 8,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group",
+    "invalid_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 9,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 10,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 11,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group",
+    "invalid_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 12,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 13,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 14,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group",
+    "invalid_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 15,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 16,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "empty_group"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 17,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 18,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 19,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "spurious_group",
+   "family": "rows",
+   "case": 20,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 1,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 2,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 3,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 4,
+   "kind": "summary",
+   "status": "equivalent"
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 5,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 6,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 7,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 8,
+   "kind": "trend",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 9,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 10,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 11,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": false
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "failed"
+   },
+   "metamorphic_issues": [
+    "window_split:not_additive"
+   ]
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 12,
+   "kind": "ranking",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 13,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "share_sum",
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 14,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "share_sum",
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 15,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "share_sum",
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 16,
+   "kind": "share",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "share_sum",
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 17,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 18,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 19,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "last_group_dropped",
+   "family": "rows",
+   "case": 20,
+   "kind": "comparison",
+   "status": "equivalent"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 1,
+   "kind": "summary",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 2,
+   "kind": "summary",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 3,
+   "kind": "summary",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 4,
+   "kind": "summary",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 5,
+   "kind": "trend",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 6,
+   "kind": "trend",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 7,
+   "kind": "trend",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 8,
+   "kind": "trend",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 9,
+   "kind": "ranking",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 10,
+   "kind": "ranking",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 11,
+   "kind": "ranking",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 12,
+   "kind": "ranking",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 13,
+   "kind": "share",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 14,
+   "kind": "share",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 15,
+   "kind": "share",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 16,
+   "kind": "share",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 17,
+   "kind": "comparison",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 18,
+   "kind": "comparison",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 19,
+   "kind": "comparison",
+   "status": "crashed"
+  },
+  {
+   "operator": "amount_source_swapped",
+   "family": "olist_amount",
+   "case": 20,
+   "kind": "comparison",
+   "status": "crashed"
+  },
+  {
+   "operator": "repeat_customer_id",
+   "family": "olist_customer",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_customer_id",
+   "family": "olist_customer",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_customer_id",
+   "family": "olist_customer",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_customer_id",
+   "family": "olist_customer",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_threshold_three",
+   "family": "olist_customer",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_threshold_three",
+   "family": "olist_customer",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_threshold_three",
+   "family": "olist_customer",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_threshold_three",
+   "family": "olist_customer",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": false,
+    "download_table": true,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "sum_mismatch"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_state_last_order",
+   "family": "olist_customer",
+   "case": 21,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "repeat_state_last_order",
+   "family": "olist_customer",
+   "case": 22,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "repeat_state_last_order",
+   "family": "olist_customer",
+   "case": 23,
+   "kind": "repeat_rate",
+   "status": "equivalent"
+  },
+  {
+   "operator": "repeat_state_last_order",
+   "family": "olist_customer",
+   "case": 24,
+   "kind": "repeat_rate",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_customer_id",
+   "family": "olist_cohort",
+   "case": 25,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_customer_id",
+   "family": "olist_cohort",
+   "case": 26,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_customer_id",
+   "family": "olist_cohort",
+   "case": 27,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_customer_id",
+   "family": "olist_cohort",
+   "case": 28,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_last_order",
+   "family": "olist_cohort",
+   "case": 25,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_last_order",
+   "family": "olist_cohort",
+   "case": 26,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_last_order",
+   "family": "olist_cohort",
+   "case": 27,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_last_order",
+   "family": "olist_cohort",
+   "case": 28,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_start_truncates_first",
+   "family": "olist_cohort",
+   "case": 25,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_start_truncates_first",
+   "family": "olist_cohort",
+   "case": 26,
+   "kind": "cohort_retention",
+   "status": "equivalent"
+  },
+  {
+   "operator": "cohort_start_truncates_first",
+   "family": "olist_cohort",
+   "case": 27,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_start_truncates_first",
+   "family": "olist_cohort",
+   "case": 28,
+   "kind": "cohort_retention",
+   "status": "equivalent"
+  },
+  {
+   "operator": "cohort_censoring_off_by_one",
+   "family": "olist_cohort",
+   "case": 25,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "censoring"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_censoring_off_by_one",
+   "family": "olist_cohort",
+   "case": 26,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "censoring"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_censoring_off_by_one",
+   "family": "olist_cohort",
+   "case": 27,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "censoring"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "cohort_censoring_off_by_one",
+   "family": "olist_cohort",
+   "case": 28,
+   "kind": "cohort_retention",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": false,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [
+    "censoring"
+   ],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "not_applicable"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "late_timestamp_level",
+   "family": "olist_delivery",
+   "case": 29,
+   "kind": "delivery_delay",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "late_timestamp_level",
+   "family": "olist_delivery",
+   "case": 30,
+   "kind": "delivery_delay",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "late_timestamp_level",
+   "family": "olist_delivery",
+   "case": 31,
+   "kind": "delivery_delay",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": null,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "late_timestamp_level",
+   "family": "olist_delivery",
+   "case": 32,
+   "kind": "delivery_delay",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "delivery_ignores_status",
+   "family": "olist_delivery",
+   "case": 29,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "delivery_ignores_status",
+   "family": "olist_delivery",
+   "case": 30,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "delivery_ignores_status",
+   "family": "olist_delivery",
+   "case": 31,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "delivery_ignores_status",
+   "family": "olist_delivery",
+   "case": 32,
+   "kind": "delivery_delay",
+   "status": "equivalent"
+  },
+  {
+   "operator": "category_drops_unknown",
+   "family": "olist_category",
+   "case": 33,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_drops_unknown",
+   "family": "olist_category",
+   "case": 34,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_drops_unknown",
+   "family": "olist_category",
+   "case": 35,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_drops_unknown",
+   "family": "olist_category",
+   "case": 36,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_untranslated_unknown",
+   "family": "olist_category",
+   "case": 33,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_untranslated_unknown",
+   "family": "olist_category",
+   "case": 34,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_untranslated_unknown",
+   "family": "olist_category",
+   "case": 35,
+   "kind": "category_sales",
+   "status": "equivalent"
+  },
+  {
+   "operator": "category_untranslated_unknown",
+   "family": "olist_category",
+   "case": 36,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_freight_in_price",
+   "family": "olist_category",
+   "case": 33,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_freight_in_price",
+   "family": "olist_category",
+   "case": 34,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_freight_in_price",
+   "family": "olist_category",
+   "case": 35,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_freight_in_price",
+   "family": "olist_category",
+   "case": 36,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": false,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_total_orders_summed",
+   "family": "olist_category",
+   "case": 33,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": true,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_total_orders_summed",
+   "family": "olist_category",
+   "case": 34,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": true,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_total_orders_summed",
+   "family": "olist_category",
+   "case": 35,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": true,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  },
+  {
+   "operator": "category_total_orders_summed",
+   "family": "olist_category",
+   "case": 36,
+   "kind": "category_sales",
+   "status": "exposed",
+   "layers": {
+    "independent_reference": false,
+    "group_total": true,
+    "download_table": true,
+    "invariants": true,
+    "reference_agreement": true,
+    "metamorphic": true
+   },
+   "invariant_issues": [],
+   "relations": {
+    "permutation": "passed",
+    "irrelevant_rows": "passed",
+    "window_split": "passed"
+   },
+   "metamorphic_issues": []
+  }
+ ]
+}

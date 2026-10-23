@@ -117,7 +117,7 @@ npm run build --prefix frontend
 
 运行完后用 `Remove-Item Env:DATALAB_DOCKER_TESTS` 清除开关。`scripts/test_postgres.py` 只清理自己创建的容器；`DATALAB_POSTGRES_TESTS=1` 配合 `DATALAB_TEST_DATABASE_URL` 也可以指向一个专用测试库，但不要指向含业务数据的库。
 
-`python -B evals/injection.py` 是错误注入基准，默认只需要 Docker 与执行镜像、不调用模型（本机 6 路并发约 20 分钟），加 `--reviewer` 才会调用 MiMo；离线测试为 `tests/datalab/test_injection.py`。`evals/` 下其余脚本会调用付费模型，见 [评测与验证](evaluation.md)；`evals/report.py`、`evals/stats.py` 与 `evals/heldout.py` 不发请求，其统计和题集冻结由 `tests/datalab/test_eval_stats.py` 离线检查。
+`python -B evals/injection.py` 是错误注入基准，默认只需要 Docker 与执行镜像、不调用模型（本机 6 路并发约 20 分钟），加 `--reviewer` 才会调用 MiMo；离线测试为 `tests/datalab/test_injection.py`。`python -B evals/olist_injection.py` 是 Olist 版错误注入基准（真实 Olist 数据，不调用模型，本机 5 路并发约 23 分钟），`evals/olist_compare.py` 是只用 MiMo 的 Olist 真实模型评测（付费）；两者的离线检查在 `tests/datalab/test_olist_evals.py` 与 `test_eval_stats.py`。`evals/` 下其余脚本会调用付费模型，见 [评测与验证](evaluation.md)；`evals/report.py`、`evals/stats.py` 与 `evals/heldout.py` 不发请求，其统计和题集冻结由 `tests/datalab/test_eval_stats.py` 离线检查。
 
 ## CI
 

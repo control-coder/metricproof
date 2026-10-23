@@ -1,0 +1,3024 @@
+{
+ "date": "2026-10-23",
+ "split": "dev",
+ "batches": 1,
+ "questions": 16,
+ "arms": [
+  "three_roles",
+  "single_agent"
+ ],
+ "git_commit": "37ba8f9+dirty",
+ "prompts_sha256": "5d1b2280dd3cee36dae0a6e067a3d26c4512dd75cad174a1e11fddb944a94f97",
+ "olist_prompts_sha256": "7178d0e4736c4b4d2bb30b7020e2a2b522dab9ee1a326927f8bcc71e8437e73c",
+ "heldout_sha256": null,
+ "wall_seconds": 467.6,
+ "model": {
+  "provider": "mimo",
+  "model": "mimo-v2.6-flash",
+  "base_url": "https://api.xiaomimimo.com/v1",
+  "configured": true
+ },
+ "budget": {
+  "max_calls": 8,
+  "max_tokens": 150000,
+  "seconds": 600.0,
+  "calls": 0,
+  "tokens": 0,
+  "started": null,
+  "spent_seconds": 0
+ },
+ "prices_yuan_per_million": [
+  1.0,
+  0.02,
+  2.0
+ ],
+ "metric_statuses": [
+  "delivered",
+  "shipped",
+  "invoiced",
+  "processing",
+  "approved",
+  "created"
+ ],
+ "errors": [],
+ "skipped_for_cost": 0,
+ "summary": {
+  "three_roles": {
+   "b1": {
+    "cases": 16,
+    "correct": {
+     "hit": 14,
+     "total": 16,
+     "rate": 0.875,
+     "wilson95": [
+      0.6398,
+      0.965
+     ]
+    },
+    "correct_by_question": {
+     "rate": 0.875,
+     "questions": 16,
+     "wilson95": [
+      0.6398,
+      0.965
+     ]
+    },
+    "numeric_correct": {
+     "hit": 12,
+     "total": 14,
+     "rate": 0.8571,
+     "wilson95": [
+      0.6006,
+      0.9599
+     ]
+    },
+    "verified_but_wrong": {
+     "hit": 0,
+     "total": 16,
+     "rate": 0.0,
+     "wilson95": [
+      0.0,
+      0.1936
+     ]
+    },
+    "first_pass": {
+     "hit": 14,
+     "total": 16,
+     "rate": 0.875,
+     "wilson95": [
+      0.6398,
+      0.965
+     ]
+    },
+    "retries": 0,
+    "replans": 0,
+    "clarification_recall": {
+     "hit": 2,
+     "total": 2,
+     "rate": 1.0,
+     "wilson95": [
+      0.3424,
+      1.0
+     ]
+    },
+    "unneeded_clarification": {
+     "hit": 0,
+     "total": 14,
+     "rate": 0.0,
+     "wilson95": [
+      0.0,
+      0.2153
+     ]
+    },
+    "outcomes": {
+     "MODEL_ERROR": 2,
+     "CORRECT": 14
+    },
+    "by_kind": {
+     "summary": {
+      "cases": 2,
+      "correct": 1
+     },
+     "trend": {
+      "cases": 2,
+      "correct": 1
+     },
+     "ranking": {
+      "cases": 1,
+      "correct": 1
+     },
+     "share": {
+      "cases": 1,
+      "correct": 1
+     },
+     "comparison": {
+      "cases": 1,
+      "correct": 1
+     },
+     "repeat_rate": {
+      "cases": 2,
+      "correct": 2
+     },
+     "cohort_retention": {
+      "cases": 2,
+      "correct": 2
+     },
+     "delivery_delay": {
+      "cases": 2,
+      "correct": 2
+     },
+     "category_sales": {
+      "cases": 1,
+      "correct": 1
+     },
+     "clarify": {
+      "cases": 2,
+      "correct": 2
+     }
+    },
+    "p50_seconds": 52.4,
+    "p90_seconds": 136.078,
+    "model_calls": 38,
+    "prompt_tokens": 65672,
+    "cached_tokens": 22912,
+    "completion_tokens": 26192,
+    "cost_yuan": 0.0956
+   }
+  },
+  "single_agent": {
+   "b1": {
+    "cases": 16,
+    "correct": {
+     "hit": 16,
+     "total": 16,
+     "rate": 1.0,
+     "wilson95": [
+      0.8064,
+      1.0
+     ]
+    },
+    "correct_by_question": {
+     "rate": 1.0,
+     "questions": 16,
+     "wilson95": [
+      0.8064,
+      1.0
+     ]
+    },
+    "numeric_correct": {
+     "hit": 14,
+     "total": 14,
+     "rate": 1.0,
+     "wilson95": [
+      0.7847,
+      1.0
+     ]
+    },
+    "verified_but_wrong": {
+     "hit": 0,
+     "total": 16,
+     "rate": 0.0,
+     "wilson95": [
+      0.0,
+      0.1936
+     ]
+    },
+    "first_pass": {
+     "hit": 15,
+     "total": 16,
+     "rate": 0.9375,
+     "wilson95": [
+      0.7167,
+      0.9889
+     ]
+    },
+    "retries": 1,
+    "replans": 0,
+    "clarification_recall": {
+     "hit": 2,
+     "total": 2,
+     "rate": 1.0,
+     "wilson95": [
+      0.3424,
+      1.0
+     ]
+    },
+    "unneeded_clarification": {
+     "hit": 0,
+     "total": 14,
+     "rate": 0.0,
+     "wilson95": [
+      0.0,
+      0.2153
+     ]
+    },
+    "outcomes": {
+     "CORRECT": 16
+    },
+    "by_kind": {
+     "summary": {
+      "cases": 2,
+      "correct": 2
+     },
+     "trend": {
+      "cases": 2,
+      "correct": 2
+     },
+     "ranking": {
+      "cases": 1,
+      "correct": 1
+     },
+     "share": {
+      "cases": 1,
+      "correct": 1
+     },
+     "comparison": {
+      "cases": 1,
+      "correct": 1
+     },
+     "repeat_rate": {
+      "cases": 2,
+      "correct": 2
+     },
+     "cohort_retention": {
+      "cases": 2,
+      "correct": 2
+     },
+     "delivery_delay": {
+      "cases": 2,
+      "correct": 2
+     },
+     "category_sales": {
+      "cases": 1,
+      "correct": 1
+     },
+     "clarify": {
+      "cases": 2,
+      "correct": 2
+     }
+    },
+    "p50_seconds": 22.2,
+    "p90_seconds": 99.202,
+    "model_calls": 17,
+    "prompt_tokens": 59847,
+    "cached_tokens": 32768,
+    "completion_tokens": 22681,
+    "cost_yuan": 0.0731
+   }
+  }
+ },
+ "cases": [
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "summary",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "payments"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4015
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3453,
+     "completion_tokens": 562,
+     "cached_tokens": 2048,
+     "total_tokens": 4015,
+     "seconds": 12.423
+    }
+   ],
+   "seconds": 20.369,
+   "arm": "single_agent",
+   "case": 1,
+   "batch": 1,
+   "kind": "summary",
+   "metric": "payments",
+   "question": "2017年全年的订单数和订单金额是多少？",
+   "truth_plan": {
+    "kind": "summary",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.00257,
+   "prompt_tokens": 3453,
+   "completion_tokens": 562,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "6f84d82d-fb77-4e40-8540-47fc3cb9fd66:v1",
+    "kind": "summary",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-01-01T00:00:00",
+    "end": "2018-04-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "items"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 3919
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3450,
+     "completion_tokens": 469,
+     "cached_tokens": 512,
+     "total_tokens": 3919,
+     "seconds": 11.457
+    }
+   ],
+   "seconds": 19.558,
+   "arm": "single_agent",
+   "case": 2,
+   "batch": 1,
+   "kind": "summary",
+   "metric": "items",
+   "question": "2018年第一季度的销售额是多少？",
+   "truth_plan": {
+    "kind": "summary",
+    "start": "2018-01-01T00:00:00",
+    "end": "2018-04-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.003886,
+   "prompt_tokens": 3450,
+   "completion_tokens": 469,
+   "cached_tokens": 512,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "trend",
+    "group_by": "purchase_month",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "payments"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4255
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3451,
+     "completion_tokens": 804,
+     "cached_tokens": 2048,
+     "total_tokens": 4255,
+     "seconds": 16.665
+    }
+   ],
+   "seconds": 22.013,
+   "arm": "single_agent",
+   "case": 3,
+   "batch": 1,
+   "kind": "trend",
+   "metric": "payments",
+   "question": "2017年每个月的销售额走势。",
+   "truth_plan": {
+    "kind": "trend",
+    "group_by": "purchase_month",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.003052,
+   "prompt_tokens": 3451,
+   "completion_tokens": 804,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "6f84d82d-fb77-4e40-8540-47fc3cb9fd66:v1",
+    "kind": "trend",
+    "group_by": "purchase_date",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-08-01T00:00:00",
+    "end": "2018-09-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "items"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4135
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3453,
+     "completion_tokens": 682,
+     "cached_tokens": 2048,
+     "total_tokens": 4135,
+     "seconds": 18.046
+    }
+   ],
+   "seconds": 23.228,
+   "arm": "single_agent",
+   "case": 4,
+   "batch": 1,
+   "kind": "trend",
+   "metric": "items",
+   "question": "2018年8月每天的销售额是多少？",
+   "truth_plan": {
+    "kind": "trend",
+    "group_by": "purchase_date",
+    "start": "2018-08-01T00:00:00",
+    "end": "2018-09-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.00281,
+   "prompt_tokens": 3453,
+   "completion_tokens": 682,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "ranking",
+    "group_by": "customer_state",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "payments"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4525
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3451,
+     "completion_tokens": 1074,
+     "cached_tokens": 0,
+     "total_tokens": 4525,
+     "seconds": 11.569
+    }
+   ],
+   "seconds": 19.788,
+   "arm": "single_agent",
+   "case": 5,
+   "batch": 1,
+   "kind": "ranking",
+   "metric": "payments",
+   "question": "2017年各州销售额排行。",
+   "truth_plan": {
+    "kind": "ranking",
+    "group_by": "customer_state",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.005599,
+   "prompt_tokens": 3451,
+   "completion_tokens": 1074,
+   "cached_tokens": 0,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "6f84d82d-fb77-4e40-8540-47fc3cb9fd66:v1",
+    "kind": "share",
+    "group_by": "customer_state",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-01-01T00:00:00",
+    "end": "2018-07-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "items"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4536
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3452,
+     "completion_tokens": 1084,
+     "cached_tokens": 0,
+     "total_tokens": 4536,
+     "seconds": 17.168
+    }
+   ],
+   "seconds": 25.586,
+   "arm": "single_agent",
+   "case": 6,
+   "batch": 1,
+   "kind": "share",
+   "metric": "items",
+   "question": "2018年上半年各州订单金额占比。",
+   "truth_plan": {
+    "kind": "share",
+    "group_by": "customer_state",
+    "start": "2018-01-01T00:00:00",
+    "end": "2018-07-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.00562,
+   "prompt_tokens": 3452,
+   "completion_tokens": 1084,
+   "cached_tokens": 0,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "comparison",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-05-01T00:00:00",
+    "end": "2018-06-01T00:00:00",
+    "previous_start": "2018-04-01T00:00:00",
+    "previous_end": "2018-05-01T00:00:00",
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "payments"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4216
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3455,
+     "completion_tokens": 761,
+     "cached_tokens": 2048,
+     "total_tokens": 4216,
+     "seconds": 21.288
+    }
+   ],
+   "seconds": 25.987,
+   "arm": "single_agent",
+   "case": 7,
+   "batch": 1,
+   "kind": "comparison",
+   "metric": "payments",
+   "question": "2018年5月销售额相比4月变化多少？",
+   "truth_plan": {
+    "kind": "comparison",
+    "start": "2018-05-01T00:00:00",
+    "end": "2018-06-01T00:00:00",
+    "previous_start": "2018-04-01T00:00:00",
+    "previous_end": "2018-05-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.00297,
+   "prompt_tokens": 3455,
+   "completion_tokens": 761,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "repeat_rate",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": null,
+    "end": null,
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 3913
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3448,
+     "completion_tokens": 465,
+     "cached_tokens": 2048,
+     "total_tokens": 3913,
+     "seconds": 38.938
+    }
+   ],
+   "seconds": 48.066,
+   "arm": "single_agent",
+   "case": 8,
+   "batch": 1,
+   "kind": "repeat_rate",
+   "metric": "payments",
+   "question": "整个数据期间的复购率是多少？",
+   "truth_plan": {
+    "kind": "repeat_rate"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.002371,
+   "prompt_tokens": 3448,
+   "completion_tokens": 465,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "repeat_rate",
+    "group_by": "customer_state",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4229
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3451,
+     "completion_tokens": 778,
+     "cached_tokens": 2816,
+     "total_tokens": 4229,
+     "seconds": 7.763
+    }
+   ],
+   "seconds": 14.058,
+   "arm": "single_agent",
+   "case": 9,
+   "batch": 1,
+   "kind": "repeat_rate",
+   "metric": "payments",
+   "question": "2017年各州客户的复购率。",
+   "truth_plan": {
+    "kind": "repeat_rate",
+    "group_by": "customer_state",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.002247,
+   "prompt_tokens": 3451,
+   "completion_tokens": 778,
+   "cached_tokens": 2816,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "cohort_retention",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-01-01T00:00:00",
+    "end": null,
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 2,
+   "code_corrections": 0,
+   "review_feedbacks": 1,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    [
+     "independent_reference",
+     "download_table"
+    ],
+    []
+   ],
+   "verification_issues": [
+    [
+     {
+      "name": "independent_reference",
+      "passed": false,
+      "issues": [
+       {
+        "path": "total.customer_count",
+        "issue": "value"
+       },
+       {
+        "path": "rows",
+        "issue": "length"
+       }
+      ]
+     },
+     {
+      "name": "download_table",
+      "passed": false,
+      "issues": [
+       {
+        "issue": "row_count"
+       }
+      ]
+     },
+     {
+      "name": "invariants",
+      "passed": true
+     },
+     {
+      "name": "reference_agreement",
+      "passed": true
+     }
+    ]
+   ],
+   "execution": [
+    "COMPLETED",
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 2,
+    "tokens": 20314
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3453,
+     "completion_tokens": 1189,
+     "cached_tokens": 2816,
+     "total_tokens": 4642,
+     "seconds": 14.539
+    },
+    {
+     "prompt_tokens": 4620,
+     "completion_tokens": 11052,
+     "cached_tokens": 3328,
+     "total_tokens": 15672,
+     "seconds": 196.765
+    }
+   ],
+   "seconds": 230.266,
+   "arm": "single_agent",
+   "case": 10,
+   "batch": 1,
+   "kind": "cohort_retention",
+   "metric": "payments",
+   "question": "2018年起首次下单的客户，之后每个月的留存率如何？",
+   "truth_plan": {
+    "kind": "cohort_retention",
+    "start": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": false,
+   "retries": 1,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.026534,
+   "prompt_tokens": 8073,
+   "completion_tokens": 12241,
+   "cached_tokens": 6144,
+   "model_calls": 2
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "cohort_retention",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": null,
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4847
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3456,
+     "completion_tokens": 1391,
+     "cached_tokens": 2048,
+     "total_tokens": 4847,
+     "seconds": 38.116
+    }
+   ],
+   "seconds": 46.605,
+   "arm": "single_agent",
+   "case": 11,
+   "batch": 1,
+   "kind": "cohort_retention",
+   "metric": "payments",
+   "question": "观察到2017年底为止，各月新客的留存。",
+   "truth_plan": {
+    "kind": "cohort_retention",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.004231,
+   "prompt_tokens": 3456,
+   "completion_tokens": 1391,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "delivery_delay",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": null,
+    "end": null,
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4009
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3447,
+     "completion_tokens": 562,
+     "cached_tokens": 2048,
+     "total_tokens": 4009,
+     "seconds": 95.336
+    }
+   ],
+   "seconds": 99.202,
+   "arm": "single_agent",
+   "case": 12,
+   "batch": 1,
+   "kind": "delivery_delay",
+   "metric": "payments",
+   "question": "整体的送达延迟率是多少？",
+   "truth_plan": {
+    "kind": "delivery_delay"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.002564,
+   "prompt_tokens": 3447,
+   "completion_tokens": 562,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "delivery_delay",
+    "group_by": "customer_state",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-01-01T00:00:00",
+    "end": "2019-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4174
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3457,
+     "completion_tokens": 717,
+     "cached_tokens": 2048,
+     "total_tokens": 4174,
+     "seconds": 15.038
+    }
+   ],
+   "seconds": 22.314,
+   "arm": "single_agent",
+   "case": 13,
+   "batch": 1,
+   "kind": "delivery_delay",
+   "metric": "payments",
+   "question": "2018年各州的送达延迟率，按下单时间算。",
+   "truth_plan": {
+    "kind": "delivery_delay",
+    "group_by": "customer_state",
+    "start": "2018-01-01T00:00:00",
+    "end": "2019-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.002884,
+   "prompt_tokens": 3457,
+   "completion_tokens": 717,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "category_sales",
+    "group_by": "product_category",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 4342
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3451,
+     "completion_tokens": 891,
+     "cached_tokens": 2048,
+     "total_tokens": 4342,
+     "seconds": 11.714
+    }
+   ],
+   "seconds": 18.69,
+   "arm": "single_agent",
+   "case": 14,
+   "batch": 1,
+   "kind": "category_sales",
+   "metric": "payments",
+   "question": "2017年各品类销售情况。",
+   "truth_plan": {
+    "kind": "category_sales",
+    "group_by": "product_category",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.003226,
+   "prompt_tokens": 3451,
+   "completion_tokens": 891,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "WAITING_CONFIRMATION",
+   "failure": null,
+   "plan": null,
+   "confirmation": "数据时间范围为 2016 年 9 月至 2018 年 10 月，请问您指的是哪一年的 8 月（例如 2017 年 8 月或 2018 年 8 月）？",
+   "passed": false,
+   "attempts": 0,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [],
+   "verification_issues": [],
+   "execution": [],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 3563
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3450,
+     "completion_tokens": 113,
+     "cached_tokens": 2816,
+     "total_tokens": 3563,
+     "seconds": 15.749
+    }
+   ],
+   "seconds": 15.75,
+   "arm": "single_agent",
+   "case": 15,
+   "batch": 1,
+   "kind": "clarify",
+   "metric": "payments",
+   "question": "8月的复购率是多少？",
+   "truth_plan": {
+    "clarify": true
+   },
+   "expects_clarification": true,
+   "clarified": true,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.000916,
+   "prompt_tokens": 3450,
+   "completion_tokens": 113,
+   "cached_tokens": 2816,
+   "model_calls": 1
+  },
+  {
+   "state": "WAITING_CONFIRMATION",
+   "failure": null,
+   "plan": null,
+   "confirmation": "本流程只做描述性分析，不支持预测下个月各州销售额；如果您想了解历史各州订单金额对比，可以改为按州汇总某段已发生期间的销售额（如 2018 年 1 月至 9 月），或查看各州销售额占比排行，请确认。",
+   "passed": false,
+   "attempts": 0,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [],
+   "verification_issues": [],
+   "execution": [],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 3536
+   },
+   "usage": [
+    {
+     "prompt_tokens": 3449,
+     "completion_tokens": 87,
+     "cached_tokens": 2048,
+     "total_tokens": 3536,
+     "seconds": 7.314
+    }
+   ],
+   "seconds": 7.315,
+   "arm": "single_agent",
+   "case": 16,
+   "batch": 1,
+   "kind": "clarify",
+   "metric": "payments",
+   "question": "预测下个月各州的销售额。",
+   "truth_plan": {
+    "clarify": true
+   },
+   "expects_clarification": true,
+   "clarified": true,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.001616,
+   "prompt_tokens": 3449,
+   "completion_tokens": 87,
+   "cached_tokens": 2048,
+   "model_calls": 1
+  },
+  {
+   "state": "FAILED",
+   "failure": "MODEL_ERROR",
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "summary",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "payments"
+   },
+   "confirmation": null,
+   "passed": false,
+   "attempts": 0,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [],
+   "verification_issues": [],
+   "execution": [],
+   "errors": [
+    "Analyst: 模型服务连接失败"
+   ],
+   "budget": {
+    "calls": 2,
+    "tokens": 1722
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1588,
+     "completion_tokens": 134,
+     "cached_tokens": 512,
+     "total_tokens": 1722,
+     "seconds": 26.65
+    }
+   ],
+   "seconds": 44.68,
+   "arm": "three_roles",
+   "case": 1,
+   "batch": 1,
+   "kind": "summary",
+   "metric": "payments",
+   "question": "2017年全年的订单数和订单金额是多少？",
+   "truth_plan": {
+    "kind": "summary",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": false,
+   "verified_but_wrong": false,
+   "first_pass": false,
+   "retries": 0,
+   "outcome": "MODEL_ERROR",
+   "cost_yuan": 0.001354,
+   "prompt_tokens": 1588,
+   "completion_tokens": 134,
+   "cached_tokens": 512,
+   "model_calls": 1
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "6f84d82d-fb77-4e40-8540-47fc3cb9fd66:v1",
+    "kind": "summary",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-01-01T00:00:00",
+    "end": "2018-04-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "items"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 6002
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1584,
+     "completion_tokens": 127,
+     "cached_tokens": 0,
+     "total_tokens": 1711,
+     "seconds": 5.158
+    },
+    {
+     "prompt_tokens": 2212,
+     "completion_tokens": 499,
+     "cached_tokens": 0,
+     "total_tokens": 2711,
+     "seconds": 11.781
+    },
+    {
+     "prompt_tokens": 1402,
+     "completion_tokens": 178,
+     "cached_tokens": 512,
+     "total_tokens": 1580,
+     "seconds": 8.52
+    }
+   ],
+   "seconds": 31.256,
+   "arm": "three_roles",
+   "case": 2,
+   "batch": 1,
+   "kind": "summary",
+   "metric": "items",
+   "question": "2018年第一季度的销售额是多少？",
+   "truth_plan": {
+    "kind": "summary",
+    "start": "2018-01-01T00:00:00",
+    "end": "2018-04-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.006304,
+   "prompt_tokens": 5198,
+   "completion_tokens": 804,
+   "cached_tokens": 512,
+   "model_calls": 3
+  },
+  {
+   "state": "FAILED",
+   "failure": "MODEL_ERROR",
+   "plan": null,
+   "confirmation": null,
+   "passed": false,
+   "attempts": 0,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [],
+   "verification_issues": [],
+   "execution": [],
+   "errors": [
+    "Planner: 模型服务返回 HTTP 500"
+   ],
+   "budget": {
+    "calls": 1,
+    "tokens": 0
+   },
+   "usage": [],
+   "seconds": 4.116,
+   "arm": "three_roles",
+   "case": 3,
+   "batch": 1,
+   "kind": "trend",
+   "metric": "payments",
+   "question": "2017年每个月的销售额走势。",
+   "truth_plan": {
+    "kind": "trend",
+    "group_by": "purchase_month",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": false,
+   "verified_but_wrong": false,
+   "first_pass": false,
+   "retries": 0,
+   "outcome": "MODEL_ERROR",
+   "cost_yuan": 0.0,
+   "prompt_tokens": 0,
+   "completion_tokens": 0,
+   "cached_tokens": 0,
+   "model_calls": 0
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "6f84d82d-fb77-4e40-8540-47fc3cb9fd66:v1",
+    "kind": "trend",
+    "group_by": "purchase_date",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-08-01T00:00:00",
+    "end": "2018-09-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "items"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 6600
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1584,
+     "completion_tokens": 135,
+     "cached_tokens": 512,
+     "total_tokens": 1719,
+     "seconds": 4.374
+    },
+    {
+     "prompt_tokens": 2213,
+     "completion_tokens": 1091,
+     "cached_tokens": 1024,
+     "total_tokens": 3304,
+     "seconds": 117.051
+    },
+    {
+     "prompt_tokens": 1418,
+     "completion_tokens": 159,
+     "cached_tokens": 512,
+     "total_tokens": 1577,
+     "seconds": 3.239
+    }
+   ],
+   "seconds": 130.577,
+   "arm": "three_roles",
+   "case": 4,
+   "batch": 1,
+   "kind": "trend",
+   "metric": "items",
+   "question": "2018年8月每天的销售额是多少？",
+   "truth_plan": {
+    "kind": "trend",
+    "group_by": "purchase_date",
+    "start": "2018-08-01T00:00:00",
+    "end": "2018-09-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.005978,
+   "prompt_tokens": 5215,
+   "completion_tokens": 1385,
+   "cached_tokens": 2048,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "ranking",
+    "group_by": "customer_state",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "payments"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 12071
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1580,
+     "completion_tokens": 148,
+     "cached_tokens": 512,
+     "total_tokens": 1728,
+     "seconds": 39.886
+    },
+    {
+     "prompt_tokens": 2210,
+     "completion_tokens": 6579,
+     "cached_tokens": 1920,
+     "total_tokens": 8789,
+     "seconds": 96.333
+    },
+    {
+     "prompt_tokens": 1409,
+     "completion_tokens": 145,
+     "cached_tokens": 0,
+     "total_tokens": 1554,
+     "seconds": 4.764
+    }
+   ],
+   "seconds": 152.025,
+   "arm": "three_roles",
+   "case": 5,
+   "batch": 1,
+   "kind": "ranking",
+   "metric": "payments",
+   "question": "2017年各州销售额排行。",
+   "truth_plan": {
+    "kind": "ranking",
+    "group_by": "customer_state",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.01656,
+   "prompt_tokens": 5199,
+   "completion_tokens": 6872,
+   "cached_tokens": 2432,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "6f84d82d-fb77-4e40-8540-47fc3cb9fd66:v1",
+    "kind": "share",
+    "group_by": "customer_state",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-01-01T00:00:00",
+    "end": "2018-07-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "items"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 8575
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1583,
+     "completion_tokens": 157,
+     "cached_tokens": 512,
+     "total_tokens": 1740,
+     "seconds": 2.315
+    },
+    {
+     "prompt_tokens": 2212,
+     "completion_tokens": 3086,
+     "cached_tokens": 0,
+     "total_tokens": 5298,
+     "seconds": 41.913
+    },
+    {
+     "prompt_tokens": 1405,
+     "completion_tokens": 132,
+     "cached_tokens": 512,
+     "total_tokens": 1537,
+     "seconds": 7.202
+    }
+   ],
+   "seconds": 60.207,
+   "arm": "three_roles",
+   "case": 6,
+   "batch": 1,
+   "kind": "share",
+   "metric": "items",
+   "question": "2018年上半年各州订单金额占比。",
+   "truth_plan": {
+    "kind": "share",
+    "group_by": "customer_state",
+    "start": "2018-01-01T00:00:00",
+    "end": "2018-07-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.010946,
+   "prompt_tokens": 5200,
+   "completion_tokens": 3375,
+   "cached_tokens": 1024,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "comparison",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-05-01T00:00:00",
+    "end": "2018-06-01T00:00:00",
+    "previous_start": "2018-04-01T00:00:00",
+    "previous_end": "2018-05-01T00:00:00",
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": "payments"
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 6211
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1583,
+     "completion_tokens": 201,
+     "cached_tokens": 512,
+     "total_tokens": 1784,
+     "seconds": 5.484
+    },
+    {
+     "prompt_tokens": 2245,
+     "completion_tokens": 589,
+     "cached_tokens": 1024,
+     "total_tokens": 2834,
+     "seconds": 14.529
+    },
+    {
+     "prompt_tokens": 1437,
+     "completion_tokens": 156,
+     "cached_tokens": 512,
+     "total_tokens": 1593,
+     "seconds": 5.218
+    }
+   ],
+   "seconds": 29.997,
+   "arm": "three_roles",
+   "case": 7,
+   "batch": 1,
+   "kind": "comparison",
+   "metric": "payments",
+   "question": "2018年5月销售额相比4月变化多少？",
+   "truth_plan": {
+    "kind": "comparison",
+    "start": "2018-05-01T00:00:00",
+    "end": "2018-06-01T00:00:00",
+    "previous_start": "2018-04-01T00:00:00",
+    "previous_end": "2018-05-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.00515,
+   "prompt_tokens": 5265,
+   "completion_tokens": 946,
+   "cached_tokens": 2048,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "repeat_rate",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": null,
+    "end": null,
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": "Reviewer 调用失败：ModelCallError：模型服务返回 HTTP 500",
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [
+    "Reviewer: 模型服务返回 HTTP 500"
+   ],
+   "budget": {
+    "calls": 3,
+    "tokens": 4437
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1579,
+     "completion_tokens": 67,
+     "cached_tokens": 512,
+     "total_tokens": 1646,
+     "seconds": 4.691
+    },
+    {
+     "prompt_tokens": 2170,
+     "completion_tokens": 621,
+     "cached_tokens": 1024,
+     "total_tokens": 2791,
+     "seconds": 17.507
+    }
+   ],
+   "seconds": 34.148,
+   "arm": "three_roles",
+   "case": 8,
+   "batch": 1,
+   "kind": "repeat_rate",
+   "metric": "payments",
+   "question": "整个数据期间的复购率是多少？",
+   "truth_plan": {
+    "kind": "repeat_rate"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.00362,
+   "prompt_tokens": 3749,
+   "completion_tokens": 688,
+   "cached_tokens": 1536,
+   "model_calls": 2
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "repeat_rate",
+    "group_by": "customer_state",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 6860
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1587,
+     "completion_tokens": 169,
+     "cached_tokens": 512,
+     "total_tokens": 1756,
+     "seconds": 18.285
+    },
+    {
+     "prompt_tokens": 2215,
+     "completion_tokens": 1342,
+     "cached_tokens": 1024,
+     "total_tokens": 3557,
+     "seconds": 34.727
+    },
+    {
+     "prompt_tokens": 1416,
+     "completion_tokens": 131,
+     "cached_tokens": 512,
+     "total_tokens": 1547,
+     "seconds": 22.239
+    }
+   ],
+   "seconds": 82.634,
+   "arm": "three_roles",
+   "case": 9,
+   "batch": 1,
+   "kind": "repeat_rate",
+   "metric": "payments",
+   "question": "2017年各州客户的复购率。",
+   "truth_plan": {
+    "kind": "repeat_rate",
+    "group_by": "customer_state",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.006495,
+   "prompt_tokens": 5218,
+   "completion_tokens": 1642,
+   "cached_tokens": 2048,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "cohort_retention",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-01-01T00:00:00",
+    "end": null,
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 8449
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1589,
+     "completion_tokens": 101,
+     "cached_tokens": 512,
+     "total_tokens": 1690,
+     "seconds": 3.094
+    },
+    {
+     "prompt_tokens": 2193,
+     "completion_tokens": 3008,
+     "cached_tokens": 1024,
+     "total_tokens": 5201,
+     "seconds": 81.458
+    },
+    {
+     "prompt_tokens": 1387,
+     "completion_tokens": 171,
+     "cached_tokens": 512,
+     "total_tokens": 1558,
+     "seconds": 6.481
+    }
+   ],
+   "seconds": 100.031,
+   "arm": "three_roles",
+   "case": 10,
+   "batch": 1,
+   "kind": "cohort_retention",
+   "metric": "payments",
+   "question": "2018年起首次下单的客户，之后每个月的留存率如何？",
+   "truth_plan": {
+    "kind": "cohort_retention",
+    "start": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.009722,
+   "prompt_tokens": 5169,
+   "completion_tokens": 3280,
+   "cached_tokens": 2048,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "cohort_retention",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": null,
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 9242
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1588,
+     "completion_tokens": 158,
+     "cached_tokens": 512,
+     "total_tokens": 1746,
+     "seconds": 5.581
+    },
+    {
+     "prompt_tokens": 2193,
+     "completion_tokens": 3690,
+     "cached_tokens": 1024,
+     "total_tokens": 5883,
+     "seconds": 94.604
+    },
+    {
+     "prompt_tokens": 1388,
+     "completion_tokens": 225,
+     "cached_tokens": 512,
+     "total_tokens": 1613,
+     "seconds": 29.207
+    }
+   ],
+   "seconds": 136.078,
+   "arm": "three_roles",
+   "case": 11,
+   "batch": 1,
+   "kind": "cohort_retention",
+   "metric": "payments",
+   "question": "观察到2017年底为止，各月新客的留存。",
+   "truth_plan": {
+    "kind": "cohort_retention",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.011308,
+   "prompt_tokens": 5169,
+   "completion_tokens": 4073,
+   "cached_tokens": 2048,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "delivery_delay",
+    "group_by": null,
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": null,
+    "end": null,
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 5688
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1581,
+     "completion_tokens": 77,
+     "cached_tokens": 0,
+     "total_tokens": 1658,
+     "seconds": 3.82
+    },
+    {
+     "prompt_tokens": 2174,
+     "completion_tokens": 329,
+     "cached_tokens": 1024,
+     "total_tokens": 2503,
+     "seconds": 8.341
+    },
+    {
+     "prompt_tokens": 1358,
+     "completion_tokens": 169,
+     "cached_tokens": 512,
+     "total_tokens": 1527,
+     "seconds": 3.874
+    }
+   ],
+   "seconds": 20.202,
+   "arm": "three_roles",
+   "case": 12,
+   "batch": 1,
+   "kind": "delivery_delay",
+   "metric": "payments",
+   "question": "整体的送达延迟率是多少？",
+   "truth_plan": {
+    "kind": "delivery_delay"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.004758,
+   "prompt_tokens": 5113,
+   "completion_tokens": 575,
+   "cached_tokens": 1536,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "delivery_delay",
+    "group_by": "customer_state",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2018-01-01T00:00:00",
+    "end": "2019-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 6209
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1590,
+     "completion_tokens": 161,
+     "cached_tokens": 512,
+     "total_tokens": 1751,
+     "seconds": 5.489
+    },
+    {
+     "prompt_tokens": 2213,
+     "completion_tokens": 659,
+     "cached_tokens": 1024,
+     "total_tokens": 2872,
+     "seconds": 57.038
+    },
+    {
+     "prompt_tokens": 1421,
+     "completion_tokens": 165,
+     "cached_tokens": 512,
+     "total_tokens": 1586,
+     "seconds": 3.359
+    }
+   ],
+   "seconds": 72.647,
+   "arm": "three_roles",
+   "case": 13,
+   "batch": 1,
+   "kind": "delivery_delay",
+   "metric": "payments",
+   "question": "2018年各州的送达延迟率，按下单时间算。",
+   "truth_plan": {
+    "kind": "delivery_delay",
+    "group_by": "customer_state",
+    "start": "2018-01-01T00:00:00",
+    "end": "2019-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.005187,
+   "prompt_tokens": 5224,
+   "completion_tokens": 985,
+   "cached_tokens": 2048,
+   "model_calls": 3
+  },
+  {
+   "state": "SUCCEEDED",
+   "failure": null,
+   "plan": {
+    "dataset_version": "e6b5c9b2-d9d9-48ad-8b2a-842e95dc6c99",
+    "metric_version": "7f0150a4-ab4d-4034-a7af-d6290c33662d:v1",
+    "kind": "category_sales",
+    "group_by": "product_category",
+    "included_statuses": [
+     "delivered",
+     "shipped",
+     "invoiced",
+     "processing",
+     "approved",
+     "created"
+    ],
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00",
+    "previous_start": null,
+    "previous_end": null,
+    "checks": [
+     "independent_reference",
+     "group_total",
+     "download_table",
+     "invariants",
+     "reference_agreement"
+    ],
+    "time_field": "order_purchase_timestamp",
+    "schema": "olist",
+    "amount_source": null
+   },
+   "confirmation": null,
+   "passed": true,
+   "attempts": 1,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [
+    []
+   ],
+   "verification_issues": [],
+   "execution": [
+    "COMPLETED"
+   ],
+   "errors": [],
+   "budget": {
+    "calls": 3,
+    "tokens": 6472
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1582,
+     "completion_tokens": 170,
+     "cached_tokens": 512,
+     "total_tokens": 1752,
+     "seconds": 11.544
+    },
+    {
+     "prompt_tokens": 2212,
+     "completion_tokens": 951,
+     "cached_tokens": 1024,
+     "total_tokens": 3163,
+     "seconds": 43.5
+    },
+    {
+     "prompt_tokens": 1413,
+     "completion_tokens": 144,
+     "cached_tokens": 512,
+     "total_tokens": 1557,
+     "seconds": 4.655
+    }
+   ],
+   "seconds": 68.733,
+   "arm": "three_roles",
+   "case": 14,
+   "batch": 1,
+   "kind": "category_sales",
+   "metric": "payments",
+   "question": "2017年各品类销售情况。",
+   "truth_plan": {
+    "kind": "category_sales",
+    "group_by": "product_category",
+    "start": "2017-01-01T00:00:00",
+    "end": "2018-01-01T00:00:00"
+   },
+   "expects_clarification": false,
+   "clarified": false,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.00573,
+   "prompt_tokens": 5207,
+   "completion_tokens": 1265,
+   "cached_tokens": 2048,
+   "model_calls": 3
+  },
+  {
+   "state": "WAITING_CONFIRMATION",
+   "failure": null,
+   "plan": null,
+   "confirmation": "数据覆盖 2016 年 9 月至 2018 年 10 月，包含多个年份的 8 月，请说明您指的是哪一年的 8 月（如 2017 年 8 月或 2018 年 8 月）。",
+   "passed": false,
+   "attempts": 0,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [],
+   "verification_issues": [],
+   "execution": [],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 1681
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1578,
+     "completion_tokens": 103,
+     "cached_tokens": 512,
+     "total_tokens": 1681,
+     "seconds": 5.939
+    }
+   ],
+   "seconds": 5.941,
+   "arm": "three_roles",
+   "case": 15,
+   "batch": 1,
+   "kind": "clarify",
+   "metric": "payments",
+   "question": "8月的复购率是多少？",
+   "truth_plan": {
+    "clarify": true
+   },
+   "expects_clarification": true,
+   "clarified": true,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.001282,
+   "prompt_tokens": 1578,
+   "completion_tokens": 103,
+   "cached_tokens": 512,
+   "model_calls": 1
+  },
+  {
+   "state": "WAITING_CONFIRMATION",
+   "failure": null,
+   "plan": null,
+   "confirmation": "本流程仅提供描述性分析，不支持预测下个月各州销售额；可以改为分析各州历史销售额排行或趋势，需要您确认改用哪一种。",
+   "passed": false,
+   "attempts": 0,
+   "code_corrections": 0,
+   "review_feedbacks": 0,
+   "replans": 0,
+   "review_skipped": null,
+   "failed_checks": [],
+   "verification_issues": [],
+   "execution": [],
+   "errors": [],
+   "budget": {
+    "calls": 1,
+    "tokens": 1645
+   },
+   "usage": [
+    {
+     "prompt_tokens": 1580,
+     "completion_tokens": 65,
+     "cached_tokens": 512,
+     "total_tokens": 1645,
+     "seconds": 5.325
+    }
+   ],
+   "seconds": 5.326,
+   "arm": "three_roles",
+   "case": 16,
+   "batch": 1,
+   "kind": "clarify",
+   "metric": "payments",
+   "question": "预测下个月各州的销售额。",
+   "truth_plan": {
+    "clarify": true
+   },
+   "expects_clarification": true,
+   "clarified": true,
+   "correct": true,
+   "verified_but_wrong": false,
+   "first_pass": true,
+   "retries": 0,
+   "outcome": "CORRECT",
+   "cost_yuan": 0.001208,
+   "prompt_tokens": 1580,
+   "completion_tokens": 65,
+   "cached_tokens": 512,
+   "model_calls": 1
+  }
+ ]
+}

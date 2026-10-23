@@ -161,7 +161,7 @@ Olist 数据版本的容器输入由服务端按计划投影（`datasets/olist.n
 
 蜕变关系由运行配置 `artifacts/local/runtime.json` 的 `"metamorphic_checks": true` 开启（`Settings.metamorphic_checks`，默认 `false`）；固定演示用 `run_fixed(..., metamorphic=True)`。默认关闭，是因为现有六类都有独立参考，蜕变关系不改变结论，每个任务却要多 4 次沙箱运行。以后加入写不出参考的分析类型时，计划对这些类型默认开启。
 
-各层分别能拦下哪类错误，见[评测文档的错误注入基准](evaluation.md#错误注入基准)。错误注入基准只覆盖单表六类。
+各层分别能拦下哪类错误，见[评测文档的错误注入基准](evaluation.md#错误注入基准)。Olist 的错误注入基准见[评测文档](evaluation.md#olist-错误注入基准)：Olist 特有的口径错误几乎只有独立参考能拦下。
 
 Olist 数据走同一个 `run_checks`：`independent_reference` 用 `verification/olist_sql.py`（内存 SQLite，连接与聚合用 SQL，留存的月份用 SQL 整数运算），`reference_agreement` 的第二份参考是 `verification/olist_python.py`（逐行连接、月份用 datetime 推算、整数比值）。两份参考读数据版本目录中的完整规范化表，固定分析 `execution/fixed_olist.py` 只读沙箱里的投影输入；`tests/datalab/test_olist_kinds.py` 在 200 份固定种子的合成 Olist 数据 × 2 个随机计划（共 400 组，覆盖全部九类）上断言三者逐项相等且满足不变量，另有手算小例子固定同日送达、首单归州、右删失、未翻译品类等口径细节。`group_total` 对新类型只比较可加字段（复购的客户数与复购客户数、送达延迟的两个计数、品类销售的明细数与金额）；留存没有分组。新类型的不变量：
 

@@ -70,6 +70,13 @@ htmlcov/
 !/artifacts/evals/review-probe/
 !/artifacts/evals/injection.json
 !/artifacts/evals/injection-report.md
+!/artifacts/evals/olist-smoke.json
+!/artifacts/evals/olist-dev-r1.json
+!/artifacts/evals/olist-dev-r2.json
+!/artifacts/evals/olist-heldout.json
+!/artifacts/evals/olist-heldout-report.md
+!/artifacts/evals/olist-injection.json
+!/artifacts/evals/olist-injection-report.md
 *.db
 *.sqlite
 *.sqlite3
