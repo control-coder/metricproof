@@ -114,7 +114,9 @@ class SemanticEngine:
 
     def _connection(self) -> sqlite3.Connection:
         if self._db is None:
-            self._db = sqlite3.connect(":memory:")
+            # check_same_thread=False：A5 的并行子 Agent 经 InvestigationToolset 的锁串行使用
+            # 同一连接；引擎自身仍是任务级单实例，不承诺无锁并发。
+            self._db = sqlite3.connect(":memory:", check_same_thread=False)
         return self._db
 
     def _ensure_first_order(self):

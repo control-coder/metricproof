@@ -283,6 +283,18 @@ def detect_anomaly(source, metric: str, period, history: int = 6) -> dict:
     """
     floor = getattr(source, "data_floor", None)  # 数据源可提供最早可用起点（见 _history_periods）
     periods = _history_periods(period, history, floor)
+    return detect_anomaly_explicit(source, metric, period, periods)
+
+
+def detect_anomaly_explicit(source, metric: str, period,
+                            history_periods: list[tuple[str | None, str | None]]) -> dict:
+    """detect_anomaly 的显式历史期间变体（A5）：历史期间由调用方给出，其余逻辑与
+    detect_anomaly 完全一致（环比、同比、中位数 ± MAD 的稳健 z 分数、阈值 3.5）。
+
+    history_periods 为 [(start, end), ...]，按由远及近给出；调用方负责裁剪（如按数据
+    最早起点），本函数不推断也不裁剪，只按给定序列查询。
+    """
+    periods = [(item[0], item[1]) for item in history_periods]
     values = []
     for candidate in periods:
         value = _exact(source.query(metric, candidate)["total"]["value"])

@@ -185,11 +185,13 @@ DESCRIPTIONS = {
 }
 
 # 按 Agent 授权（计划第四节）：模型只看到本 Agent 授权的工具，越权调用不会到达 handler。
+# A5 补充：子 Agent 也需要 finish 来回传结构化发现（计划中「子 Agent 以 finish 回传」，
+# 第四节工具表的 finish 只画在主 Agent 行，这里按 A5 的实际需要给子 Agent 放开 finish）。
 PERMISSIONS = {
     'lead': frozenset({'list_metrics', 'describe_dimensions', 'get_profile', 'detect_anomaly',
                        'decompose_metric', 'query_metric', 'ask_user', 'dispatch_subagent', 'finish', 'read_result'}),
     'subagent': frozenset({'query_metric', 'contribution', 'find_root_cause', 'correlate',
-                           'run_sql', 'run_python', 'read_result'}),
+                           'run_sql', 'run_python', 'read_result', 'finish'}),
     'reviewer': frozenset({'verify_claims', 'read_result'}),
 }
 

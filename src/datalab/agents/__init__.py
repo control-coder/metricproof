@@ -1,6 +1,7 @@
-"""Function Calling 工具层与最小 Agent 循环（A4）。
+"""Function Calling 工具层与 Agent 运行时（A4 通用机制 + A5 编排者-工作者）。
 
 与旧的 roles/ 三角色流水线并存：旧路径（ModelBackend + Workflow）不改行为。
-本包只提供通用机制——工具注册表（tools）、最小循环（loop）、离线录制回放（cassette）；
-计划、分派、并行与上下文压缩由 A5 在 loop 的钩子上实现。
+A4：工具注册表（tools）、最小循环（loop）、离线录制回放（cassette）。
+A5：工具接线（toolset，接语义层与归因算法，含按引用核验）、主 Agent 提示（lead）、
+子 Agent 提示（subagent）与调查编排（investigation：分派、并行、压缩、预算、trace）。
 """

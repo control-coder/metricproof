@@ -21,8 +21,9 @@ semantic.reference 的独立纯 Python 计算 ``ReferenceSource``。期间统一
 LMDI 贡献为浮点数。核验入口 ``verify_attribution`` 用 ReferenceSource 重算逐项比较（L1）。
 """
 from datalab.attribution.attribution import (contribution, correlate, decompose_metric, detect_anomaly,
-                                             find_root_cause, verify_attribution)
+                                             detect_anomaly_explicit, find_root_cause,
+                                             verify_attribution)
 from datalab.attribution.sources import ReferenceSource
 
-__all__ = ["contribution", "correlate", "decompose_metric", "detect_anomaly", "find_root_cause",
-           "verify_attribution", "ReferenceSource"]
+__all__ = ["contribution", "correlate", "decompose_metric", "detect_anomaly",
+           "detect_anomaly_explicit", "find_root_cause", "verify_attribution", "ReferenceSource"]

@@ -1,0 +1,227 @@
+"""工具接线（A5）：为一个归因调查构建 ToolRegistry，handler 接到任务级语义层引擎。
+
+- catalog 取自语义层 list_metrics / describe_dimensions（指标名与维度名枚举），据此调用
+  agents.tools.build_registry；期间参数 {start, end} 转为 A1/A2 的 (start, end) 元组。
+- handler 共享同一个任务级 SemanticEngine（载入一次，任务内复用）；归因工具（contribution 等）
+  把引擎作为数据源调用 A2 的确定性实现。SemanticError、ValueError 由注册表转为观察。
+- dispatch_subagent 与 finish 是编排工具：handler 只校验并返回分支规格 / 报告文本，
+  实际分派与收尾由 investigation.py 的编排层消费（loop 把观察原样回填给模型）。
+- run_sql、run_python 本轮不接（A8）；search_memory、ask_user、propose_metric、verify_claims
+  保持「未接线」观察。
+
+「按引用核验」（verify_results）：只对报告引用到的 result_id 复算——
+- query_metric → semantic.reference.verify（引擎结果 vs Python 参考逐项比较）；
+- 归因五函数（detect_anomaly / decompose_metric / contribution / find_root_cause / correlate）
+  → attribution.verify_attribution（ReferenceSource 独立重算同一函数）；
+- 无 level（元数据、分派、finish 等）或 L2/L3 结果不核验，标 skipped。
+返回 {result_id: {"passed": bool|None, "differences": [...], "skipped": bool}}。
+
+detect_anomaly 的历史期间：工具 Schema 要求模型显式给出历史期间序列（计划第四节工具签名
+``detect_anomaly(metric, period, history)``）。接线层把它接到 A2 的实现上：A2 本体
+``detect_anomaly(source, metric, period, history=6)`` 按「紧邻前 N 期」自己推历史期间
+并按 data_floor 裁剪；这里的历史期间来自模型，等价的函数是
+attribution.detect_anomaly_explicit（A5 新增，与 A2 共用同一套环比/同比/稳健 z 逻辑，
+只把历史期间来源换成显式序列，不再推断与裁剪——模型应先用 get_profile 看 data_floor）。
+"""
+from __future__ import annotations
+
+import threading
+from pathlib import Path
+
+from datalab.agents.tools import ToolError, build_registry
+from datalab.attribution import (contribution, correlate, decompose_metric, find_root_cause,
+                                 verify_attribution)
+from datalab.attribution.attribution import detect_anomaly_explicit
+from datalab.semantic import reference
+from datalab.semantic.dimensions import describe_dimensions
+from datalab.semantic.engine import SemanticEngine
+from datalab.semantic.metrics import list_metrics
+from datalab.semantic.snapshot import SemanticSnapshot
+
+ATTRIBUTION_TOOLS = ('detect_anomaly', 'decompose_metric', 'contribution', 'find_root_cause', 'correlate')
+
+
+def _period_tuple(period: dict | None) -> tuple[str | None, str | None]:
+    if not isinstance(period, dict):
+        raise ToolError('期间必须是 {start, end} 对象')
+    return (period.get('start'), period.get('end'))
+
+
+def _filters_dict(filters: dict | None) -> dict | None:
+    """工具 Schema 的过滤条件 [{dimension, value|values}] 转为语义层的 {维度: 值或值列表}。"""
+    if not filters:
+        return None
+    merged: dict[str, object] = {}
+    for entry in filters.get('where') or []:
+        dimension = entry['dimension']
+        if dimension in merged:
+            raise ToolError(f'过滤条件重复：{dimension}')
+        merged[dimension] = entry['values'] if entry.get('values') is not None else entry.get('value')
+    return merged or None
+
+
+class InvestigationToolset:
+    """一个调查任务的全部接线：注册表、引擎、按引用核验；catalog 与快照显式给出。
+
+    线程安全：并行子 Agent 共用同一个 ResultStore 与注册表；引擎连接不是线程安全的，
+    所有 handler 的引擎调用经一把 RLock 串行化（模型调用是慢速并行点，工具 handler 快，
+    串行化不成为瓶颈）。
+    """
+
+    def __init__(self, folder: Path, snapshot: SemanticSnapshot, *, profile: dict | None = None,
+                 engine: SemanticEngine | None = None, preview_rows: int = 20):
+        self.folder = Path(folder)
+        self.snapshot = snapshot
+        self.engine = engine or SemanticEngine(self.folder, snapshot)
+        self._lock = threading.RLock()
+        catalog = {'metrics': [item['name'] for item in list_metrics()],
+                   'dimensions': [item['name'] for item in describe_dimensions()]}
+        self.catalog = catalog
+        self._profile = profile
+        self.registry = build_registry(catalog, self._handlers(), preview_rows=preview_rows)
+
+    # ---------------------------------------------------------------- handlers
+
+    def _handlers(self) -> dict:
+        return {
+            'list_metrics': self._list_metrics,
+            'describe_dimensions': self._describe_dimensions,
+            'get_profile': self._get_profile,
+            'query_metric': self._query_metric,
+            'detect_anomaly': self._detect_anomaly,
+            'decompose_metric': self._decompose_metric,
+            'contribution': self._contribution,
+            'find_root_cause': self._find_root_cause,
+            'correlate': self._correlate,
+            'dispatch_subagent': self._dispatch_subagent,
+            'finish': self._finish,
+        }
+
+    def _list_metrics(self) -> tuple[dict, dict]:
+        rows = list_metrics()
+        return {'rows': rows}, {'note': '指标目录', 'names': [row['name'] for row in rows]}
+
+    def _describe_dimensions(self) -> tuple[dict, dict]:
+        rows = describe_dimensions()
+        return {'rows': rows}, {'note': '维度目录', 'names': [row['name'] for row in rows]}
+
+    def _get_profile(self) -> dict:
+        """数据版本概况的白名单视图：只放行数、时间范围等聚合，不含逐行数据。"""
+        profile = dict(self._profile or {})
+        allowed = {}
+        for key in ('schema', 'row_count', 'time_min', 'time_max', 'status_counts', 'tables'):
+            if key in profile:
+                value = profile[key]
+                if key == 'tables':
+                    value = {name: {'row_count': item.get('row_count')} for name, item in value.items()}
+                allowed[key] = value
+        if not allowed:
+            allowed = {'note': '数据概况未提供（服务端未注入 profile）'}
+        allowed['data_floor'] = self.engine.data_floor
+        return allowed
+
+    def _query_metric(self, metric, period, compare_period=None, filters=None, group_by=None):
+        with self._lock:
+            result = self.engine.query(metric, _period_tuple(period),
+                                       _period_tuple(compare_period) if compare_period else None,
+                                       _filters_dict(filters), group_by)
+        data = [row['group'] for row in result.get('rows', [])][:64]
+        return (result, {'note': '维度取值', 'values': data}) if data else result
+
+    def _detect_anomaly(self, metric, period, history):
+        history_periods = [_period_tuple(item) for item in history]
+        with self._lock:
+            return detect_anomaly_explicit(self.engine, metric, _period_tuple(period), history_periods)
+
+    def _decompose_metric(self, metric, period, base_period):
+        with self._lock:
+            return decompose_metric(self.engine, metric, _period_tuple(period), _period_tuple(base_period))
+
+    def _contribution(self, metric, dimension, period, base_period):
+        with self._lock:
+            result = contribution(self.engine, metric, dimension, _period_tuple(period),
+                                  _period_tuple(base_period))
+        values = [row['group'] for row in result.get('rows', [])][:64]
+        return (result, {'note': '维度取值', 'values': values}) if values else result
+
+    def _find_root_cause(self, metric, dimensions, period, base_period):
+        with self._lock:
+            result = find_root_cause(self.engine, metric, list(dimensions), _period_tuple(period),
+                                     _period_tuple(base_period))
+        values = [item['value'] for item in result.get('candidates', [])][:64]
+        return (result, {'note': '候选维度取值', 'values': values}) if values else result
+
+    def _correlate(self, metric_a, metric_b, by, period):
+        with self._lock:
+            return correlate(self.engine, metric_a, metric_b, by, _period_tuple(period))
+
+    @staticmethod
+    def _dispatch_subagent(branch, dimension, metric, period, base_period=None):
+        """编排工具：只回显分支规格；真正的分派由 investigation.py 消费观察后执行。"""
+        return {'dispatched': True, 'branch': branch, 'dimension': dimension, 'metric': metric,
+                'period': period, 'base_period': base_period}
+
+    @staticmethod
+    def _finish(report):
+        return {'report': report}
+
+    # ---------------------------------------------------------------- 核验
+
+    def verify_results(self, result_ids: list[str]) -> dict:
+        """按引用核验：只对给出的 result_id 复算；未知或无 level 的标记 skipped。
+
+        query_metric 用 semantic.reference.verify（同 _Cache 复用派生记录）；
+        归因五函数用 attribution.verify_attribution（ReferenceSource 独立重算）。
+        核验异常（如记录参数无法复算）记 passed=False 并给 verify_error 差异，不中断调查。
+        """
+        from datalab.semantic.reference import _Cache
+
+        outcome = {}
+        store_cache = _Cache()
+        for result_id in dict.fromkeys(result_ids):
+            entry = self.registry.store.get(result_id)
+            if entry is None:
+                outcome[result_id] = {'passed': None, 'skipped': True, 'reason': '结果不存在'}
+                continue
+            tool, level = entry['tool'], entry['level']
+            arguments = dict(entry['arguments'])
+            result = entry['result']
+            try:
+                if tool == 'query_metric' and level == 'L1':
+                    compared = reference.verify(result, self.folder, self.snapshot,
+                                                filters=_filters_dict(arguments.get('filters')),
+                                                group_by=arguments.get('group_by'),
+                                                _store=store_cache)
+                    compared['skipped'] = False
+                    outcome[result_id] = compared
+                elif tool in ATTRIBUTION_TOOLS and level == 'L1':
+                    compared = verify_attribution(tool, result, self.folder, self.snapshot,
+                                                  **self._attribution_args(tool, arguments))
+                    compared['skipped'] = False
+                    outcome[result_id] = compared
+                else:
+                    outcome[result_id] = {'passed': None, 'skipped': True,
+                                          'reason': f'{tool} 的核验等级为 {level or "不涉及"}'}
+            except Exception as error:
+                outcome[result_id] = {'passed': False, 'skipped': False,
+                                      'differences': [{'path': '$', 'issue': 'verify_error',
+                                                       'error': type(error).__name__}]}
+        return outcome
+
+    @staticmethod
+    def _attribution_args(tool: str, arguments: dict) -> dict:
+        """工具参数转归因函数参数：期间对象转元组；detect_anomaly 的 history 期间列表转
+        detect_anomaly_explicit 的 history_periods。"""
+        converted = dict(arguments)
+        for key in ('period', 'base_period'):
+            if isinstance(converted.get(key), dict):
+                converted[key] = (converted[key].get('start'), converted[key].get('end'))
+        if tool == 'detect_anomaly':
+            history = converted.pop('history', [])
+            converted['history_periods'] = [_period_tuple(item) for item in history]
+        if tool == 'find_root_cause':
+            converted['dimensions'] = list(converted.get('dimensions') or [])
+        return converted
+
+    def close(self):
+        self.engine.close()
