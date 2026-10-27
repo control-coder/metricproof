@@ -548,11 +548,13 @@ def verify_attribution(kind: str, result: dict, folder: Path, snapshot, **argume
     1e-9 相对误差。
     """
     from datalab.attribution.sources import ReferenceSource
+    from datalab.semantic.reference import _Cache
 
     functions = {"contribution": contribution, "decompose_metric": decompose_metric,
                  "detect_anomaly": detect_anomaly, "find_root_cause": find_root_cause,
                  "correlate": correlate}
-    reference = functions[kind](ReferenceSource(folder, snapshot), **arguments)
+    # 同一次核验内的全部复算共享一份派生记录缓存（真实数据上避免逐次读表与连接）。
+    reference = functions[kind](ReferenceSource(folder, snapshot, _store=_Cache()), **arguments)
     differences = _diff(result, reference, "$")
     invariant = result.get("invariant", {})
     return {"passed": not differences and invariant.get("passed", True),

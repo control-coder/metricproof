@@ -11,6 +11,11 @@
 - 客户级：由「全部历史纳入订单」派生的客户首单集合 f，再按期间过滤（见 metrics.py 客户级口径）。
 期间固定按下单时间 order_purchase_timestamp，左闭右开 [start, end)；
 同一订单的多条评价全部计入（不按订单去重）。
+
+首单集合 f 指向引擎在首次使用时物化的 `_first_order` 表（语义与 _first_order_sql 相同，
+每 customer_unique_id 全部历史第一笔纳入订单）：窗口子查询每次执行约 2 秒，物化一次后
+同任务内所有查询直接 JOIN。引擎保证在用到前建表；编译器本身不依赖物化，_first_order_sql
+仍可在未物化的连接上独立执行。
 """
 from __future__ import annotations
 
@@ -146,6 +151,11 @@ def _first_order_args(snapshot: SemanticSnapshot) -> list:
     return list(snapshot.included_statuses)
 
 
+# 物化后的首单表引用（列与 _first_order_sql 一致：u、first_order、first_t、state），无参数。
+_FIRST_ORDER_TABLE = "_first_order"
+_FIRST_ORDER_REF = f"{_FIRST_ORDER_TABLE} f"
+
+
 def _period_terms(metric: Metric, snapshot: SemanticSnapshot, start: str | None, end: str | None,
                   alias: str = "o") -> tuple[list[str], list]:
     """期间与纳入状态条件（cancel/all 成分不受 included_statuses 约束）。"""
@@ -168,8 +178,7 @@ def _order_base(dims: set[str], snapshot: SemanticSnapshot, *, amount: bool) -> 
     if "customer_state" in dims or "customer_type" in dims:
         joins.append("JOIN customers c ON c.customer_id = o.customer_id")
     if "customer_type" in dims:
-        joins.append(f"JOIN ({_first_order_sql(snapshot)}) f ON f.u = c.customer_unique_id")
-        args.extend(_first_order_args(snapshot))
+        joins.append(f"JOIN {_FIRST_ORDER_REF} ON f.u = c.customer_unique_id")
     if "payment_type" in dims or "payment_installments" in dims:
         joins.append("LEFT JOIN order_payments p ON p.order_id = o.order_id AND p.payment_sequential = "
                      "(SELECT MIN(p2.payment_sequential) FROM order_payments p2 WHERE p2.order_id = o.order_id)")
@@ -201,8 +210,7 @@ def _review_base(dims: set[str], snapshot: SemanticSnapshot) -> tuple[str, list]
     if "customer_state" in dims or "customer_type" in dims:
         joins.append("JOIN customers c ON c.customer_id = o.customer_id")
     if "customer_type" in dims:
-        joins.append(f"JOIN ({_first_order_sql(snapshot)}) f ON f.u = c.customer_unique_id")
-        args.extend(_first_order_args(snapshot))
+        joins.append(f"JOIN {_FIRST_ORDER_REF} ON f.u = c.customer_unique_id")
     return " ".join(["FROM order_reviews r JOIN orders o ON o.order_id = r.order_id", *joins]), args
 
 
@@ -244,10 +252,12 @@ def _select_component(component: str, metric: Metric, group_sql: tuple[str, str]
 
 
 def _customer_query(source_sql: str, source_args: list, group_expression: str | None,
-                    where: str = "", trailing_args: list | None = None) -> tuple[str, list]:
+                    where: str = "", trailing_args: list | None = None,
+                    source_subquery: bool = True) -> tuple[str, list]:
     """客户级成分的统一外形：grp 在前、value 在后；source_sql 为内层客户集合（含首单 state/first_t 列）。
 
     外层只能引用 src 的列：首单集合的 state / first_t 在内层已按别名暴露，外层把 f.xxx 改写为 src.xxx。
+    source_subquery=False 时 source_sql 为带别名的表名（物化首单表），不再套子查询括号。
     """
     if group_expression:
         outer = group_expression.replace("f.", "src.")
@@ -255,7 +265,8 @@ def _customer_query(source_sql: str, source_args: list, group_expression: str | 
         group_by = f" GROUP BY {outer} ORDER BY {outer}"
     else:
         group_select = group_by = ""
-    sql = f"SELECT {group_select}COUNT(*) AS value FROM ({source_sql}) src{where and ' WHERE ' + where}{group_by}"
+    from_part = f"({source_sql}) src" if source_subquery else f"{source_sql} src"
+    sql = f"SELECT {group_select}COUNT(*) AS value FROM {from_part}{where and ' WHERE ' + where}{group_by}"
     return sql, source_args + (trailing_args or [])
 
 
@@ -266,9 +277,8 @@ def _select_customer_component(component: str, metric: Metric, group_expression:
 
     期间内有纳入订单的客户计入 customer_count；至少 2 笔计入 repeat_customer_count（与 _repeat 同口径）。
     新客 = 全部历史首单落在期间内的客户；老客 = 期间内有纳入订单但首单在期间之前的客户。
-    分组只允许 customer_state（按首单归州，见 dimensions.py）；表达式用 f.state，直接落在首单集合上。
+    分组只允许 customer_state（按首单归州，见 dimensions.py）；表达式用 f.state，直接落在物化首单表上。
     """
-    first_sql, first_args = _first_order_sql(snapshot), _first_order_args(snapshot)
     statuses = ",".join("?" for _ in snapshot.included_statuses)
     period = []
     if start:
@@ -284,12 +294,12 @@ def _select_customer_component(component: str, metric: Metric, group_expression:
         inner = (f"SELECT c.customer_unique_id AS u FROM orders o JOIN customers c ON c.customer_id = o.customer_id "
                  f"WHERE o.order_status IN ({statuses}) AND {period_clause}1=1 GROUP BY c.customer_unique_id{having}")
         source = (f"SELECT f.state, f.first_t FROM ({inner}) sel "
-                  f"JOIN ({first_sql}) f ON f.u = sel.u")
-        return _customer_query(source, list(snapshot.included_statuses) + period_args + first_args,
+                  f"JOIN {_FIRST_ORDER_REF} ON f.u = sel.u")
+        return _customer_query(source, list(snapshot.included_statuses) + period_args,
                                group_expression)
 
     if component == "new_customers":
-        # 新客：首单落在期间内，直接查首单集合。
+        # 新客：首单落在期间内，直接查物化首单表。
         clauses = []
         trailing = []
         if start:
@@ -298,17 +308,18 @@ def _select_customer_component(component: str, metric: Metric, group_expression:
         if end:
             clauses.append("src.first_t < ?")
             trailing.append(end)
-        return _customer_query(first_sql, list(first_args), group_expression,
-                               " AND ".join(clauses), trailing)
+        return _customer_query(_FIRST_ORDER_TABLE, [], group_expression,
+                               " AND ".join(clauses), trailing, source_subquery=False)
 
     # 老客：期间内有纳入订单，且首单早于期间起点（未给起点时恒为 0）。
     if not start:
-        return _customer_query(first_sql, list(first_args), group_expression, "1=0")
+        return _customer_query(_FIRST_ORDER_TABLE, [], group_expression, "1=0",
+                               source_subquery=False)
     inner = (f"SELECT c.customer_unique_id AS u FROM orders o JOIN customers c ON c.customer_id = o.customer_id "
              f"WHERE o.order_status IN ({statuses}) AND {period_clause}1=1 GROUP BY c.customer_unique_id")
     source = (f"SELECT f.state, f.first_t FROM ({inner}) sel "
-              f"JOIN ({first_sql}) f ON f.u = sel.u")
-    return _customer_query(source, list(snapshot.included_statuses) + period_args + first_args,
+              f"JOIN {_FIRST_ORDER_REF} ON f.u = sel.u")
+    return _customer_query(source, list(snapshot.included_statuses) + period_args,
                            group_expression, "src.first_t < ?", [start])
 
 

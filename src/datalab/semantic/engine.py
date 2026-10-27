@@ -12,7 +12,7 @@ from pathlib import Path
 import sqlite3
 
 from datalab.datasets import olist
-from datalab.semantic.compiler import compile_query
+from datalab.semantic.compiler import _first_order_args, _first_order_sql, compile_query
 from datalab.semantic.errors import SemanticError
 from datalab.semantic.metrics import ADDITIVE, components, get_metric
 from datalab.semantic.snapshot import SemanticSnapshot
@@ -25,9 +25,10 @@ GRAIN_TABLES = {
     "review": ("order_reviews", "orders", "customers"),
     "customer": ("orders", "customers"),
 }
-# 载入后建索引的连接键（列固定，见 datasets/olist.STRICT_KEYS）。
+# 载入后建索引的连接键（列固定，见 datasets/olist.STRICT_KEYS）；orders 另建下单时间索引，
+# 期间过滤（> 99% 的查询带期间）走索引而不是全表扫描。
 _INDEX_KEYS = {
-    "orders": (("orders", "customer_id"),),
+    "orders": (("orders", "customer_id"), ("orders", "order_purchase_timestamp")),
     "customers": (("customers", "customer_id"), ("customers", "customer_unique_id")),
     "order_items": (("order_items", "order_id"), ("order_items", "product_id"), ("order_items", "seller_id")),
     "order_payments": (("order_payments", "order_id"),),
@@ -41,6 +42,21 @@ def _fraction(numerator: int, denominator: int) -> str | None:
     return None if not denominator else format(Decimal(numerator) / Decimal(denominator), ".6f")
 
 
+def _freeze(filters: dict | None) -> tuple | None:
+    """filters 转可哈希键；取值不是字符串/序列时按原值冻结（编译器随后校验并报错）。"""
+    if not filters:
+        return None
+    frozen = []
+    for name, value in filters.items():
+        if isinstance(value, str):
+            frozen.append((name, (value,)))
+        elif isinstance(value, (list, tuple)):
+            frozen.append((name, tuple(value)))
+        else:
+            frozen.append((name, value))
+    return tuple(sorted(frozen, key=lambda item: item[0]))
+
+
 class SemanticEngine:
     """folder 为数据版本目录；snapshot 为已确认口径快照。"""
 
@@ -49,6 +65,9 @@ class SemanticEngine:
         self.snapshot = snapshot
         self._db: sqlite3.Connection | None = None
         self._loaded: set[str] = set()
+        self._first_order_ready = False
+        self._run_cache: dict | None = None
+        self._analyzed = False
         self._data_floor: str | None = None
 
     @property
@@ -98,6 +117,31 @@ class SemanticEngine:
             self._db = sqlite3.connect(":memory:")
         return self._db
 
+    def _ensure_first_order(self):
+        """物化客户首单集合 `_first_order`（每 customer_unique_id 全部历史第一笔纳入订单）。
+
+        customer_type 维度与全部客户级指标都依赖它；窗口子查询每次执行约 2 秒，
+        物化一次（建 u、first_order 两个索引）后同任务内所有查询直接 JOIN。
+        """
+        if self._first_order_ready:
+            return
+        self._load("orders")
+        self._load("customers")
+        db = self._connection()
+        db.execute("DROP TABLE IF EXISTS _first_order")
+        db.execute(f"CREATE TABLE _first_order AS {_first_order_sql(self.snapshot)}",
+                   _first_order_args(self.snapshot))
+        db.execute('CREATE INDEX "ix__first_order_u" ON "_first_order" ("u")')
+        db.execute('CREATE INDEX "ix__first_order_first_order" ON "_first_order" ("first_order")')
+        self._first_order_ready = True
+
+    def _analyze(self):
+        """表与索引齐备后运行一次 ANALYZE（约 0.1 秒），让规划器按真实行数选驱动表。"""
+        if self._analyzed:
+            return
+        self._connection().execute("ANALYZE")
+        self._analyzed = True
+
     def _prepare(self, metric_name: str):
         metric = get_metric(metric_name)
         for name in sorted(GRAIN_TABLES[metric.grain]):
@@ -117,7 +161,24 @@ class SemanticEngine:
         return result
 
     def _run(self, metric, period, filters, group_by) -> dict:
+        # 归因（find_root_cause 等）会对同一 (指标, 期间, 过滤器, 分组) 重复查询；
+        # 引擎连接期间数据不变，按键复用结果（测试每次新建引擎，不受影响）。
+        if self._run_cache is None:
+            self._run_cache = {}
+        key = (metric.name, period[0], period[1], _freeze(filters), group_by)
+        if key not in self._run_cache:
+            self._run_cache[key] = self._run_uncached(metric, period, filters, group_by)
+        return self._run_cache[key]
+
+    def _run_uncached(self, metric, period, filters, group_by) -> dict:
         db = self._connection()
+        # 用到首单集合（customer_type 维度或客户级指标）时先物化，只算一次。
+        dims = ({group_by} if group_by else set()) | set(filters or ())
+        if metric.grain == "customer" or "customer_type" in dims:
+            self._ensure_first_order()
+        # 连接键与时间索引建好后让查询规划器重新选择驱动表（真实数据上客户级成分
+        # 从「客户驱动」改为「期间内订单驱动」，repeat_rate 类查询快约 10 倍）。
+        self._analyze()
         # 总计与分组分别编译执行：分组行加总不一定等于总计（如不同订单数按组去重）。
         total_parts = self._parts(db, compile_query(metric.name, period, filters, None, self.snapshot))
         grouped: dict[str, dict[str, int]] = {}
