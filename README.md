@@ -2,7 +2,7 @@
 
 > 面向电商订单数据（单表 CSV 与结构固定的 Olist 多表公开数据）的多角色分析助手：数值经独立 SQL 复算才算成功，业务口径必须由用户确认，生成代码只在无网络的受限容器中运行。
 
-[![CI](https://github.com/control-coder/orderproof/actions/workflows/ci.yml/badge.svg)](https://github.com/control-coder/orderproof/actions/workflows/ci.yml)
+[![CI](https://github.com/control-coder/metricproof/actions/workflows/ci.yml/badge.svg)](https://github.com/control-coder/metricproof/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
