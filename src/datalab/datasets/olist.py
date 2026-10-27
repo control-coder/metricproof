@@ -5,8 +5,8 @@ artifacts/olist/raw/，不随仓库分发。导入时逐表严格校验并整表
 不回显数据内容）；规范化后的表平铺写入数据版本目录，金额统一为整数分，时间统一为无偏移的秒级 ISO 本地时间。
 
 连接键的处理按表决定，并写进概况：
-- 订单→客户、明细→订单、明细→商品、支付→订单、评价→订单：任一孤儿行都整批拒绝（真实数据中均为 0），
-  否则按客户、品类或金额汇总时会静默丢行；
+- 订单→客户、明细→订单、明细→商品、明细→卖家、支付→订单、评价→订单：任一孤儿行都整批拒绝（真实数据中均为 0），
+  否则按客户、卖家、品类或金额汇总时会静默丢行；
 - 商品品类→英文翻译：允许缺失（真实数据有 2 个品类、13 个商品没有翻译），分析时退回原品类名，
   品类为空时归入 unknown；
 - 没有明细、支付或评价的订单，以及没有订单的客户：允许，计数写进概况（真实数据有 775 单无明细、1 单无支付）。
@@ -97,11 +97,19 @@ TABLES = {
                     ("product_category_name_english", "product_category_name_english", "token")),
         "unique": ("product_category_name",), "limits": (1_000, 1024 * 1024),
     },
+    "sellers": {
+        "file": "olist_sellers_dataset.csv",
+        "header": ("seller_id", "seller_zip_code_prefix", "seller_city", "seller_state"),
+        # 城市与邮编是自由文本且没有分析用到，不进入规范化表。
+        "columns": (("seller_id", "seller_id", "id"), ("seller_state", "seller_state", "state")),
+        "unique": ("seller_id",), "limits": (50_000, 4 * 1024 * 1024),
+    },
 }
 # 必须完整的连接键（子表, 列, 父表, 父列）：任一孤儿行整批拒绝。
 STRICT_KEYS = (("orders", "customer_id", "customers", "customer_id"),
                ("order_items", "order_id", "orders", "order_id"),
                ("order_items", "product_id", "products", "product_id"),
+               ("order_items", "seller_id", "sellers", "seller_id"),
                ("order_payments", "order_id", "orders", "order_id"),
                ("order_reviews", "order_id", "orders", "order_id"))
 # 允许缺失的连接键：只计数。
@@ -114,10 +122,18 @@ def columns(table: str) -> tuple[str, ...]:
 
 
 # 结构签名覆盖表、列、类型与连接键；与单表 orders 的签名不同，业务记忆据此区分范围。
-SIGNATURE = hashlib.sha256(json.dumps(
-    {"schema": SCHEMA, "tables": {name: [list(column) for column in spec["columns"]] for name, spec in TABLES.items()},
-     "strict": [list(key) for key in STRICT_KEYS], "loose": [list(key) for key in LOOSE_KEYS]},
-    sort_keys=True).encode()).hexdigest()[:16]
+def _signature(tables, strict, loose) -> str:
+    return hashlib.sha256(json.dumps(
+        {"schema": SCHEMA, "tables": {name: [list(column) for column in tables[name]["columns"]] for name in tables},
+         "strict": [list(key) for key in strict], "loose": [list(key) for key in loose]},
+        sort_keys=True).encode()).hexdigest()[:16]
+
+# 含卖家表（八表）的当前签名：新导入的数据版本使用。
+SIGNATURE = _signature(TABLES, STRICT_KEYS, LOOSE_KEYS)
+# 不含卖家表的七表旧签名：A1 之前导入的数据版本仍能识别为 olist，只读旧九类统计任务可用的表。
+_LEGACY_TABLES = {name: spec for name, spec in TABLES.items() if name != "sellers"}
+_LEGACY_STRICT = tuple(key for key in STRICT_KEYS if key[2] != "sellers" and key[3] != "sellers")
+LEGACY_SIGNATURE = _signature(_LEGACY_TABLES, _LEGACY_STRICT, LOOSE_KEYS)
 
 ID = re.compile(r"[0-9A-Za-z_\-]{1,64}")
 TOKEN = re.compile(r"[0-9a-z_]{1,64}")
@@ -287,6 +303,7 @@ def profile(tables: dict[str, list[dict]], orphans: dict, digests: dict) -> dict
         },
         "duplicate_review_ids": len(reviews) - len({row["review_id"] for row in reviews}),
         "customer_unique_count": len({row["customer_unique_id"] for row in tables["customers"]}),
+        "seller_count": len(tables["sellers"]),
         "delivered_without_date": sum(1 for row in orders if row["order_status"] == "delivered"
                                       and not row["order_delivered_customer_date"]),
         # 两种订单金额来源（支付合计 vs 明细价格加运费）在真实数据中并不总相等，口径必须由用户确认。

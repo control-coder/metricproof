@@ -3,7 +3,7 @@
 来源：Kaggle olistbr/brazilian-ecommerce（CC BY-NC-SA 4.0）。Kaggle 需要账号凭据，这里使用固定提交的
 GitHub 镜像 mara/mara-olist-ecommerce-data（镜像仓库代码为 MIT，数据仍遵循原始许可）。字节数与 SHA-256
 固定在本文件中，任何一项不符都会删除下载的临时文件并失败；行数与 Kaggle 公布的数量对照。
-数据为署名-非商业-相同方式共享许可，禁止提交到仓库；地理位置表与卖家表不参与分析，不下载。
+数据为署名-非商业-相同方式共享许可，禁止提交到仓库；地理位置表不参与分析，不下载。
 
 用法：python -B scripts/fetch_olist.py [--dest artifacts/olist/raw]
 """
@@ -31,6 +31,7 @@ FILES = {
     'olist_customers_dataset.csv': (9033957, '983a422239e1712ded753b3bf9ecf47dc73f144d306029dcfa99e70a226883d2', 99441),
     'olist_products_dataset.csv': (2379446, '3e6569628a17fbc75fd206ee357b59e20364b9afa90f5b6cd5b4d624c58aa9cc', 32951),
     'product_category_name_translation.csv': (2613, 'a81f0d1f27b27e7293f761bc79e3ce8f348ee39c4b3ed3e49bde38f478586278', 71),
+    'olist_sellers_dataset.csv': (174703, '1f643d2b950373b85735e7794b20986f528d7a000432e7c6f9bcbb44d0846a0e', 3095),
 }
 RETRIES = 6
 

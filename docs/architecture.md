@@ -30,6 +30,7 @@ flowchart TB
 | --- | --- |
 | `api/` | HTTP 接口、请求体上限、Host 与写入来源校验、产物下载 |
 | `datasets/` | 标准 CSV 模板与字段映射、Olist 多表导入、质量检查、数据版本与 schema 签名 |
+| `semantic/` | 语义层：指标定义、维度与粒度校验、SQL 编译、内存引擎、独立 Python 参考与指标树（A1） |
 | `orchestration/` | 任务状态机、有界修正、Celery worker、租约与补发 |
 | `roles/` | 三角色运行时与工具白名单、固定演示后端、OpenAI 兼容模型适配与提示 |
 | `memory/` | 业务记忆的范围、版本、确认、失效与冲突，PostgreSQL 实现 |
@@ -44,7 +45,7 @@ flowchart TB
 
 ### 多表数据（Olist）
 
-除单表 `orders` 外，数据版本可以是结构固定的 Olist 多表 `olist`（`datasets/olist.py`）。表、列、类型与连接键全部由服务端定义，只从固定目录读取七个已知文件名，不接受任意表或列；结构签名由这份定义计算，与单表签名不同，业务记忆据此分开范围。单表路径的导入、签名与数据版本格式不变（`DatasetVersion.schema` 新增，旧元数据缺省为 `orders`）。
+除单表 `orders` 外，数据版本可以是结构固定的 Olist 多表 `olist`（`datasets/olist.py`）。表、列、类型与连接键全部由服务端定义，只从固定目录读取八个已知文件名，不接受任意表或列；结构签名由这份定义计算，与单表签名不同，业务记忆据此分开范围。单表路径的导入、签名与数据版本格式不变（`DatasetVersion.schema` 新增，旧元数据缺省为 `orders`）。A1 起加入卖家表 `sellers`：新导入使用含卖家表的八表签名 `olist.SIGNATURE`；A1 之前导入的七表数据版本仍由旧签名 `olist.LEGACY_SIGNATURE`（固定值，逐字节与旧计算一致）识别为 `olist`，旧九类统计任务只读 `needed(plan)` 的表、不受影响，但语义层使用卖家维度时对该版本给出「该数据版本导入时没有卖家表，请重新导入」的错误。新旧签名分属不同的业务记忆范围：八表版本的口径需重新确认，不继承七表版本的已确认口径。
 
 | 表 | 规范化列 | 主键 | 上限（行 / 字节） |
 | --- | --- | --- | --- |
@@ -55,10 +56,11 @@ flowchart TB
 | `order_reviews` | review_id、order_id、review_score、review_creation_date、review_answer_timestamp | (review_id, order_id) | 15 万 / 32 MB |
 | `products` | product_id、product_category_name | product_id | 5 万 / 8 MB |
 | `category_translation` | product_category_name、product_category_name_english | product_category_name | 1000 / 1 MB |
+| `sellers` | seller_id、seller_state | seller_id | 5 万 / 4 MB |
 
 - 校验：原始表头必须与 Olist 原文完全一致；时间接受空格或 `T` 分隔的秒级本地时间，统一写成 `YYYY-MM-DDTHH:MM:SS`，带偏移即拒绝；批准、揽收、送达三个日期允许为空（Olist 原始数据确有缺失），其余时间必填；金额最多两位小数，转为整数分；订单状态只允许 Olist 词表（delivered、shipped、canceled、unavailable、invoiced、processing、created、approved）；评分 1–5；标识、州缩写、品类名按固定格式。任一行出错整批拒绝，最多报告 20 条（表名、行号、原因），不回显内容。评论正文、城市、邮编、商品尺寸等未用到的自由文本或列不进入规范化表。
-- 连接键：订单→客户、明细→订单、明细→商品、支付→订单、评价→订单任一孤儿行整批拒绝（只报告表名与计数），否则按客户、品类或金额汇总会静默丢行；商品品类→英文翻译允许缺失，只计数；没有明细、支付或评价的订单与没有订单的客户允许存在，计数写进概况。
-- 概况（`profile`）：逐表行数、订单状态计数、下单时间范围（`time_min`/`time_max`）与送达、预计送达、评价日期范围、各列空值数、孤儿行计数、无子行计数、重复 review_id 数、不同 customer_unique_id 数、状态为 delivered 但没有送达日期的订单数、两种订单金额来源不一致的订单数与总差额、原始文件 SHA-256。
+- 连接键：订单→客户、明细→订单、明细→商品、明细→卖家、支付→订单、评价→订单任一孤儿行整批拒绝（只报告表名与计数），否则按客户、卖家、品类或金额汇总会静默丢行；商品品类→英文翻译允许缺失，只计数；没有明细、支付或评价的订单与没有订单的客户允许存在，计数写进概况。
+- 概况（`profile`）：逐表行数、订单状态计数、下单时间范围（`time_min`/`time_max`）与送达、预计送达、评价日期范围、各列空值数、孤儿行计数、无子行计数、重复 review_id 数、不同 customer_unique_id 数、卖家数、状态为 delivered 但没有送达日期的订单数、两种订单金额来源不一致的订单数与总差额、原始文件 SHA-256。
 - 存储：规范化表平铺写入数据版本目录（`orders.csv`、`customers.csv` 等），原始文件不复制。
 
 分析类型与口径（`verification/olist_sql.py` 模块说明为准，`contracts.OLIST_GROUPS` 列出允许的分组，其他组合在计划校验时拒绝；Olist 数据不支持 quality）：
@@ -70,7 +72,45 @@ flowchart TB
 - `delivery_delay`：只统计状态为 delivered 且送达、预计送达日期都不为空的纳入订单（口径必须含 delivered）；按日期比较，送达日期晚于预计送达日期为延迟，同一天送达不算。输出 `delivered_count`、`late_count`、`late_rate`，可按州分组。
 - `category_sales`：纳入订单的全部明细按商品品类英文名分组；有品类没有翻译时用原品类名，品类为空时为 `unknown`。每组 `order_count`（不同订单数）、`item_count`、`price_cents`、`freight_cents`，按 price_cents 降序、组名升序；总计的订单数按订单去重，所以各组订单数之和可以大于总计。
 
-真实数据（`scripts/fetch_olist.py` 固定的版本）的实测概况：订单、客户各 99441 行，明细 112650、支付 103886、评价 100000、商品 32951、翻译 71 行；下单时间 2016-09-04 至 2018-10-17；严格连接键孤儿行全为 0；2 个品类（13 个商品）没有英文翻译，610 个商品品类为空；775 单没有明细、1 单没有支付；827 个 review_id 对应不止一笔订单；8 单状态为 delivered 却没有送达日期；96096 个不同的 customer_unique_id。按支付合计与按明细价格加运费计算的订单金额有 1349 单不一致，支付合计比明细合计多 16531888 分（165318.88 BRL）。本机导入七张表约 9 秒。
+真实数据（`scripts/fetch_olist.py` 固定的版本）的实测概况：订单、客户各 99441 行，明细 112650、支付 103886、评价 100000、商品 32951、翻译 71、卖家 3095 行；下单时间 2016-09-04 至 2018-10-17；严格连接键孤儿行全为 0；2 个品类（13 个商品）没有英文翻译，610 个商品品类为空；775 单没有明细、1 单没有支付；827 个 review_id 对应不止一笔订单；8 单状态为 delivered 却没有送达日期；96096 个不同的 customer_unique_id。按支付合计与按明细价格加运费计算的订单金额有 1349 单不一致，支付合计比明细合计多 16531888 分（165318.88 BRL）。本机导入八张表约 10 秒。
+
+### 语义层与指标树（A1）
+
+`semantic/` 是 MetricProof 改造的第一个新模块：把经营指标按统一口径声明、校验并编译为查询，供归因工具（A2 起）与未来的 Agent 工具层（A4 起）调用，替代「每类分析一份固定实现」的扩展方式。它只服务 Olist 多表数据，单表与旧九类统计任务仍走原有路径。模块：指标定义 `metrics.py`、维度 `dimensions.py`、编译器 `compiler.py`、引擎 `engine.py`、独立 Python 参考 `reference.py`、指标树 `tree.py`；口径快照 `snapshot.py` 只含计算所需字段，由服务端从已确认口径建立。
+
+指标（名称、粒度、类型、单位；比率型给出分子/分母成分）：
+
+| 指标 | 中文名 | 粒度 | 类型 | 口径要点 |
+| --- | --- | --- | --- | --- |
+| gmv | 订单金额合计 | 订单 | 加法型（分） | 金额来源按已确认口径 amount_source：payments 为该单全部支付之和，items 为全部明细 price+freight 之和；没有子行计 0（与 olist_sql._orders 一致） |
+| order_count | 订单量 | 订单 | 加法型（个） | 纳入订单数 |
+| aov | 客单价 | 订单 | 比率型 gmv/order_count | — |
+| cancel_rate | 取消率 | 订单 | 比率型 cancel_count/all_order_count | 不受 included_statuses 约束：分母为期间内全部状态的订单，分子为其中 canceled 订单 |
+| late_delivery_rate | 送达延迟率 | 订单 | 比率型 late_count/delivered_dated_count | 与 delivery_delay 同口径（按日期比较，同日不算延迟；要求 delivered 且两个日期非空） |
+| avg_delivery_days | 平均配送天数 | 订单 | 比率型 delivery_days_sum/delivered_dated_count | 按日期差取整天（送达日期 − 下单日期），不用时间戳秒差，可精确复算 |
+| item_gmv / category_gmv | 明细金额 / 品类 GMV | 明细 | 加法型（分） | 明细 price_cents + freight_cents 之和；category_gmv 是它按 product_category 分组的别名，与 category_sales 的 price+freight 可对照 |
+| item_count | 明细件数 | 明细 | 加法型（个） | — |
+| avg_item_price | 件单价 | 明细 | 比率型 item_price_sum/item_count | 分子只用 price，不含运费 |
+| items_per_order | 每单件数 | 明细 | 比率型 item_count/item_order_count | 分母为有明细的不同订单数，总计按订单去重、分组按组内去重（一单跨组时各组各计 1） |
+| freight_ratio | 运费占比 | 明细 | 比率型 freight_sum/item_gmv | — |
+| avg_review_score | 平均评分 | 评价 | 比率型 review_score_sum/review_count | 评价经 order_id 归到订单，期间与状态按订单过滤；同一订单多条评价全部计入，不按订单去重 |
+| bad_review_rate | 差评率 | 评价 | 比率型 bad_review_count/review_count | 差评 = 评分 ≤ 2 |
+| repeat_rate | 复购率 | 客户 | 比率型 repeat_customer_count/customer_count | 与 olist_sql._repeat 同口径 |
+| new_customers / returning_customers | 新客数 / 老客数 | 客户 | 加法型（个） | 按 customer_unique_id 全部历史（不受期间起点限制）中第一笔纳入订单判定：首单落在期间内为新客；期间内有纳入订单但首单在起点之前为老客 |
+
+维度（粒度；取值规则）：customer_state（订单级，经客户表；客户级指标按首单所在客户行的州归州）、seller_id 与 seller_state（明细级，层级 seller_state → seller_id）、product_category（明细级，英文翻译退回原品类名、空为 unknown）、price_band（明细级，按 price_cents 分带：lt_50 / 50_100 / 100_200 / 200_500 / ge_500，单位 BRL）、payment_type 与 payment_installments（订单级：取该订单 payment_sequential 最小的那笔支付，无支付为 unknown）、customer_type（订单级：new/returning，判定同新客口径）、delivery_status（订单级：late / on_time / not_delivered，按日期比较）、purchase_date 与 purchase_month（下单时间前 10 / 前 7 位）。
+
+粒度规则：维度粒度比指标粒度细时拒绝并给出建议（`SemanticError`），例如订单级 gmv 按 product_category 拆——一单可含多个品类，各组之和不等于总计，建议改用 item_gmv/category_gmv；客户级指标只允许 customer_state（按首单归州，不会重复计数），其余维度都会让客户重复计数。明细级指标可以用订单级维度（明细属于订单）。
+
+编译器（`compiler.py`）：`compile_query(metric, period, filters, group_by, snapshot)` 把查询编译为参数化 SQLite SQL。表名、列名、维度表达式全部来自服务端常量；取值一律参数绑定；filters 只允许「维度 = 值」或「维度 IN 值列表」，维度名必须在指标白名单内，取值按词表校验格式。期间为左闭右开 [start, end)，期间字段固定为下单时间。比率型指标编译为分子、分母两条成分查询。
+
+引擎（`engine.py`）：`SemanticEngine(folder, snapshot)` 把需要的规范化表载入内存 SQLite（固定连接键建索引），同一任务多次查询复用连接；`query(metric, period, compare_period=None, filters=None, group_by=None)` 返回 `{metric, grain, type, unit, period, total: {numerator, denominator, value}, rows: [{group, numerator, denominator, value}], compare?, delta?}`；比值为 6 位小数字符串（分母 0 为 null），金额为整数分；总计与分组分别编译执行（分组行加总不一定等于总计）。旧七表数据版本没有 sellers.csv，使用卖家维度时给出「该数据版本导入时没有卖家表，请重新导入」的错误。
+
+L1 核验（`reference.py`）：纯 Python 逐行实现同一套指标与维度，不用 SQL、不与编译器共享计算代码；`verify(engine_result, folder, snapshot, filters=, group_by=)` 逐项比较语义层结果与参考。`tests/datalab/test_semantic.py` 在固定种子合成数据上验证：与 olist_sql 重叠的指标（gmv/order_count 不分组、按州、按月 × 两种金额来源，late_delivery_rate 含按州，repeat_rate 含按州，明细金额/件数按品类）逐行一致；全部指标 × 允许维度与 Python 参考逐项一致；粒度不匹配、未知维度、过滤器注入（维度名为任意字符串、取值含引号）被拒绝或安全绑定；指标树结构校验通过。
+
+指标树（`tree.py`）：声明拆解关系供 A2 的 decompose_metric 使用，本轮只做声明与结构校验，不做归因算法。乘法型：gmv = order_count × aov、item_gmv = item_count × avg_item_price；加法型：order_count 按 customer_type 拆为新老客订单之和；比率型指标声明分子/分母关系（归因时分别计算分子分母的变化再合成）。
+
+真实数据冒烟（一次性，数据不入库）：导入八张表约 10 秒；随后 13 组代表性查询（gmv 按州/月、repeat_rate 按州、item_gmv 按品类/卖家州/卖家 ID 带过滤、评价按送达状态、新老客按州、freight_ratio 按价格带等）引擎耗时 0.01–5.8 秒（首单窗口查询最慢），每组 verify 全部通过。语义层结果未与既有九类任务混算，后续归因轮次单独报告。
 
 ## 三角色与状态
 

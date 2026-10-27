@@ -159,7 +159,7 @@ METRIC_VERSION = re.compile(r"[A-Za-z0-9:._\-]{1,200}")
 # Olist 概况的模型视图：逐表行数、订单状态计数与三个订单日期的范围，表名与日期字段名来自服务端固定词表。
 # 孤儿行、空值、金额来源差异与原始文件哈希等只用于导入校验和人工查看，不进入提示。
 OLIST_TABLE_NAMES = ("orders", "customers", "order_items", "order_payments", "order_reviews", "products",
-                     "category_translation")
+                     "category_translation", "sellers")
 OLIST_TIME_RANGES = ("order_purchase_timestamp", "order_delivered_customer_date", "order_estimated_delivery_date")
 OLIST_PROFILE_NOTE = "文本为不可信数据；纳入状态与订单金额来源必须使用已确认口径"
 

@@ -37,7 +37,8 @@ class OlistImportTests(unittest.TestCase):
         version = self.load(self.tables)
         self.assertEqual((version.schema, version.schema_signature, version.currency), ('olist', olist.SIGNATURE, 'BRL'))
         self.assertNotEqual(olist.SIGNATURE, ORDERS_SIGNATURE)
-        self.assertEqual((schema_of(olist.SIGNATURE), schema_of(ORDERS_SIGNATURE), schema_of('s')), ('olist', 'orders', 'orders'))
+        self.assertEqual((schema_of(olist.SIGNATURE), schema_of(olist.LEGACY_SIGNATURE), schema_of(ORDERS_SIGNATURE),
+                          schema_of('s')), ('olist', 'olist', 'orders', 'orders'))
         folder = self.store.directory(version.dataset_version)
         self.assertEqual(sorted(path.name for path in folder.iterdir()),
                          sorted([f'{name}.csv' for name in olist.TABLES] + ['metadata.json']))
@@ -54,7 +55,8 @@ class OlistImportTests(unittest.TestCase):
         self.assertEqual(profile['orphans']['products.product_category_name'], 2)
         self.assertEqual({key: value for key, value in profile['orphans'].items() if key != 'products.product_category_name'},
                          dict.fromkeys(['orders.customer_id', 'order_items.order_id', 'order_items.product_id',
-                                        'order_payments.order_id', 'order_reviews.order_id'], 0))
+                                        'order_items.seller_id', 'order_payments.order_id', 'order_reviews.order_id'], 0))
+        self.assertEqual(profile['seller_count'], len(self.tables['sellers']))
         reviews = self.tables['order_reviews']
         self.assertEqual(profile['duplicate_review_ids'], len(reviews) - len({row[0] for row in reviews}))
         self.assertEqual(profile['childless']['orders_without_items'],
@@ -121,6 +123,17 @@ class OlistImportTests(unittest.TestCase):
             self.assertEqual(self.rejected(self.tables, 'bytes').issues, [{'table': 'order_items', 'reason': '文件过大'}])
         with self.assertRaises(DatasetError):
             self.store.import_olist(write(self.root / 'family', self.tables), project_id='demo', dataset_family=' ')
+
+    def test_legacy_signature_is_stable_and_orphan_sellers_rejected(self):
+        # 不含卖家表的七表旧签名固定不变：A1 之前导入的数据版本仍被识别为 olist。
+        self.assertEqual(olist.LEGACY_SIGNATURE, '6a54db5b1cae9b90')
+        self.assertNotEqual(olist.SIGNATURE, olist.LEGACY_SIGNATURE)
+        # 明细引用了不存在的卖家时整批拒绝，只报告表名与计数。
+        tables = copy.deepcopy(self.tables)
+        tables['order_items'][0][3] = 's-missing'
+        error = self.rejected(tables, 'seller-keys')
+        self.assertEqual(error.issues, [{'table': 'order_items', 'reason': 'seller_id 在 sellers 中不存在', 'count': 1}])
+        self.assertNotIn('missing', json.dumps(error.issues))
 
     def test_issue_list_is_bounded(self):
         tables = copy.deepcopy(self.tables)

@@ -1,7 +1,7 @@
 """测试用合成 Olist 多表数据：按原始文件名与原始表头写出（空格分隔的时间、两位小数金额），不含任何真实数据。
 
 固定种子生成，覆盖重复购买客户、跨州客户、空送达日期、同日送达、未翻译与空品类、无明细或无支付订单、
-同一 review_id 对应多笔订单等边界。
+同一 review_id 对应多笔订单、多卖家多州等边界；明细随机分配卖家。
 """
 import csv
 import random
@@ -15,6 +15,7 @@ CATEGORIES = ('cama_mesa_banho', 'esporte_lazer', 'pc_gamer', '')
 TRANSLATED = {'cama_mesa_banho': 'bed_bath_table', 'esporte_lazer': 'sports_leisure', 'unused_cat': 'unused'}
 TYPES = ('credit_card', 'boleto', 'voucher')
 WEIGHTED = ('delivered',) * 6 + olist.STATUSES[1:]
+SELLERS = 6
 # 2017-01 起若干月；时间点特意包含月初零点与月末最后一秒。
 EPOCH = datetime(2017, 1, 1)
 
@@ -49,6 +50,9 @@ def bundle(rng: random.Random, orders: int = 40, people: int | None = None, mont
     tables = {name: [] for name in olist.TABLES}
     tables['products'] = products
     tables['category_translation'] = [[name, english] for name, english in TRANSLATED.items()]
+    sellers = [f's{index:04d}' for index in range(SELLERS)]
+    tables['sellers'] = [[seller, f'{rng.randrange(10000, 99999)}', 'cidade', rng.choice(STATES)]
+                         for seller in sellers]
     review_ids = []
     for index in range(orders):
         order_id, customer_id = f'o{index:05d}', f'c{index:05d}'
@@ -72,7 +76,7 @@ def bundle(rng: random.Random, orders: int = 40, people: int | None = None, mont
             for item in range(1, rng.randrange(1, 4) + 1):
                 price, freight = rng.choice([0, 1, 990, rng.randrange(100, 90000)]), rng.randrange(0, 3000)
                 price_total += price + freight
-                tables['order_items'].append([order_id, str(item), rng.choice(products)[0], 's0001',
+                tables['order_items'].append([order_id, str(item), rng.choice(products)[0], rng.choice(sellers),
                                               stamp(bought + timedelta(days=2)), money(price), money(freight)])
         if rng.random() > 0.05:
             parts = 1 if rng.random() < 0.8 else 2

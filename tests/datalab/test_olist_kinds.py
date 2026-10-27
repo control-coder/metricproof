@@ -132,6 +132,7 @@ class HandComputedTests(Fixture):
         tables['products'] = [['p1', 'cama_mesa_banho', '1', '1', '1', '1', '1', '1', '1'],
                               ['p2', 'pc_gamer', '1', '1', '1', '1', '1', '1', '1'],
                               ['p3', '', '', '', '', '1', '1', '1', '1']]
+        tables['sellers'] = [['s', '01000', 'x', 'SP']]
         tables['category_translation'] = [['cama_mesa_banho', 'bed_bath_table']]
         tables['order_items'] = [['o1', '1', 'p1', 's', '2017-01-06 00:00:00', '10.00', '1.00'],
                                  ['o1', '2', 'p2', 's', '2017-01-06 00:00:00', '5.00', '0.50'],

@@ -26,8 +26,12 @@ ORDERS_SIGNATURE = hashlib.sha256(json.dumps(list(NORMALIZED_FIELDS)).encode()).
 
 
 def schema_of(signature: str) -> str:
-    """由结构签名得到数据结构名；未知签名按单表 orders 处理（旧数据与测试桩）。"""
-    return olist.SCHEMA if signature == olist.SIGNATURE else "orders"
+    """由结构签名得到数据结构名；未知签名按单表 orders 处理（旧数据与测试桩）。
+
+    含卖家表的八表签名与不含卖家表的七表旧签名都识别为 olist：旧数据版本没有 sellers.csv，
+    旧九类统计任务只读 needed(plan) 的表不受影响；语义层使用卖家维度时对该版本给出明确错误。
+    """
+    return olist.SCHEMA if signature in (olist.SIGNATURE, olist.LEGACY_SIGNATURE) else "orders"
 
 
 class DatasetError(ValueError):
