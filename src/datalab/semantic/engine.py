@@ -49,6 +49,17 @@ class SemanticEngine:
         self.snapshot = snapshot
         self._db: sqlite3.Connection | None = None
         self._loaded: set[str] = set()
+        self._data_floor: str | None = None
+
+    @property
+    def data_floor(self) -> str | None:
+        """全部订单的最早下单时间（秒级 ISO）；归因用它区分「该期还没有数据」与「该期数据为 0」。"""
+        if self._data_floor is None:
+            self._load("orders")
+            row = self._connection().execute(
+                "SELECT MIN(order_purchase_timestamp) FROM orders").fetchone()
+            self._data_floor = row[0] or ""
+        return self._data_floor or None
 
     def close(self):
         if self._db is not None:

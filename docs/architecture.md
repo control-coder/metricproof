@@ -31,6 +31,7 @@ flowchart TB
 | `api/` | HTTP 接口、请求体上限、Host 与写入来源校验、产物下载 |
 | `datasets/` | 标准 CSV 模板与字段映射、Olist 多表导入、质量检查、数据版本与 schema 签名 |
 | `semantic/` | 语义层：指标定义、维度与粒度校验、SQL 编译、内存引擎、独立 Python 参考与指标树（A1） |
+| `attribution/` | 归因算法：异动检测、指标拆解、贡献度、根因定位、相关分析与 L1 核验（A2），全部确定性实现 |
 | `orchestration/` | 任务状态机、有界修正、Celery worker、租约与补发 |
 | `roles/` | 三角色运行时与工具白名单、固定演示后端、OpenAI 兼容模型适配与提示 |
 | `memory/` | 业务记忆的范围、版本、确认、失效与冲突，PostgreSQL 实现 |
@@ -111,6 +112,23 @@ L1 核验（`reference.py`）：纯 Python 逐行实现同一套指标与维度�
 指标树（`tree.py`）：声明拆解关系供 A2 的 decompose_metric 使用，本轮只做声明与结构校验，不做归因算法。乘法型：gmv = order_count × aov、item_gmv = item_count × avg_item_price；加法型：order_count 按 customer_type 拆为新老客订单之和；比率型指标声明分子/分母关系（归因时分别计算分子分母的变化再合成）。
 
 真实数据冒烟（一次性，数据不入库）：导入八张表约 10 秒；随后 13 组代表性查询（gmv 按州/月、repeat_rate 按州、item_gmv 按品类/卖家州/卖家 ID 带过滤、评价按送达状态、新老客按州、freight_ratio 按价格带等）引擎耗时 0.01–5.8 秒（首单窗口查询最慢），每组 verify 全部通过。语义层结果未与既有九类任务混算，后续归因轮次单独报告。
+
+### 归因算法（A2）
+
+`attribution/` 是归因工具层：`detect_anomaly`、`decompose_metric`、`contribution`、`find_root_cause`、`correlate` 五个确定性算法与 L1 核验入口 `verify_attribution`，全部为纯函数，输入是任意带 `query(metric, period, compare_period=None, filters=None, group_by=None)` 方法、返回语义层引擎同结构结果的数据源。数据源有两种：语义层引擎本身，以及 `ReferenceSource(folder, snapshot)`——包装 `semantic/reference.py` 的独立纯 Python 计算（不用 SQL、不与编译器共享代码，对全部指标与维度组合做 LRU 缓存），供 L1 核验路径独立重算。期间统一为 (start, end) 元组，左闭右开、秒级 ISO。金额与计数输出为整数，比值、贡献度与份额为 6 位小数字符串（与语义层一致），加法和比率拆解内部全程 Fraction，不变量精确成立。
+
+- `contribution(source, metric, dimension, period, base_period, filters=None)`：维度下钻贡献度。加法型用 Delta 法：change_i = current_i − base_i，contribution_i = change_i / 基期总量（计划术语表「各维度值的差值除以基期总量」；基期总量为 0 时贡献度为 null），share_of_change_i = change_i / 总变化（总变化为 0 时各组 share 为 null 并给 status: "no_change"）；不变量 Σchange_i = 总变化精确成立。比率型用对称组间组内拆解（between-within）：w 为组分母份额、r 为组内比率，structure_i = (w1−w0)·(r0+r1)/2，within_i = (w0+w1)/2·(r1−r0)，Σ(structure_i+within_i) = R1−R0 精确成立（代数恒等）。一期缺席的组（该期没有分组行或分母为 0）：该期 w 按 0、r 取另一期的值——组整体进出，没有组内信息，全部变化计入结构项（此时 within_i 恰好为 0）。总比率 R0/R1 与份额分母都按分组行分子、分母之和复算，不取引擎总计的 6 位舍入值，保证不变量精确。rows 按 |change|（比率型按 |structure+within|）降序、组名升序。输出 {metric, dimension, method: "delta"|"between_within", period, base_period, base_total, current_total, total_change, change_rate, rows, invariant: {passed, residual}}。
+- `decompose_metric(source, metric, period, base_period)`：按指标树声明拆解。乘法型（gmv = order_count × aov 等）用 LMDI-I 加法形式：贡献_k = L(V1,V0)·ln(x_k1/x_k0)，L 为对数平均 (a−b)/(ln a − ln b)，Σ贡献 = V1−V0（浮点，残差 ≤ 1e-6·|V1−V0| 或绝对 1e-6，随结果输出）；比率型父子（aov = gmv / order_count 等）的分母因子以倒数参与乘积，贡献取符号相反的对数项。item_gmv = item_count × avg_item_price 的乘积只在不含运费的价格口径上精确成立（item_gmv 含运费），指标树用 `target: item_price_sum` 声明拆解目标为 item_price_sum，输出附 target 字段。边界：V1 = V0 时各因子贡献为 0.0（status: "no_change"）；父值或任一因子任一期为 0 / null（对数平均无定义）时返回 status: "undefined"、factors 为空。加法型（order_count 按 customer_type）子项即父指标按声明维度分组的各组，贡献等于各组变化量，Σ贡献 = 总变化精确成立。输出 {metric, kind, method, factors: [{metric, base, current, contribution, share}], total_change, invariant}（LMDI 的贡献与 share 为浮点）。
+- `detect_anomaly(source, metric, period, history=6)`：异动检测。历史期取与 period 同长度、紧邻的前 history 个期间：period 两端都是月初零点时按日历月平移（保持自然月语义），否则按时间差平移。数据源可提供 `data_floor` 属性（数据的最早可用起点，引擎与 ReferenceSource 都按全部订单的最早下单时间给出）：起点早于它的历史期按「还没有这份数据」丢弃，不计入有效历史——语义层对没有数据的期间返回 0 而不是「无数据」，归因靠 floor 区分这两种情形。环比是与紧邻上一期；同比是去年同期（两端各减一年，2 月 29 日退到 2 月 28 日；去年同期早于最早有效历史期起点时为 null）。稳健 z 分数 z = 0.6745·(x − median)/MAD（Iglewicz–Hoaglin），|z| > 3.5 判为异动；有效历史不足 3 期给 status: "insufficient_history"（不判异动），MAD 为 0 给 status: "zero_mad"（历史值全部相同，本期偏离中位数即异动、z 为 null）。中位数与 MAD 先吸附到 1/(2×10⁶) 有理数网格（历史值都是 6 位精度有理数，统计量落在半整数网格上，浮点误差远小于网格间距），保证两条路径逐位一致。输出 {metric, period, value, history, mom, yoy, median, mad, robust_z, is_anomaly, status}。
+- `find_root_cause(source, metric, dimensions, period, base_period, filters=None, tep=0.8, teep=0.1, top=3)`：多维根因定位，参考 Adtributor（Bhagwan et al., NSDI 2014）。元素解释力 EP_ij 取 contribution 的结果（加法型 change_i / 总变化，比率型 (structure_i+within_i)/(R1−R0)），各元素 EP 之和精确为 1；惊奇度 S_ij 用基期份额 p 与本期份额 q 的 Jensen–Shannon 散度项 D(p‖m)+D(q‖m)（m=(p+q)/2，自然对数），加法型按指标值份额、比率型分别对分子份额与分母份额各算一次相加（两个成分的分布变化都算惊奇）。维度内元素按 S 降序（并列按取值升序），EP ≥ teep 的依次加入候选集，累计 EP ≥ tep 即停止；维度按候选集惊奇度之和降序（并列按维度名升序）取前 top 个。candidates 是扁平化的根因候选列表：先按所在维度排名、再按维度内排名，排序确定性，供 A3/A5 计算 AC@1/AC@3。总变化为 0 时返回空候选与 status: "no_change"。输出 {metric, period, base_period, total_change, dimensions: [{dimension, elements, explained, surprise}], candidates: [{dimension, value, explanatory_power, surprise}]}。
+- `correlate(source, metric_a, metric_b, by, period)`：两个指标按维度 by 分组的相关分析：Pearson r、Spearman ρ（平均秩处理并列）与样本量 n。只用两个指标都有值（比率型分母非 0）的组；n < 3 时系数为 null（样本太少，相关无意义）。输出附 note「相关不代表因果，报告中只能表述为相关」——只做描述性归因，不做因果推断。
+- L1 核验 `verify_attribution(kind, result, folder, snapshot, **arguments)`：用 ReferenceSource 独立重算同一函数并逐项比较（Fraction 精确结果比较格式化后的字符串/整数，LMDI 贡献与相关系数为浮点允许 1e-9 相对误差），并检查不变量；返回 {passed, differences, invariant}。这是计划中「L1 由语义层与独立参考复算；贡献度满足各项之和等于总变化」的实现。
+
+A1 的语义层有两处小改动配合本轮：`tree.py` 的 Decomposition 增加 `target` 字段（乘法拆解的目标指标，None 表示 parent 本身；item_gmv 声明为 item_price_sum）；`engine.py` 增加 `data_floor` 只读属性（全部订单的最早下单时间），行为不变。
+
+测试（`tests/datalab/test_attribution.py`，20 个用例）：手算小样本用最小假数据源覆盖 Delta 法（含基期为 0、总变化为 0）、组间组内（含一期缺席的组）、LMDI（V0=100=10×10、V1=150=12×12.5，含比率型父子的分母取倒数与 0 因子边界）、MAD z 分数（含 insufficient_history、zero_mad、data_floor 裁剪、非月初期间按时间差平移）、Adtributor 选元素与排序（ΣEP=1、候选确定性）、Pearson/Spearman 已知值（含并列平均秩与 n<3）。不变量在 olist_bundle 合成数据（6 个种子 × 10 组指标×维度，共 60 组）上验证 contribution 的 Σ=总变化精确成立、decompose_metric 的 LMDI 残差在容差内；L1 在同一合成数据上验证引擎与 ReferenceSource 两条路径对五类函数逐项一致，篡改一个数字即被检出。
+
+真实数据冒烟（一次性，数据不入库，导入临时目录用完删除）：导入八表约 10.3 秒；2017-11 vs 2017-10 的 gmv 检测为异动（环比 +40,785,395 分即 +53.3%，稳健 z 5.36），LMDI 拆解订单量贡献 +46,768,269 分、客单价贡献 −5,982,874 分（残差 0.001，在 1e-6·|总变化| 容差内）；item_gmv 按品类的贡献度 Top-3 为 bed_bath_table（+5,094,662 分）、health_beauty（+4,069,126 分）、furniture_decor（+4,014,444 分），不变量精确成立；find_root_cause(item_gmv, [product_category, customer_state, seller_state]) 的 Top-3 候选为 seller_state=RJ（EP 0.1455）、PR（EP 0.1293）、SP（EP 0.5874）。耗时：detect_anomaly 4.96 秒（7 次月度查询，首月需建表建索引）、decompose_metric 1.35 秒、contribution 0.38 秒、find_root_cause 26.1 秒（3 个维度 × 每个维度 4 次分组查询，其中 seller_state 等明细级维度的分组查询最慢；归因层未改 A1 引擎，后续轮次如需提速再评估缓存或查询复用）。
 
 ## 三角色与状态
 
