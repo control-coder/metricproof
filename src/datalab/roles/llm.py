@@ -1,6 +1,7 @@
 """OpenAI 兼容接口的三角色适配器；每次调用独立上下文、单次请求不重试。"""
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import re
 import time
@@ -17,6 +18,14 @@ from datalab.roles.runtime import ModelCallError, ModelReply, Role
 PLAN_FIELDS = ('kind', 'group_by', 'start', 'end', 'previous_start', 'previous_end')
 # Olist 计划还可以选择时间字段；数据结构与金额来源由服务端按数据版本与已确认口径填写。
 OLIST_PLAN_FIELDS = PLAN_FIELDS + ('time_field',)
+
+
+@dataclass(frozen=True)
+class ToolReply:
+    """complete_tools 的返回：content 可为 None（模型只调用工具时），tool_calls 为 OpenAI 兼容结构。"""
+    content: str | None
+    tool_calls: list[dict]
+    tokens: int
 
 
 def handoff_schema(handoff: dict) -> str:
@@ -45,8 +54,57 @@ class ChatClient:
                 'max_tokens': max_tokens, 'stream': False}
         if self.profile.json_mode:
             body['response_format'] = {'type': 'json_object'}
-        headers = {'Authorization': 'Bearer ' + self.profile.api_key, 'Content-Type': 'application/json'}
         started = time.perf_counter()
+        payload = self._request(body, timeout)
+        try:
+            choice = payload['choices'][0]
+            content = choice['message']['content']
+        except (KeyError, IndexError, TypeError) as error:
+            raise ModelCallError('模型响应结构无效') from error
+        # 推理模型可能在思考阶段耗尽输出上限，此时正文为空，应报告为截断而非无内容。
+        if choice.get('finish_reason') == 'length':
+            raise ModelCallError('模型输出达到长度上限被截断')
+        if not isinstance(content, str) or not content.strip():
+            raise ModelCallError('模型未返回内容')
+        return content, self._record_usage(payload, messages, started)
+
+    def complete_tools(self, messages: list[dict], tools: list[dict], *, timeout: float, max_tokens: int,
+                       tool_choice: str | dict = 'auto') -> ToolReply:
+        """Function Calling 请求（A4）；带 tools 时不加 response_format（与 JSON 模式互斥）。"""
+        if not self.profile.configured:
+            raise ModelCallError(f'{self.profile.provider} 尚未配置 API Key')
+        body = {'model': self.profile.model, 'messages': messages, 'temperature': self.profile.temperature,
+                'max_tokens': max_tokens, 'stream': False, 'tools': tools, 'tool_choice': tool_choice}
+        started = time.perf_counter()
+        payload = self._request(body, timeout)
+        try:
+            choice = payload['choices'][0]
+            message = choice['message']
+            content = message.get('content')
+            raw_calls = message.get('tool_calls') or []
+        except (KeyError, IndexError, TypeError) as error:
+            raise ModelCallError('模型响应结构无效') from error
+        if choice.get('finish_reason') == 'length':
+            raise ModelCallError('模型输出达到长度上限被截断')
+        tool_calls = []
+        for index, call in enumerate(raw_calls):
+            try:
+                function = call['function']
+                name = function['name']
+                arguments = function.get('arguments', '{}')
+            except (KeyError, TypeError) as error:
+                raise ModelCallError('模型响应结构无效') from error
+            if not isinstance(name, str) or not name or not isinstance(arguments, str):
+                raise ModelCallError('模型响应结构无效')
+            call_id = call.get('id')
+            tool_calls.append({'id': call_id if isinstance(call_id, str) and call_id else f'call_{index}',
+                               'type': 'function', 'name': name, 'arguments': arguments})
+        tokens = self._record_usage(payload, messages, started)
+        return ToolReply(content if isinstance(content, str) else None, tool_calls, tokens)
+
+    def _request(self, body: dict, timeout: float) -> dict:
+        """单次 chat/completions POST；错误信息不回显密钥或响应原文。"""
+        headers = {'Authorization': 'Bearer ' + self.profile.api_key, 'Content-Type': 'application/json'}
         try:
             with httpx.Client(transport=self._transport, timeout=timeout, follow_redirects=False) as client:
                 response = client.post(self.profile.base_url + '/chat/completions', json=body, headers=headers)
@@ -57,27 +115,23 @@ class ChatClient:
         if response.status_code != 200:
             raise ModelCallError(f'模型服务返回 HTTP {response.status_code}')
         try:
-            payload = response.json()
-            choice = payload['choices'][0]
-            content = choice['message']['content']
-        except (ValueError, KeyError, IndexError, TypeError) as error:
+            return response.json()
+        except ValueError as error:
             raise ModelCallError('模型响应结构无效') from error
-        # 推理模型可能在思考阶段耗尽输出上限，此时正文为空，应报告为截断而非无内容。
-        if choice.get('finish_reason') == 'length':
-            raise ModelCallError('模型输出达到长度上限被截断')
-        if not isinstance(content, str) or not content.strip():
-            raise ModelCallError('模型未返回内容')
+
+    def _record_usage(self, payload: dict, messages: list[dict], started: float) -> int:
+        """用量记录与 complete 一致：只记计数与耗时；无 total_tokens 时按字符数保守估算。"""
         usage = payload.get('usage') or {}
         tokens = usage.get('total_tokens')
         if type(tokens) is not int or tokens < 0:
-            # 供应商未返回用量时按字符数保守估算，避免预算失效。
-            tokens = (sum(len(item['content']) for item in messages) + len(content)) // 2
+            total = sum(len(item['content'] or '') for item in messages)
+            tokens = total // 2
         details = usage.get('prompt_tokens_details') or {}
         cached = usage.get('prompt_cache_hit_tokens', details.get('cached_tokens', 0))
         self.usage.append({'prompt_tokens': usage.get('prompt_tokens'), 'completion_tokens': usage.get('completion_tokens'),
                            'cached_tokens': cached if type(cached) is int else 0, 'total_tokens': tokens,
                            'seconds': round(time.perf_counter() - started, 3)})
-        return content, tokens
+        return tokens
 
 
 def parse_object(text: str) -> dict:

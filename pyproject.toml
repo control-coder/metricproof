@@ -12,6 +12,8 @@ dependencies = [
     "python-multipart>=0.0.18,<1",
     "httpx>=0.27,<1",
     "psycopg[binary]>=3.2,<4",
+    # A4 工具层直接以 pydantic 声明参数模型并生成 JSON Schema（此前仅由 FastAPI 间接引入）。
+    "pydantic>=2.7,<3",
     # 图表在可信 worker 中渲染；固定次版本以保证同一结果输出相同 PNG。
     "matplotlib>=3.10.9,<3.11",
     "tzdata>=2025.2; sys_platform == 'win32'",
