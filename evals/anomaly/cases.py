@@ -10,7 +10,13 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
+
+from datalab.semantic.metrics import get_metric  # noqa: E402
 
 FROZEN_FILE = Path(__file__).with_name("anomaly_cases.json")
 
@@ -71,6 +77,10 @@ def validate(data: dict) -> None:
         for item in gold["dimensions"]:
             if "dimension" not in item or "value" not in item:
                 raise CasesError(f"案例 {case['id']} 的 gold 维度项缺少 dimension/value")
+        # gold.unit 必须与语义层指标定义的单位一致（修正记录：比率型曾误写 cents）。
+        if gold.get("unit") != get_metric(case["metric"]).unit:
+            raise CasesError(f"案例 {case['id']} 的 gold.unit={gold.get('unit')!r} 与语义层 "
+                             f"{case['metric']} 的单位 {get_metric(case['metric']).unit!r} 不一致")
 
 
 def by_split(data: dict, split: str) -> list[dict]:

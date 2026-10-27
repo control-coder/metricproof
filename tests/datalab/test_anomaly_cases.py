@@ -327,6 +327,73 @@ class FrozenCasesTests(unittest.TestCase):
             cases_module.validate(broken)
 
 
+# 问题文本中的方向词与 gold.direction 的对应规则（规则匹配即可）。
+DIRECTION_WORDS = {"up": ("上升", "变长"), "down": ("下降", "回落", "改善", "缩短")}
+
+
+class FrozenQualityTests(unittest.TestCase):
+    """冻结题集的构造质量检查（revision 2）：方向词一致、EP 区间、显著阈值、unit 与语义层一致。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.data = cases_module.load()
+        cls.selection = cls.data["meta"]["raw_selection"]
+
+    def test_revision_recorded(self):
+        self.assertEqual(self.data["meta"]["frozen_at"], "2026-10-27")
+        self.assertEqual(self.data["meta"]["revision"], 2)
+        self.assertEqual(len(self.data["meta"]["revision_history"]), 2)
+
+    def test_question_direction_matches_gold(self):
+        for case in self.data["cases"]:
+            with self.subTest(case=case["id"]):
+                direction = case["gold"]["direction"]
+                words = DIRECTION_WORDS[direction]
+                opposite = DIRECTION_WORDS["down" if direction == "up" else "up"]
+                self.assertTrue(any(word in case["question"] for word in words)
+                                or not any(word in case["question"] for word in opposite),
+                                f"{case['id']} 问题方向与 gold.direction={direction} 矛盾：{case['question']}")
+                # 注入案例的问题一律不陈述方向（环比变化）。
+                if case["kind"] == "injected":
+                    self.assertNotIn("上升", case["question"])
+                    self.assertNotIn("下降", case["question"])
+                    self.assertNotIn("回落", case["question"])
+
+    def test_raw_top_ep_in_range_and_significant(self):
+        ep_min, ep_max = self.selection["ep_range"]
+        for case in self.data["cases"]:
+            if case["kind"] != "raw":
+                continue
+            with self.subTest(case=case["id"]):
+                ep = case["gold"]["top_ep"]
+                self.assertGreaterEqual(ep, ep_min)
+                self.assertLessEqual(ep, ep_max)
+                # 总变化显著：加法型 |环比变化率| ≥ min_rel_change；比率型 |变化| ≥ 指标阈值。
+                if case["metric"] in ("gmv", "item_gmv", "order_count"):
+                    self.assertGreaterEqual(abs(case["gold"]["change_rate"]), self.selection["min_rel_change"])
+                else:
+                    floor = self.selection["ratio_min_change"][case["metric"]]
+                    self.assertGreaterEqual(abs(float(case["gold"]["total_change"])), floor)
+
+    def test_gold_unit_matches_semantic_layer(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        from datalab.semantic.metrics import get_metric
+        for case in self.data["cases"]:
+            with self.subTest(case=case["id"]):
+                self.assertEqual(case["gold"]["unit"], get_metric(case["metric"]).unit)
+
+    def test_injected_total_change_direction_matches_gold(self):
+        for case in self.data["cases"]:
+            if case["kind"] != "injected":
+                continue
+            with self.subTest(case=case["id"]):
+                change = float(case["total_change"])
+                self.assertNotEqual(change, 0.0)
+                actual = "down" if change < 0 else "up"
+                self.assertEqual(actual, case["gold"]["direction"],
+                                 f"{case['id']} 物化后总变化方向 {actual} 与 gold.direction 不一致")
+
+
 class ScoreTests(unittest.TestCase):
     def case(self, **gold):
         return {"id": "c1", "kind": "injected", "injection_type": "price_cut", "metric": "item_gmv",

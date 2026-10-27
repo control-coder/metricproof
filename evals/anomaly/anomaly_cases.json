@@ -1,6 +1,19 @@
 {
   "meta": {
     "frozen_at": "2026-10-27",
+    "revision": 2,
+    "revision_history": [
+      {
+        "revision": 1,
+        "date": "2026-10-27",
+        "note": "首次冻结（先于 Agent 开发）"
+      },
+      {
+        "revision": 2,
+        "date": "2026-10-27",
+        "note": "复核发现构造缺陷并在任何 Agent 运行前修正：原始问题月份选择由「EP 最高」改为「变化显著（加法型 |环比|≥5%、比率型达指标阈值）且集中（0.3≤EP≤1.5）中取最显著者」；问题方向词全部由实际总变化方向生成；注入案例问题不再陈述方向并核对 gold.direction 与实际总变化一致；gold.unit 取语义层指标单位"
+      }
+    ],
     "base_version": "0e3d3121-45a5-41f0-9ded-845f99e724ff",
     "source_sha256": {
       "olist_orders_dataset.csv": "8df58ef3d2d7e9944010f7beecd9b75367f5588ec6e3c91cec19ae3345ef9ecf",
@@ -26,6 +39,25 @@
     },
     "ratio_threshold": 1.3,
     "seed": 20261027,
+    "raw_selection": {
+      "min_rel_change": 0.05,
+      "ratio_min_change": {
+        "late_delivery_rate": 0.01,
+        "bad_review_rate": 0.005,
+        "freight_ratio": 0.005,
+        "aov": 500.0,
+        "avg_delivery_days": 0.5,
+        "avg_review_score": 0.1,
+        "avg_item_price": 200.0,
+        "items_per_order": 0.02,
+        "cancel_rate": 0.005,
+        "repeat_rate": 0.005
+      },
+      "ep_range": [
+        0.3,
+        1.5
+      ]
+    },
     "note": "题集先于 Agent 开发冻结；冻结后不按 Agent 表现修改，任何修改都需重新运行 build.py 的质量检查"
   },
   "cases": [
@@ -40,7 +72,7 @@
         "customer_state": "SP",
         "share": 0.4
       },
-      "question": "2018 年 3 月送达延迟率上升，主要集中在哪些地区？同期差评率也有变化，是否相关？",
+      "question": "2018 年 3 月送达延迟率环比变化，主要集中在哪些地区？同期差评率也有变化，是否相关？",
       "metric": "late_delivery_rate",
       "period": {
         "start": "2018-03-01T00:00:00",
@@ -59,14 +91,15 @@
         ],
         "direction": "up",
         "magnitude": 1157,
-        "unit": "count",
-        "note": "新增延迟送达订单数；附带关联事实：差评集中在 delivery_status=late 的订单上",
+        "unit": "ratio",
+        "note": "新增延迟送达订单数（magnitude 为订单数 1157 个；目标指标为 late_delivery_rate，unit 取指标单位）；附带关联事实：差评集中在 delivery_status=late 的订单上",
         "correlate": {
           "metric": "bad_review_rate",
           "by": "delivery_status",
           "expect": "late"
         }
       },
+      "total_change": "0.199160",
       "quality": {
         "customer_state": {
           "gold_delta": "0.376352",
@@ -87,7 +120,7 @@
         "customer_state": "MG",
         "share": 0.5
       },
-      "question": "2018 年 5 月送达延迟率上升，主要集中在哪些地区？同期差评率也有变化，是否相关？",
+      "question": "2018 年 5 月送达延迟率环比变化，主要集中在哪些地区？同期差评率也有变化，是否相关？",
       "metric": "late_delivery_rate",
       "period": {
         "start": "2018-05-01T00:00:00",
@@ -106,14 +139,15 @@
         ],
         "direction": "up",
         "magnitude": 365,
-        "unit": "count",
-        "note": "新增延迟送达订单数；附带关联事实：差评集中在 delivery_status=late 的订单上",
+        "unit": "ratio",
+        "note": "新增延迟送达订单数（magnitude 为订单数 365 个；目标指标为 late_delivery_rate，unit 取指标单位）；附带关联事实：差评集中在 delivery_status=late 的订单上",
         "correlate": {
           "metric": "bad_review_rate",
           "by": "delivery_status",
           "expect": "late"
         }
       },
+      "total_change": "0.068930",
       "quality": {
         "customer_state": {
           "gold_delta": "0.501543",
@@ -134,7 +168,7 @@
         "customer_state": "SP",
         "share": 0.4
       },
-      "question": "2018 年 6 月送达延迟率上升，主要集中在哪些地区？同期差评率也有变化，是否相关？",
+      "question": "2018 年 6 月送达延迟率环比变化，主要集中在哪些地区？同期差评率也有变化，是否相关？",
       "metric": "late_delivery_rate",
       "period": {
         "start": "2018-06-01T00:00:00",
@@ -153,14 +187,15 @@
         ],
         "direction": "up",
         "magnitude": 1095,
-        "unit": "count",
-        "note": "新增延迟送达订单数；附带关联事实：差评集中在 delivery_status=late 的订单上",
+        "unit": "ratio",
+        "note": "新增延迟送达订单数（magnitude 为订单数 1095 个；目标指标为 late_delivery_rate，unit 取指标单位）；附带关联事实：差评集中在 delivery_status=late 的订单上",
         "correlate": {
           "metric": "bad_review_rate",
           "by": "delivery_status",
           "expect": "late"
         }
       },
+      "total_change": "0.125142",
       "quality": {
         "customer_state": {
           "gold_delta": "0.363241",
@@ -181,7 +216,7 @@
         "customer_state": "PR",
         "share": 0.55
       },
-      "question": "2018 年 5 月送达延迟率上升，主要集中在哪些地区？同期差评率也有变化，是否相关？",
+      "question": "2018 年 5 月送达延迟率环比变化，主要集中在哪些地区？同期差评率也有变化，是否相关？",
       "metric": "late_delivery_rate",
       "period": {
         "start": "2018-05-01T00:00:00",
@@ -200,14 +235,15 @@
         ],
         "direction": "up",
         "magnitude": 167,
-        "unit": "count",
-        "note": "新增延迟送达订单数；附带关联事实：差评集中在 delivery_status=late 的订单上",
+        "unit": "ratio",
+        "note": "新增延迟送达订单数（magnitude 为订单数 167 个；目标指标为 late_delivery_rate，unit 取指标单位）；附带关联事实：差评集中在 delivery_status=late 的订单上",
         "correlate": {
           "metric": "bad_review_rate",
           "by": "delivery_status",
           "expect": "late"
         }
       },
+      "total_change": "0.043593",
       "quality": {
         "customer_state": {
           "gold_delta": "0.564799",
@@ -228,7 +264,7 @@
         "customer_state": "MG",
         "share": 0.45
       },
-      "question": "2018 年 3 月送达延迟率上升，主要集中在哪些地区？同期差评率也有变化，是否相关？",
+      "question": "2018 年 3 月送达延迟率环比变化，主要集中在哪些地区？同期差评率也有变化，是否相关？",
       "metric": "late_delivery_rate",
       "period": {
         "start": "2018-03-01T00:00:00",
@@ -247,14 +283,15 @@
         ],
         "direction": "up",
         "magnitude": 376,
-        "unit": "count",
-        "note": "新增延迟送达订单数；附带关联事实：差评集中在 delivery_status=late 的订单上",
+        "unit": "ratio",
+        "note": "新增延迟送达订单数（magnitude 为订单数 376 个；目标指标为 late_delivery_rate，unit 取指标单位）；附带关联事实：差评集中在 delivery_status=late 的订单上",
         "correlate": {
           "metric": "bad_review_rate",
           "by": "delivery_status",
           "expect": "late"
         }
       },
+      "total_change": "0.090777",
       "quality": {
         "customer_state": {
           "gold_delta": "0.467858",
@@ -275,7 +312,7 @@
         "seller_state": "SP",
         "factor": 1.5
       },
-      "question": "2018 年 3 月运费占比明显上升，主要集中在哪些卖家？",
+      "question": "2018 年 3 月运费占比环比变化，主要集中在哪些卖家？",
       "metric": "freight_ratio",
       "period": {
         "start": "2018-03-01T00:00:00",
@@ -294,9 +331,10 @@
         ],
         "direction": "up",
         "magnitude": 5942824,
-        "unit": "cents",
-        "note": "运费增量（分）"
+        "unit": "ratio",
+        "note": "运费增量（magnitude 为整数分 5942824；目标指标为 freight_ratio，unit 取指标单位）"
       },
+      "total_change": "0.045966",
       "quality": {
         "seller_state": {
           "gold_delta": "0.060315",
@@ -317,7 +355,7 @@
         "seller_state": "SP",
         "factor": 1.45
       },
-      "question": "2018 年 5 月运费占比明显上升，主要集中在哪些卖家？",
+      "question": "2018 年 5 月运费占比环比变化，主要集中在哪些卖家？",
       "metric": "freight_ratio",
       "period": {
         "start": "2018-05-01T00:00:00",
@@ -336,9 +374,10 @@
         ],
         "direction": "up",
         "magnitude": 4611521,
-        "unit": "cents",
-        "note": "运费增量（分）"
+        "unit": "ratio",
+        "note": "运费增量（magnitude 为整数分 4611521；目标指标为 freight_ratio，unit 取指标单位）"
       },
+      "total_change": "0.026124",
       "quality": {
         "seller_state": {
           "gold_delta": "0.038973",
@@ -359,7 +398,7 @@
         "seller_state": "SP",
         "factor": 1.4
       },
-      "question": "2018 年 7 月运费占比明显上升，主要集中在哪些卖家？",
+      "question": "2018 年 7 月运费占比环比变化，主要集中在哪些卖家？",
       "metric": "freight_ratio",
       "period": {
         "start": "2018-07-01T00:00:00",
@@ -378,9 +417,10 @@
         ],
         "direction": "up",
         "magnitude": 4086126,
-        "unit": "cents",
-        "note": "运费增量（分）"
+        "unit": "ratio",
+        "note": "运费增量（magnitude 为整数分 4086126；目标指标为 freight_ratio，unit 取指标单位）"
       },
+      "total_change": "0.033219",
       "quality": {
         "seller_state": {
           "gold_delta": "0.051972",
@@ -397,53 +437,11 @@
       "injection_type": "freight_up",
       "injection": {
         "type": "freight_up",
-        "month": "2018-04",
-        "seller_state": "RJ",
-        "factor": 1.6
-      },
-      "question": "2018 年 4 月运费占比明显上升，主要集中在哪些卖家？",
-      "metric": "freight_ratio",
-      "period": {
-        "start": "2018-04-01T00:00:00",
-        "end": "2018-05-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-03-01T00:00:00",
-        "end": "2018-04-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "seller_state",
-            "value": "RJ"
-          }
-        ],
-        "direction": "up",
-        "magnitude": 447894,
-        "unit": "cents",
-        "note": "运费增量（分）"
-      },
-      "quality": {
-        "seller_state": {
-          "gold_delta": "0.050253",
-          "runner_up": "0.014977",
-          "ratio": 3.355,
-          "rank": 1
-        }
-      }
-    },
-    {
-      "id": "inj-freight_up-05",
-      "split": "test",
-      "kind": "injected",
-      "injection_type": "freight_up",
-      "injection": {
-        "type": "freight_up",
         "month": "2018-06",
         "seller_state": "MG",
         "factor": 1.6
       },
-      "question": "2018 年 6 月运费占比明显上升，主要集中在哪些卖家？",
+      "question": "2018 年 6 月运费占比环比变化，主要集中在哪些卖家？",
       "metric": "freight_ratio",
       "period": {
         "start": "2018-06-01T00:00:00",
@@ -462,14 +460,58 @@
         ],
         "direction": "up",
         "magnitude": 921942,
-        "unit": "cents",
-        "note": "运费增量（分）"
+        "unit": "ratio",
+        "note": "运费增量（magnitude 为整数分 921942；目标指标为 freight_ratio，unit 取指标单位）"
       },
+      "total_change": "0.028073",
       "quality": {
         "seller_state": {
           "gold_delta": "0.094892",
           "runner_up": "0.056618",
           "ratio": 1.676,
+          "rank": 1
+        }
+      }
+    },
+    {
+      "id": "inj-freight_up-05",
+      "split": "test",
+      "kind": "injected",
+      "injection_type": "freight_up",
+      "injection": {
+        "type": "freight_up",
+        "month": "2017-11",
+        "seller_state": "SP",
+        "factor": 1.5
+      },
+      "question": "2017 年 11 月运费占比环比变化，主要集中在哪些卖家？",
+      "metric": "freight_ratio",
+      "period": {
+        "start": "2017-11-01T00:00:00",
+        "end": "2017-12-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2017-10-01T00:00:00",
+        "end": "2017-11-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "seller_state",
+            "value": "SP"
+          }
+        ],
+        "direction": "up",
+        "magnitude": 5580887,
+        "unit": "ratio",
+        "note": "运费增量（magnitude 为整数分 5580887；目标指标为 freight_ratio，unit 取指标单位）"
+      },
+      "total_change": "0.045644",
+      "quality": {
+        "seller_state": {
+          "gold_delta": "0.072205",
+          "runner_up": "0",
+          "ratio": Infinity,
           "rank": 1
         }
       }
@@ -485,7 +527,7 @@
         "dimension": "payment_type",
         "value": "boleto"
       },
-      "question": "2018 年 5 月客单价环比下降，主要原因是客群结构变化还是各组内部变化？",
+      "question": "2018 年 5 月客单价环比变化，主要原因是客群结构变化还是各组内部变化？",
       "metric": "aov",
       "period": {
         "start": "2018-05-01T00:00:00",
@@ -505,9 +547,10 @@
         "direction": "down",
         "effect": "between",
         "magnitude": 1263,
-        "unit": "count",
-        "note": "复制的订单数（该组订单数翻倍）；aov 变化全部来自结构（between）效应，组内客单价不变"
+        "unit": "cents",
+        "note": "复制的订单数（magnitude 为订单数 1263 个；目标指标为 aov，unit 取指标单位）；aov 变化全部来自结构（between）效应，组内客单价不变"
       },
+      "total_change": "-141.899587",
       "quality": {
         "payment_type": {
           "gold_delta": "19612104",
@@ -524,54 +567,11 @@
       "injection_type": "mix_shift",
       "injection": {
         "type": "mix_shift",
-        "month": "2018-04",
-        "dimension": "payment_type",
-        "value": "boleto"
-      },
-      "question": "2018 年 4 月客单价环比下降，主要原因是客群结构变化还是各组内部变化？",
-      "metric": "aov",
-      "period": {
-        "start": "2018-04-01T00:00:00",
-        "end": "2018-05-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-03-01T00:00:00",
-        "end": "2018-04-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "payment_type",
-            "value": "boleto"
-          }
-        ],
-        "direction": "down",
-        "effect": "between",
-        "magnitude": 1287,
-        "unit": "count",
-        "note": "复制的订单数（该组订单数翻倍）；aov 变化全部来自结构（between）效应，组内客单价不变"
-      },
-      "quality": {
-        "payment_type": {
-          "gold_delta": "19631523",
-          "runner_up": "86939",
-          "ratio": 225.808,
-          "rank": 1
-        }
-      }
-    },
-    {
-      "id": "inj-mix_shift-03",
-      "split": "test",
-      "kind": "injected",
-      "injection_type": "mix_shift",
-      "injection": {
-        "type": "mix_shift",
         "month": "2018-02",
         "dimension": "payment_type",
         "value": "boleto"
       },
-      "question": "2018 年 2 月客单价环比下降，主要原因是客群结构变化还是各组内部变化？",
+      "question": "2018 年 2 月客单价环比变化，主要原因是客群结构变化还是各组内部变化？",
       "metric": "aov",
       "period": {
         "start": "2018-02-01T00:00:00",
@@ -591,9 +591,10 @@
         "direction": "down",
         "effect": "between",
         "magnitude": 1325,
-        "unit": "count",
-        "note": "复制的订单数（该组订单数翻倍）；aov 变化全部来自结构（between）效应，组内客单价不变"
+        "unit": "cents",
+        "note": "复制的订单数（magnitude 为订单数 1325 个；目标指标为 aov，unit 取指标单位）；aov 变化全部来自结构（between）效应，组内客单价不变"
       },
+      "total_change": "-713.049881",
       "quality": {
         "payment_type": {
           "gold_delta": "15998280",
@@ -604,7 +605,7 @@
       }
     },
     {
-      "id": "inj-mix_shift-04",
+      "id": "inj-mix_shift-03",
       "split": "test",
       "kind": "injected",
       "injection_type": "mix_shift",
@@ -614,7 +615,7 @@
         "dimension": "payment_type",
         "value": "boleto"
       },
-      "question": "2018 年 7 月客单价环比下降，主要原因是客群结构变化还是各组内部变化？",
+      "question": "2018 年 7 月客单价环比变化，主要原因是客群结构变化还是各组内部变化？",
       "metric": "aov",
       "period": {
         "start": "2018-07-01T00:00:00",
@@ -634,9 +635,10 @@
         "direction": "down",
         "effect": "between",
         "magnitude": 1229,
-        "unit": "count",
-        "note": "复制的订单数（该组订单数翻倍）；aov 变化全部来自结构（between）效应，组内客单价不变"
+        "unit": "cents",
+        "note": "复制的订单数（magnitude 为订单数 1229 个；目标指标为 aov，unit 取指标单位）；aov 变化全部来自结构（between）效应，组内客单价不变"
       },
+      "total_change": "-13.953530",
       "quality": {
         "payment_type": {
           "gold_delta": "23806937",
@@ -647,7 +649,7 @@
       }
     },
     {
-      "id": "inj-mix_shift-05",
+      "id": "inj-mix_shift-04",
       "split": "test",
       "kind": "injected",
       "injection_type": "mix_shift",
@@ -657,7 +659,7 @@
         "dimension": "payment_type",
         "value": "boleto"
       },
-      "question": "2017 年 10 月客单价环比下降，主要原因是客群结构变化还是各组内部变化？",
+      "question": "2017 年 10 月客单价环比变化，主要原因是客群结构变化还是各组内部变化？",
       "metric": "aov",
       "period": {
         "start": "2017-10-01T00:00:00",
@@ -677,14 +679,59 @@
         "direction": "down",
         "effect": "between",
         "magnitude": 993,
-        "unit": "count",
-        "note": "复制的订单数（该组订单数翻倍）；aov 变化全部来自结构（between）效应，组内客单价不变"
+        "unit": "cents",
+        "note": "复制的订单数（magnitude 为订单数 993 个；目标指标为 aov，unit 取指标单位）；aov 变化全部来自结构（between）效应，组内客单价不变"
       },
+      "total_change": "-615.530802",
       "quality": {
         "payment_type": {
           "gold_delta": "14613286",
           "runner_up": "3545675",
           "ratio": 4.121,
+          "rank": 1
+        }
+      }
+    },
+    {
+      "id": "inj-mix_shift-05",
+      "split": "test",
+      "kind": "injected",
+      "injection_type": "mix_shift",
+      "injection": {
+        "type": "mix_shift",
+        "month": "2018-08",
+        "dimension": "payment_type",
+        "value": "boleto"
+      },
+      "question": "2018 年 8 月客单价环比变化，主要原因是客群结构变化还是各组内部变化？",
+      "metric": "aov",
+      "period": {
+        "start": "2018-08-01T00:00:00",
+        "end": "2018-09-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2018-07-01T00:00:00",
+        "end": "2018-08-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "payment_type",
+            "value": "boleto"
+          }
+        ],
+        "direction": "down",
+        "effect": "between",
+        "magnitude": 1139,
+        "unit": "cents",
+        "note": "复制的订单数（magnitude 为订单数 1139 个；目标指标为 aov，unit 取指标单位）；aov 变化全部来自结构（between）效应，组内客单价不变"
+      },
+      "total_change": "-1594.375252",
+      "quality": {
+        "payment_type": {
+          "gold_delta": "9010003",
+          "runner_up": "618930",
+          "ratio": 14.557,
           "rank": 1
         }
       }
@@ -701,7 +748,7 @@
         "customer_state": "SP",
         "share": 0.45
       },
-      "question": "2018 年 4 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 4 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-04-01T00:00:00",
@@ -727,6 +774,7 @@
         "unit": "cents",
         "note": "目标组合（品类×州）被删明细的金额；订单级 gmv 不能按品类拆，customer_state 维对应订单级 gmv 按州拆或 item_gmv 按州拆"
       },
+      "total_change": "-1382499",
       "quality": {
         "customer_state": {
           "gold_delta": "-1204320",
@@ -749,65 +797,12 @@
       "injection_type": "order_drop",
       "injection": {
         "type": "order_drop",
-        "month": "2018-07",
-        "product_category": "watches_gifts",
-        "customer_state": "SP",
-        "share": 0.45
-      },
-      "question": "2018 年 7 月销售额环比下降，主要是什么原因？",
-      "metric": "item_gmv",
-      "period": {
-        "start": "2018-07-01T00:00:00",
-        "end": "2018-08-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-06-01T00:00:00",
-        "end": "2018-07-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "product_category",
-            "value": "watches_gifts"
-          },
-          {
-            "dimension": "customer_state",
-            "value": "SP"
-          }
-        ],
-        "direction": "down",
-        "magnitude": -1387079,
-        "unit": "cents",
-        "note": "目标组合（品类×州）被删明细的金额；订单级 gmv 不能按品类拆，customer_state 维对应订单级 gmv 按州拆或 item_gmv 按州拆"
-      },
-      "quality": {
-        "customer_state": {
-          "gold_delta": "-1117494",
-          "runner_up": "723070",
-          "ratio": 1.545,
-          "rank": 1
-        },
-        "product_category": {
-          "gold_delta": "-1117494",
-          "runner_up": "1215273",
-          "ratio": 0.92,
-          "rank": 2
-        }
-      }
-    },
-    {
-      "id": "inj-order_drop-03",
-      "split": "dev",
-      "kind": "injected",
-      "injection_type": "order_drop",
-      "injection": {
-        "type": "order_drop",
         "month": "2018-02",
         "product_category": "computers_accessories",
         "customer_state": "SP",
         "share": 0.45
       },
-      "question": "2018 年 2 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 2 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-02-01T00:00:00",
@@ -829,28 +824,29 @@
           }
         ],
         "direction": "down",
-        "magnitude": -2175120,
+        "magnitude": -2304628,
         "unit": "cents",
         "note": "目标组合（品类×州）被删明细的金额；订单级 gmv 不能按品类拆，customer_state 维对应订单级 gmv 按州拆或 item_gmv 按州拆"
       },
+      "total_change": "-14539862",
       "quality": {
         "customer_state": {
-          "gold_delta": "-1423342",
+          "gold_delta": "-1552470",
           "runner_up": "345650",
-          "ratio": 4.118,
+          "ratio": 4.491,
           "rank": 1
         },
         "product_category": {
-          "gold_delta": "-1423342",
+          "gold_delta": "-1552470",
           "runner_up": "1367964",
-          "ratio": 1.04,
+          "ratio": 1.135,
           "rank": 1
         }
       }
     },
     {
-      "id": "inj-order_drop-04",
-      "split": "test",
+      "id": "inj-order_drop-03",
+      "split": "dev",
       "kind": "injected",
       "injection_type": "order_drop",
       "injection": {
@@ -860,7 +856,7 @@
         "customer_state": "RJ",
         "share": 0.5
       },
-      "question": "2018 年 4 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 4 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-04-01T00:00:00",
@@ -882,27 +878,28 @@
           }
         ],
         "direction": "down",
-        "magnitude": -486630,
+        "magnitude": -407275,
         "unit": "cents",
         "note": "目标组合（品类×州）被删明细的金额；订单级 gmv 不能按品类拆，customer_state 维对应订单级 gmv 按州拆或 item_gmv 按州拆"
       },
+      "total_change": "-54991",
       "quality": {
         "customer_state": {
-          "gold_delta": "-448437",
+          "gold_delta": "-369082",
           "runner_up": "256994",
-          "ratio": 1.745,
+          "ratio": 1.436,
           "rank": 1
         },
         "product_category": {
-          "gold_delta": "-448437",
+          "gold_delta": "-369082",
           "runner_up": "849115",
-          "ratio": 0.528,
+          "ratio": 0.435,
           "rank": 3
         }
       }
     },
     {
-      "id": "inj-order_drop-05",
+      "id": "inj-order_drop-04",
       "split": "test",
       "kind": "injected",
       "injection_type": "order_drop",
@@ -913,7 +910,7 @@
         "customer_state": "MG",
         "share": 0.5
       },
-      "question": "2018 年 5 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 5 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-05-01T00:00:00",
@@ -935,22 +932,77 @@
           }
         ],
         "direction": "down",
-        "magnitude": -387698,
+        "magnitude": -340047,
         "unit": "cents",
         "note": "目标组合（品类×州）被删明细的金额；订单级 gmv 不能按品类拆，customer_state 维对应订单级 gmv 按州拆或 item_gmv 按州拆"
       },
+      "total_change": "-1417005",
       "quality": {
         "customer_state": {
-          "gold_delta": "-524809",
+          "gold_delta": "-477158",
           "runner_up": "317161",
-          "ratio": 1.655,
+          "ratio": 1.504,
           "rank": 1
         },
         "product_category": {
-          "gold_delta": "-524809",
+          "gold_delta": "-477158",
           "runner_up": "531048",
-          "ratio": 0.988,
+          "ratio": 0.899,
           "rank": 2
+        }
+      }
+    },
+    {
+      "id": "inj-order_drop-05",
+      "split": "test",
+      "kind": "injected",
+      "injection_type": "order_drop",
+      "injection": {
+        "type": "order_drop",
+        "month": "2018-08",
+        "product_category": "sports_leisure",
+        "customer_state": "SP",
+        "share": 0.45
+      },
+      "question": "2018 年 8 月销售额环比变化，主要是什么原因？",
+      "metric": "item_gmv",
+      "period": {
+        "start": "2018-08-01T00:00:00",
+        "end": "2018-09-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2018-07-01T00:00:00",
+        "end": "2018-08-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "product_category",
+            "value": "sports_leisure"
+          },
+          {
+            "dimension": "customer_state",
+            "value": "SP"
+          }
+        ],
+        "direction": "down",
+        "magnitude": -1396246,
+        "unit": "cents",
+        "note": "目标组合（品类×州）被删明细的金额；订单级 gmv 不能按品类拆，customer_state 维对应订单级 gmv 按州拆或 item_gmv 按州拆"
+      },
+      "total_change": "-5703065",
+      "quality": {
+        "customer_state": {
+          "gold_delta": "-948154",
+          "runner_up": "297903",
+          "ratio": 3.183,
+          "rank": 1
+        },
+        "product_category": {
+          "gold_delta": "-948154",
+          "runner_up": "1460775",
+          "ratio": 0.649,
+          "rank": 3
         }
       }
     },
@@ -965,7 +1017,7 @@
         "product_category": "health_beauty",
         "factor": 0.65
       },
-      "question": "2018 年 7 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 7 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-07-01T00:00:00",
@@ -987,6 +1039,7 @@
         "unit": "cents",
         "note": "价格下调造成的明细价格变化（分，不含运费）"
       },
+      "total_change": "-1752870",
       "quality": {
         "product_category": {
           "gold_delta": "-3959002",
@@ -1007,7 +1060,7 @@
         "product_category": "watches_gifts",
         "factor": 0.65
       },
-      "question": "2018 年 6 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 6 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-06-01T00:00:00",
@@ -1029,6 +1082,7 @@
         "unit": "cents",
         "note": "价格下调造成的明细价格变化（分，不含运费）"
       },
+      "total_change": "-15571406",
       "quality": {
         "product_category": {
           "gold_delta": "-6717195",
@@ -1049,7 +1103,7 @@
         "product_category": "watches_gifts",
         "factor": 0.65
       },
-      "question": "2018 年 8 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 8 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-08-01T00:00:00",
@@ -1071,6 +1125,7 @@
         "unit": "cents",
         "note": "价格下调造成的明细价格变化（分，不含运费）"
       },
+      "total_change": "-6810664",
       "quality": {
         "product_category": {
           "gold_delta": "-5196943",
@@ -1087,53 +1142,11 @@
       "injection_type": "price_cut",
       "injection": {
         "type": "price_cut",
-        "month": "2018-07",
-        "product_category": "bed_bath_table",
-        "factor": 0.65
-      },
-      "question": "2018 年 7 月销售额环比下降，主要是什么原因？",
-      "metric": "item_gmv",
-      "period": {
-        "start": "2018-07-01T00:00:00",
-        "end": "2018-08-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-06-01T00:00:00",
-        "end": "2018-07-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "product_category",
-            "value": "bed_bath_table"
-          }
-        ],
-        "direction": "down",
-        "magnitude": -1927775,
-        "unit": "cents",
-        "note": "价格下调造成的明细价格变化（分，不含运费）"
-      },
-      "quality": {
-        "product_category": {
-          "gold_delta": "-3873153",
-          "runner_up": "1121996",
-          "ratio": 3.452,
-          "rank": 1
-        }
-      }
-    },
-    {
-      "id": "inj-price_cut-05",
-      "split": "dev",
-      "kind": "injected",
-      "injection_type": "price_cut",
-      "injection": {
-        "type": "price_cut",
         "month": "2018-04",
         "product_category": "sports_leisure",
         "factor": 0.65
       },
-      "question": "2018 年 4 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 4 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-04-01T00:00:00",
@@ -1155,11 +1168,55 @@
         "unit": "cents",
         "note": "价格下调造成的明细价格变化（分，不含运费）"
       },
+      "total_change": "-1997842",
       "quality": {
         "product_category": {
           "gold_delta": "-4444711",
           "runner_up": "3078950",
           "ratio": 1.444,
+          "rank": 1
+        }
+      }
+    },
+    {
+      "id": "inj-price_cut-05",
+      "split": "dev",
+      "kind": "injected",
+      "injection_type": "price_cut",
+      "injection": {
+        "type": "price_cut",
+        "month": "2018-04",
+        "product_category": "computers_accessories",
+        "factor": 0.65
+      },
+      "question": "2018 年 4 月销售额环比变化，主要是什么原因？",
+      "metric": "item_gmv",
+      "period": {
+        "start": "2018-04-01T00:00:00",
+        "end": "2018-05-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2018-03-01T00:00:00",
+        "end": "2018-04-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "product_category",
+            "value": "computers_accessories"
+          }
+        ],
+        "direction": "down",
+        "magnitude": -2087719,
+        "unit": "cents",
+        "note": "价格下调造成的明细价格变化（分，不含运费）"
+      },
+      "total_change": "-1726597",
+      "quality": {
+        "product_category": {
+          "gold_delta": "-5164737",
+          "runner_up": "2087679",
+          "ratio": 2.474,
           "rank": 1
         }
       }
@@ -1174,7 +1231,7 @@
         "month": "2018-05",
         "seller_id": "7d13fca15225358621be4086e1eb0964"
       },
-      "question": "2018 年 5 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 5 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-05-01T00:00:00",
@@ -1199,6 +1256,7 @@
           "seller_state": "SP"
         }
       },
+      "total_change": "-4404724",
       "quality": {
         "seller_id": {
           "gold_delta": "-2337679",
@@ -1218,7 +1276,7 @@
         "month": "2017-09",
         "seller_id": "53243585a1d6dc2643021fd1853d8905"
       },
-      "question": "2017 年 9 月销售额环比下降，主要是什么原因？",
+      "question": "2017 年 9 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2017-09-01T00:00:00",
@@ -1243,6 +1301,7 @@
           "seller_state": "BA"
         }
       },
+      "total_change": "-1191380",
       "quality": {
         "seller_id": {
           "gold_delta": "-3578767",
@@ -1259,54 +1318,10 @@
       "injection_type": "seller_drop",
       "injection": {
         "type": "seller_drop",
-        "month": "2017-10",
-        "seller_id": "53243585a1d6dc2643021fd1853d8905"
-      },
-      "question": "2017 年 10 月销售额环比下降，主要是什么原因？",
-      "metric": "item_gmv",
-      "period": {
-        "start": "2017-10-01T00:00:00",
-        "end": "2017-11-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2017-09-01T00:00:00",
-        "end": "2017-10-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "seller_id",
-            "value": "53243585a1d6dc2643021fd1853d8905"
-          }
-        ],
-        "direction": "down",
-        "magnitude": -4333235,
-        "unit": "cents",
-        "note": "该卖家当月全部明细金额（层级上属于 seller_state=BA）",
-        "hierarchy": {
-          "seller_state": "BA"
-        }
-      },
-      "quality": {
-        "seller_id": {
-          "gold_delta": "-6711300",
-          "runner_up": "1366408",
-          "ratio": 4.912,
-          "rank": 1
-        }
-      }
-    },
-    {
-      "id": "inj-seller_drop-04",
-      "split": "test",
-      "kind": "injected",
-      "injection_type": "seller_drop",
-      "injection": {
-        "type": "seller_drop",
         "month": "2018-05",
         "seller_id": "955fee9216a65b617aa5c0531780ce60"
       },
-      "question": "2018 年 5 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 5 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-05-01T00:00:00",
@@ -1331,6 +1346,7 @@
           "seller_state": "SP"
         }
       },
+      "total_change": "-4186664",
       "quality": {
         "seller_id": {
           "gold_delta": "-2565773",
@@ -1341,7 +1357,7 @@
       }
     },
     {
-      "id": "inj-seller_drop-05",
+      "id": "inj-seller_drop-04",
       "split": "test",
       "kind": "injected",
       "injection_type": "seller_drop",
@@ -1350,7 +1366,7 @@
         "month": "2018-04",
         "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"
       },
-      "question": "2018 年 4 月销售额环比下降，主要是什么原因？",
+      "question": "2018 年 4 月销售额环比变化，主要是什么原因？",
       "metric": "item_gmv",
       "period": {
         "start": "2018-04-01T00:00:00",
@@ -1375,6 +1391,7 @@
           "seller_state": "SP"
         }
       },
+      "total_change": "-1934919",
       "quality": {
         "seller_id": {
           "gold_delta": "-2818967",
@@ -1385,36 +1402,88 @@
       }
     },
     {
+      "id": "inj-seller_drop-05",
+      "split": "test",
+      "kind": "injected",
+      "injection_type": "seller_drop",
+      "injection": {
+        "type": "seller_drop",
+        "month": "2018-08",
+        "seller_id": "1025f0e2d44d7041d6cf58b6550e0bfa"
+      },
+      "question": "2018 年 8 月销售额环比变化，主要是什么原因？",
+      "metric": "item_gmv",
+      "period": {
+        "start": "2018-08-01T00:00:00",
+        "end": "2018-09-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2018-07-01T00:00:00",
+        "end": "2018-08-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "seller_id",
+            "value": "1025f0e2d44d7041d6cf58b6550e0bfa"
+          }
+        ],
+        "direction": "down",
+        "magnitude": -2100134,
+        "unit": "cents",
+        "note": "该卖家当月全部明细金额（层级上属于 seller_state=SP）",
+        "hierarchy": {
+          "seller_state": "SP"
+        }
+      },
+      "total_change": "-6381141",
+      "quality": {
+        "seller_id": {
+          "gold_delta": "-2177979",
+          "runner_up": "1413109",
+          "ratio": 1.541,
+          "rank": 1
+        }
+      }
+    },
+    {
       "id": "raw-01",
       "split": "dev",
       "kind": "raw",
       "injection_type": "raw",
-      "question": "2018 年 4 月 GMV 环比上升，主要来自哪些地区？",
+      "question": "2018 年 1 月GMV环比上升，主要是哪些地区的变化？",
       "metric": "gmv",
       "period": {
-        "start": "2018-04-01T00:00:00",
-        "end": "2018-05-01T00:00:00"
+        "start": "2018-01-01T00:00:00",
+        "end": "2018-02-01T00:00:00"
       },
       "base_period": {
-        "start": "2018-03-01T00:00:00",
-        "end": "2018-04-01T00:00:00"
+        "start": "2017-12-01T00:00:00",
+        "end": "2018-01-01T00:00:00"
       },
       "gold": {
         "dimensions": [
           {
             "dimension": "customer_state",
-            "value": "PR",
-            "explanatory_power": "4.696171",
-            "surprise": 0.000868
+            "value": "SP",
+            "explanatory_power": "0.440458",
+            "surprise": 0.000156
+          },
+          {
+            "dimension": "customer_state",
+            "value": "MG",
+            "explanatory_power": "0.108380",
+            "surprise": 2.7e-05
           }
         ],
         "direction": "up",
-        "magnitude": "1675204",
+        "magnitude": "10602926",
         "unit": "cents",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "356717",
-        "month": "2018-04",
-        "top_ep": 4.696171
+        "total_change": "24072495",
+        "change_rate": 0.279291,
+        "month": "2018-01",
+        "top_ep": 0.440458
       }
     },
     {
@@ -1422,278 +1491,8 @@
       "split": "dev",
       "kind": "raw",
       "injection_type": "raw",
-      "question": "2018 年 6 月 GMV 环比回落，主要是哪些地区的变化？",
+      "question": "2018 年 2 月GMV环比回落，主要是哪些地区的变化？",
       "metric": "gmv",
-      "period": {
-        "start": "2018-06-01T00:00:00",
-        "end": "2018-07-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-05-01T00:00:00",
-        "end": "2018-06-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "customer_state",
-            "value": "SP",
-            "explanatory_power": "0.752603",
-            "surprise": 0.000986
-          },
-          {
-            "dimension": "customer_state",
-            "value": "RJ",
-            "explanatory_power": "0.194788",
-            "surprise": 0.000137
-          }
-        ],
-        "direction": "down",
-        "magnitude": "-9426678",
-        "unit": "cents",
-        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "-12525434",
-        "month": "2018-06",
-        "top_ep": 0.752603
-      }
-    },
-    {
-      "id": "raw-03",
-      "split": "test",
-      "kind": "raw",
-      "injection_type": "raw",
-      "question": "2018 年 4 月销售额环比下降，主要是哪些品类的变化？",
-      "metric": "item_gmv",
-      "period": {
-        "start": "2018-04-01T00:00:00",
-        "end": "2018-05-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-03-01T00:00:00",
-        "end": "2018-04-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "product_category",
-            "value": "computers",
-            "explanatory_power": "4.056797",
-            "surprise": 0.008735
-          }
-        ],
-        "direction": "up",
-        "magnitude": "1457161",
-        "unit": "cents",
-        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "359190",
-        "month": "2018-04",
-        "top_ep": 4.056797
-      }
-    },
-    {
-      "id": "raw-04",
-      "split": "dev",
-      "kind": "raw",
-      "injection_type": "raw",
-      "question": "2018 年 5 月销售额环比上升，主要是哪些品类贡献的？",
-      "metric": "item_gmv",
-      "period": {
-        "start": "2018-05-01T00:00:00",
-        "end": "2018-06-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-04-01T00:00:00",
-        "end": "2018-05-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "product_category",
-            "value": "home_appliances",
-            "explanatory_power": "0.946961",
-            "surprise": 0.001768
-          }
-        ],
-        "direction": "down",
-        "magnitude": "-1000221",
-        "unit": "cents",
-        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "-1056243",
-        "month": "2018-05",
-        "top_ep": 0.946961
-      }
-    },
-    {
-      "id": "raw-05",
-      "split": "test",
-      "kind": "raw",
-      "injection_type": "raw",
-      "question": "2017 年 6 月送达延迟率相比上月明显上升，主要集中在哪些州？",
-      "metric": "late_delivery_rate",
-      "period": {
-        "start": "2017-06-01T00:00:00",
-        "end": "2017-07-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2017-05-01T00:00:00",
-        "end": "2017-06-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "customer_state",
-            "value": "BA",
-            "explanatory_power": "3.543113",
-            "surprise": 0.009088
-          }
-        ],
-        "direction": "up",
-        "magnitude": "0.001423",
-        "unit": "cents",
-        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "0.000402",
-        "month": "2017-06",
-        "top_ep": 3.543113
-      }
-    },
-    {
-      "id": "raw-06",
-      "split": "test",
-      "kind": "raw",
-      "injection_type": "raw",
-      "question": "2017 年 7 月送达延迟率相比上月改善，主要是哪些州好转的？",
-      "metric": "late_delivery_rate",
-      "period": {
-        "start": "2017-07-01T00:00:00",
-        "end": "2017-08-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2017-06-01T00:00:00",
-        "end": "2017-07-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "customer_state",
-            "value": "SP",
-            "explanatory_power": "2.557895",
-            "surprise": 0.024187
-          }
-        ],
-        "direction": "down",
-        "magnitude": "-0.006166",
-        "unit": "cents",
-        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "-0.002410",
-        "month": "2017-07",
-        "top_ep": 2.557895
-      }
-    },
-    {
-      "id": "raw-07",
-      "split": "test",
-      "kind": "raw",
-      "injection_type": "raw",
-      "question": "2018 年 7 月客单价相比上月上升，主要来自哪些支付方式的变化？",
-      "metric": "aov",
-      "period": {
-        "start": "2018-07-01T00:00:00",
-        "end": "2018-08-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-06-01T00:00:00",
-        "end": "2018-07-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "payment_type",
-            "value": "boleto",
-            "explanatory_power": "8.469617",
-            "surprise": 0.002503
-          }
-        ],
-        "direction": "up",
-        "magnitude": "648.407906",
-        "unit": "cents",
-        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "76.556937",
-        "month": "2018-07",
-        "top_ep": 8.469617
-      }
-    },
-    {
-      "id": "raw-08",
-      "split": "test",
-      "kind": "raw",
-      "injection_type": "raw",
-      "question": "2018 年 6 月客单价环比下降，主要是哪些支付方式的变化？",
-      "metric": "aov",
-      "period": {
-        "start": "2018-06-01T00:00:00",
-        "end": "2018-07-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2018-05-01T00:00:00",
-        "end": "2018-06-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "payment_type",
-            "value": "boleto",
-            "explanatory_power": "2.254608",
-            "surprise": 0.00068
-          }
-        ],
-        "direction": "down",
-        "magnitude": "-362.916265",
-        "unit": "cents",
-        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "-160.966429",
-        "month": "2018-06",
-        "top_ep": 2.254608
-      }
-    },
-    {
-      "id": "raw-09",
-      "split": "test",
-      "kind": "raw",
-      "injection_type": "raw",
-      "question": "2017 年 6 月差评率相比上月上升，主要集中在哪些州？",
-      "metric": "bad_review_rate",
-      "period": {
-        "start": "2017-06-01T00:00:00",
-        "end": "2017-07-01T00:00:00"
-      },
-      "base_period": {
-        "start": "2017-05-01T00:00:00",
-        "end": "2017-06-01T00:00:00"
-      },
-      "gold": {
-        "dimensions": [
-          {
-            "dimension": "customer_state",
-            "value": "SE",
-            "explanatory_power": "1.459599",
-            "surprise": 0.006953
-          }
-        ],
-        "direction": "up",
-        "magnitude": "0.001236",
-        "unit": "cents",
-        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "0.000846",
-        "month": "2017-06",
-        "top_ep": 1.459599
-      }
-    },
-    {
-      "id": "raw-10",
-      "split": "test",
-      "kind": "raw",
-      "injection_type": "raw",
-      "question": "2018 年 2 月运费占比相比上月的变化，主要来自哪些卖家州？",
-      "metric": "freight_ratio",
       "period": {
         "start": "2018-02-01T00:00:00",
         "end": "2018-03-01T00:00:00"
@@ -1705,19 +1504,352 @@
       "gold": {
         "dimensions": [
           {
-            "dimension": "seller_state",
-            "value": "PR",
-            "explanatory_power": "2.278576",
-            "surprise": 0.00613
+            "dimension": "customer_state",
+            "value": "SP",
+            "explanatory_power": "0.584581",
+            "surprise": 0.000416
+          }
+        ],
+        "direction": "down",
+        "magnitude": "-7171235",
+        "unit": "cents",
+        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
+        "total_change": "-12267318",
+        "change_rate": -0.111254,
+        "month": "2018-02",
+        "top_ep": 0.584581
+      }
+    },
+    {
+      "id": "raw-03",
+      "split": "test",
+      "kind": "raw",
+      "injection_type": "raw",
+      "question": "2017 年 7 月销售额环比上升，主要是哪些品类的变化？",
+      "metric": "item_gmv",
+      "period": {
+        "start": "2017-07-01T00:00:00",
+        "end": "2017-08-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2017-06-01T00:00:00",
+        "end": "2017-07-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "product_category",
+            "value": "bed_bath_table",
+            "explanatory_power": "0.415616",
+            "surprise": 0.004894
+          },
+          {
+            "dimension": "product_category",
+            "value": "office_furniture",
+            "explanatory_power": "0.153870",
+            "surprise": 0.003191
+          },
+          {
+            "dimension": "product_category",
+            "value": "baby",
+            "explanatory_power": "0.113334",
+            "surprise": 0.001698
           }
         ],
         "direction": "up",
-        "magnitude": "0.005843",
+        "magnitude": "3287584",
         "unit": "cents",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "0.002564",
+        "total_change": "7910149",
+        "change_rate": 0.158313,
+        "month": "2017-07",
+        "top_ep": 0.415616
+      }
+    },
+    {
+      "id": "raw-04",
+      "split": "dev",
+      "kind": "raw",
+      "injection_type": "raw",
+      "question": "2017 年 8 月销售额环比上升，主要是哪些品类的变化？",
+      "metric": "item_gmv",
+      "period": {
+        "start": "2017-08-01T00:00:00",
+        "end": "2017-09-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2017-07-01T00:00:00",
+        "end": "2017-08-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "product_category",
+            "value": "computers",
+            "explanatory_power": "0.418834",
+            "surprise": 0.03647
+          },
+          {
+            "dimension": "product_category",
+            "value": "furniture_decor",
+            "explanatory_power": "0.160542",
+            "surprise": 0.000767
+          },
+          {
+            "dimension": "product_category",
+            "value": "health_beauty",
+            "explanatory_power": "0.191401",
+            "surprise": 0.000759
+          }
+        ],
+        "direction": "up",
+        "magnitude": "3482600",
+        "unit": "cents",
+        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
+        "total_change": "8314979",
+        "change_rate": 0.14367,
+        "month": "2017-08",
+        "top_ep": 0.418834
+      }
+    },
+    {
+      "id": "raw-05",
+      "split": "test",
+      "kind": "raw",
+      "injection_type": "raw",
+      "question": "2018 年 3 月送达延迟率环比上升，主要是哪些州的变化？",
+      "metric": "late_delivery_rate",
+      "period": {
+        "start": "2018-03-01T00:00:00",
+        "end": "2018-04-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2018-02-01T00:00:00",
+        "end": "2018-03-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "customer_state",
+            "value": "MG",
+            "explanatory_power": "0.308489",
+            "surprise": 0.009158
+          },
+          {
+            "dimension": "customer_state",
+            "value": "ES",
+            "explanatory_power": "0.105605",
+            "surprise": 0.004227
+          },
+          {
+            "dimension": "customer_state",
+            "value": "SP",
+            "explanatory_power": "0.217912",
+            "surprise": 0.00032
+          }
+        ],
+        "direction": "up",
+        "magnitude": "0.014921",
+        "unit": "ratio",
+        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
+        "total_change": "0.048367",
+        "change_rate": 0.342382,
+        "month": "2018-03",
+        "top_ep": 0.308489
+      }
+    },
+    {
+      "id": "raw-06",
+      "split": "test",
+      "kind": "raw",
+      "injection_type": "raw",
+      "question": "2018 年 1 月送达延迟率环比改善，主要是哪些州的变化？",
+      "metric": "late_delivery_rate",
+      "period": {
+        "start": "2018-01-01T00:00:00",
+        "end": "2018-02-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2017-12-01T00:00:00",
+        "end": "2018-01-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "customer_state",
+            "value": "RJ",
+            "explanatory_power": "0.955806",
+            "surprise": 0.018624
+          }
+        ],
+        "direction": "down",
+        "magnitude": "-0.016766",
+        "unit": "ratio",
+        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
+        "total_change": "-0.017542",
+        "change_rate": -0.235302,
+        "month": "2018-01",
+        "top_ep": 0.955806
+      }
+    },
+    {
+      "id": "raw-07",
+      "split": "test",
+      "kind": "raw",
+      "injection_type": "raw",
+      "question": "2017 年 9 月客单价环比上升，主要是哪些支付方式的变化？",
+      "metric": "aov",
+      "period": {
+        "start": "2017-09-01T00:00:00",
+        "end": "2017-10-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2017-08-01T00:00:00",
+        "end": "2017-09-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "payment_type",
+            "value": "credit_card",
+            "explanatory_power": "1.004142",
+            "surprise": 0.000135
+          }
+        ],
+        "direction": "up",
+        "magnitude": "1475.152966",
+        "unit": "cents",
+        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
+        "total_change": "1469.068384",
+        "change_rate": 0.094791,
+        "month": "2017-09",
+        "top_ep": 1.004142
+      }
+    },
+    {
+      "id": "raw-08",
+      "split": "test",
+      "kind": "raw",
+      "injection_type": "raw",
+      "question": "2018 年 8 月客单价环比下降，主要是哪些支付方式的变化？",
+      "metric": "aov",
+      "period": {
+        "start": "2018-08-01T00:00:00",
+        "end": "2018-09-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2018-07-01T00:00:00",
+        "end": "2018-08-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "payment_type",
+            "value": "boleto",
+            "explanatory_power": "0.787881",
+            "surprise": 0.003476
+          },
+          {
+            "dimension": "payment_type",
+            "value": "credit_card",
+            "explanatory_power": "0.239111",
+            "surprise": 0.000559
+          }
+        ],
+        "direction": "down",
+        "magnitude": "-912.289905",
+        "unit": "cents",
+        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
+        "total_change": "-1157.902472",
+        "change_rate": -0.069404,
+        "month": "2018-08",
+        "top_ep": 0.787881
+      }
+    },
+    {
+      "id": "raw-09",
+      "split": "test",
+      "kind": "raw",
+      "injection_type": "raw",
+      "question": "2018 年 2 月差评率环比上升，主要是哪些州的变化？",
+      "metric": "bad_review_rate",
+      "period": {
+        "start": "2018-02-01T00:00:00",
+        "end": "2018-03-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2018-01-01T00:00:00",
+        "end": "2018-02-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "customer_state",
+            "value": "RJ",
+            "explanatory_power": "0.448870",
+            "surprise": 0.005139
+          },
+          {
+            "dimension": "customer_state",
+            "value": "SP",
+            "explanatory_power": "0.118320",
+            "surprise": 0.003056
+          },
+          {
+            "dimension": "customer_state",
+            "value": "MG",
+            "explanatory_power": "0.103140",
+            "surprise": 2.2e-05
+          }
+        ],
+        "direction": "up",
+        "magnitude": "0.022940",
+        "unit": "ratio",
+        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
+        "total_change": "0.051106",
+        "change_rate": 0.334992,
         "month": "2018-02",
-        "top_ep": 2.278576
+        "top_ep": 0.44887
+      }
+    },
+    {
+      "id": "raw-10",
+      "split": "test",
+      "kind": "raw",
+      "injection_type": "raw",
+      "question": "2017 年 5 月运费占比环比上升，主要是哪些卖家州的变化？",
+      "metric": "freight_ratio",
+      "period": {
+        "start": "2017-05-01T00:00:00",
+        "end": "2017-06-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2017-04-01T00:00:00",
+        "end": "2017-05-01T00:00:00"
+      },
+      "gold": {
+        "dimensions": [
+          {
+            "dimension": "seller_state",
+            "value": "MG",
+            "explanatory_power": "0.419709",
+            "surprise": 0.000933
+          },
+          {
+            "dimension": "seller_state",
+            "value": "SP",
+            "explanatory_power": "1.139097",
+            "surprise": 0.000926
+          }
+        ],
+        "direction": "up",
+        "magnitude": "0.003517",
+        "unit": "ratio",
+        "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
+        "total_change": "0.008380",
+        "change_rate": 0.065397,
+        "month": "2017-05",
+        "top_ep": 0.419709
       }
     }
   ]

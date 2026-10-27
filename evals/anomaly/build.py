@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from datalab.datasets import olist  # noqa: E402
 from datalab.datasets.service import DatasetStore  # noqa: E402
 from datalab.semantic.engine import SemanticEngine  # noqa: E402
+from datalab.semantic.metrics import get_metric  # noqa: E402
 from datalab.semantic.snapshot import SemanticSnapshot  # noqa: E402
 
 import inject as injector  # noqa: E402
@@ -119,6 +120,21 @@ def _delta_map(engine: SemanticEngine, metric: str, dimension: str,
 MIN_REL_SIZE = Decimal("0.2")
 
 
+def _total_change(engine: SemanticEngine, metric: str, month: str) -> dict:
+    """目标指标在 month vs 上月的总变化：变化量（Decimal）、方向（up/down）与文本形式。"""
+    period, base = period_of(month), period_of(month_prev(month))
+    current = engine.query(metric, (period["start"], period["end"]))
+    previous = engine.query(metric, (base["start"], base["end"]))
+    if current["type"] == "additive":
+        change = Decimal(current["total"]["numerator"] - previous["total"]["numerator"])
+        text = str(int(change))
+    else:
+        now, old = current["total"]["value"], previous["total"]["value"]
+        change = (Decimal(now) - Decimal(old)) if now is not None and old is not None else Decimal(0)
+        text = format(change, ".6f")
+    return {"change": change, "direction": "down" if change < 0 else "up", "change_text": text}
+
+
 def check_dominance(engine: SemanticEngine, metric: str, dimension: str, value: str,
                     month: str, filters: dict | None = None) -> tuple[bool, dict]:
     """质量检查：gold 值的 |Δ| 为切片内最大，且 ≥ 次大 × RATIO_THRESHOLD；返回 (通过, 详情)。"""
@@ -196,7 +212,8 @@ def freight_up_gold(before: dict, after: dict, spec: dict) -> dict:
 
     delta = freight(after) - freight(before)
     return {"dimensions": [{"dimension": "seller_state", "value": spec["seller_state"]}],
-            "direction": "up", "magnitude": delta, "unit": "cents", "note": "运费增量（分）"}
+            "direction": "up", "magnitude": delta, "unit": get_metric("freight_ratio").unit,
+            "note": f"运费增量（magnitude 为整数分 {delta}；目标指标为 freight_ratio，unit 取指标单位）"}
 
 
 def delivery_delay_gold(before: dict, after: dict, spec: dict) -> dict:
@@ -207,8 +224,9 @@ def delivery_delay_gold(before: dict, after: dict, spec: dict) -> dict:
         if old and old["order_delivered_customer_date"] != order["order_delivered_customer_date"]:
             delayed += 1
     return {"dimensions": [{"dimension": "customer_state", "value": spec["customer_state"]}],
-            "direction": "up", "magnitude": delayed, "unit": "count",
-            "note": "新增延迟送达订单数；附带关联事实：差评集中在 delivery_status=late 的订单上",
+            "direction": "up", "magnitude": delayed, "unit": get_metric("late_delivery_rate").unit,
+            "note": f"新增延迟送达订单数（magnitude 为订单数 {delayed} 个；目标指标为 late_delivery_rate，"
+                    f"unit 取指标单位）；附带关联事实：差评集中在 delivery_status=late 的订单上",
             "correlate": {"metric": "bad_review_rate", "by": "delivery_status", "expect": "late"}}
 
 
@@ -218,8 +236,9 @@ def mix_shift_gold(before: dict, after: dict, spec: dict) -> dict:
     added = sum(1 for order in after["orders"]
                 if order["order_id"].endswith(spec.get("suffix", "zz")) and start <= order["order_purchase_timestamp"] < end)
     return {"dimensions": [{"dimension": spec["dimension"], "value": spec["value"]}],
-            "direction": "down", "effect": "between", "magnitude": added, "unit": "count",
-            "note": "复制的订单数（该组订单数翻倍）；aov 变化全部来自结构（between）效应，组内客单价不变"}
+            "direction": "down", "effect": "between", "magnitude": added, "unit": get_metric("aov").unit,
+            "note": f"复制的订单数（magnitude 为订单数 {added} 个；目标指标为 aov，unit 取指标单位）；"
+                    f"aov 变化全部来自结构（between）效应，组内客单价不变"}
 
 
 def price_cut_gold(before: dict, after: dict, spec: dict) -> dict:
@@ -267,7 +286,7 @@ def candidates() -> list[dict]:
                      "injection": {"type": "order_drop", "month": month, "product_category": category,
                                    "customer_state": state, "share": share},
                      "metric": "item_gmv",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比下降，主要是什么原因？",
+                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比变化，主要是什么原因？",
                      "checks": [("customer_state", state, {"product_category": category}),
                                 ("product_category", category, {"customer_state": state})]})
     # freight_up：卖家州×月，按 seller_state 拆 freight_ratio 的分子 freight_sum 检查。
@@ -277,7 +296,7 @@ def candidates() -> list[dict]:
         pool.append({"type": "freight_up",
                      "injection": {"type": "freight_up", "month": month, "seller_state": state, "factor": factor},
                      "metric": "freight_ratio",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月运费占比明显上升，主要集中在哪些卖家？",
+                     "question": f"{month[:4]} 年 {int(month[5:7])} 月运费占比环比变化，主要集中在哪些卖家？",
                      "checks": [("seller_state", state, None)]})
     # delivery_delay：客户州×月，按 customer_state 拆 late_count 检查。
     for state, month, share in [("SP", "2018-03", 0.4), ("RJ", "2018-04", 0.5), ("MG", "2018-05", 0.5),
@@ -286,7 +305,7 @@ def candidates() -> list[dict]:
         pool.append({"type": "delivery_delay",
                      "injection": {"type": "delivery_delay", "month": month, "customer_state": state, "share": share},
                      "metric": "late_delivery_rate",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月送达延迟率上升，主要集中在哪些地区？"
+                     "question": f"{month[:4]} 年 {int(month[5:7])} 月送达延迟率环比变化，主要集中在哪些地区？"
                                  f"同期差评率也有变化，是否相关？",
                      "checks": [("customer_state", state, None)]})
     # mix_shift：payment_type=boleto ×月（份额大、aov 低于全部），按 payment_type 拆 gmv 检查结构主导。
@@ -297,8 +316,8 @@ def candidates() -> list[dict]:
         pool.append({"type": "mix_shift",
                      "injection": {"type": "mix_shift", "month": month, "dimension": "payment_type", "value": value},
                      "metric": "aov",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月客单价环比下降，主要原因是客群结构变化还是"
-                                 f"各组内部变化？",
+                     "question": f"{month[:4]} 年 {int(month[5:7])} 月客单价环比变化，主要原因是客群结构变化"
+                                 f"还是各组内部变化？",
                      "checks": [("payment_type", value, None)]})
     # price_cut：品类×月，按 product_category 拆 item_gmv 检查（候选按探查过的平稳月份挑选）。
     for category, month, factor in [
@@ -312,7 +331,7 @@ def candidates() -> list[dict]:
                      "injection": {"type": "price_cut", "month": month, "product_category": category,
                                    "factor": factor},
                      "metric": "item_gmv",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比下降，主要是什么原因？",
+                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比变化，主要是什么原因？",
                      "checks": [("product_category", category, None)]})
     # seller_drop：大卖家×月，按 seller_id 拆 item_gmv 检查（候选按探查过的金额与平稳度挑选）。
     for seller, month in [("7d13fca15225358621be4086e1eb0964", "2018-05"),
@@ -322,15 +341,23 @@ def candidates() -> list[dict]:
                           ("955fee9216a65b617aa5c0531780ce60", "2018-05"),
                           ("955fee9216a65b617aa5c0531780ce60", "2018-04"),
                           ("7d13fca15225358621be4086e1eb0964", "2018-03"),
-                          ("7e93a43ef30c4f03f38b393420bc753a", "2017-05"),
-                          ("3d871de0142ce09b7081e2b9d1733cb1", "2018-01"),
-                          ("da8622b14eb17ae2831f4ac5b9dab84a", "2018-01"),
+                          ("955fee9216a65b617aa5c0531780ce60", "2018-01"),
+                          ("4869f7a5dfa277a7dca6462dcf3b52b2", "2018-01"),
+                          ("53243585a1d6dc2643021fd1853d8905", "2017-11"),
+                          ("53243585a1d6dc2643021fd1853d8905", "2018-08"),
                           ("4869f7a5dfa277a7dca6462dcf3b52b2", "2018-04"),
+                          ("1025f0e2d44d7041d6cf58b6550e0bfa", "2018-08"),
+                          ("37be5a7c751166fbc5f8ccba4119e043", "2017-07"),
+                          ("2eb70248d66e0e3ef83659f71b244378", "2018-05"),
+                          ("b1b3948701c5c72445495bd161b83a4c", "2017-06"),
+                          ("4869f7a5dfa277a7dca6462dcf3b52b2", "2018-08"),
+                          ("7c67e1448b00f6e969d365cea6b010ab", "2018-04"),
+                          ("7d13fca15225358621be4086e1eb0964", "2018-04"),
                           ("59417c56835dd8e2e72f91f809cd4092", "2017-04")]:
         pool.append({"type": "seller_drop",
                      "injection": {"type": "seller_drop", "month": month, "seller_id": seller},
                      "metric": "item_gmv",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比下降，主要是什么原因？",
+                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比变化，主要是什么原因？",
                      "checks": [("seller_id", seller, None)]})
     return pool
 
@@ -366,8 +393,19 @@ def build_injected(folder: Path, log) -> list[dict]:
                         and all(info.get("rank", 99) <= 3 for info in detail.values())
                 else:
                     passed_all = all(info.get("ratio", 0) >= RATIO_THRESHOLD for info in detail.values())
+                # 方向一致性核对：目标指标在 period vs base_period 的实际总变化方向必须与
+                # gold.direction 一致（自然增长抵消注入下降时，该组合的题目是病态的，拒绝）。
+                total_info = _total_change(engine, candidate["metric"], spec["month"])
             finally:
                 engine.close()
+        gold_direction = None
+        if passed_all:
+            gold_direction = GOLDERS[kind](tables, after, spec)["direction"]
+            direction_ok = total_info["change"] != 0 and total_info["direction"] == gold_direction
+            if not direction_ok:
+                log(f"  方向矛盾 {kind} {spec}: 总变化 {total_info['change']}（{total_info['direction']}）"
+                    f"而注入方向 {gold_direction}；拒绝该组合")
+                passed_all = False
         if not passed_all:
             log(f"  未通过 {kind} {spec}: " + "; ".join(
                 f"{dim}: gold={info.get('gold_delta')} runner={info.get('runner_up')} ratio={info.get('ratio')}"
@@ -377,9 +415,10 @@ def build_injected(folder: Path, log) -> list[dict]:
         case = {"id": case_id, "split": None, "kind": "injected", "injection_type": kind,
                 "injection": spec, "question": candidate["question"], "metric": candidate["metric"],
                 "period": period_of(spec["month"]), "base_period": period_of(month_prev(spec["month"])),
-                "gold": gold, "quality": {dim: {"gold_delta": info["gold_delta"], "runner_up": info["runner_up"],
-                                                "ratio": info["ratio"], "rank": info.get("rank")}
-                                          for dim, info in detail.items()}}
+                "gold": gold, "total_change": total_info["change_text"],
+                "quality": {dim: {"gold_delta": info["gold_delta"], "runner_up": info["runner_up"],
+                                  "ratio": info["ratio"], "rank": info.get("rank")}
+                            for dim, info in detail.items()}}
         picked.setdefault(kind, []).append(case)
         log(f"  通过 {case_id}: " + "; ".join(
             f"{dim} gold={info['gold_delta']} runner={info['runner_up']} ratio={info['ratio']}"
@@ -427,13 +466,26 @@ def freeze(cases: list[dict], raw_cases: list[dict], folder: Path, log) -> None:
     for case in all_cases:
         chosen = case["id"] in dev_injected or case["id"] in dev_raw
         case["split"] = "dev" if chosen else "test"
+    import raw_questions
     metadata = json.loads((folder / "metadata.json").read_text(encoding="utf-8"))
-    frozen = {"meta": {"frozen_at": time.strftime("%Y-%m-%d"),
+    frozen = {"meta": {"frozen_at": "2026-10-27", "revision": 2,
+                       "revision_history": [
+                           {"revision": 1, "date": "2026-10-27",
+                            "note": "首次冻结（先于 Agent 开发）"},
+                           {"revision": 2, "date": time.strftime("%Y-%m-%d"),
+                            "note": "复核发现构造缺陷并在任何 Agent 运行前修正：原始问题月份选择由"
+                                    "「EP 最高」改为「变化显著（加法型 |环比|≥5%、比率型达指标阈值）且"
+                                    "集中（0.3≤EP≤1.5）中取最显著者」；问题方向词全部由实际总变化方向"
+                                    "生成；注入案例问题不再陈述方向并核对 gold.direction 与实际总变化"
+                                    "一致；gold.unit 取语义层指标单位"}],
                        "base_version": metadata["dataset_version"],
                        "source_sha256": metadata["profile"]["source_sha256"],
                        "snapshot": {"version": SNAPSHOT.version, "included_statuses": list(SNAPSHOT.included_statuses),
                                     "amount_source": SNAPSHOT.amount_source},
                        "ratio_threshold": RATIO_THRESHOLD, "seed": SEED,
+                       "raw_selection": {"min_rel_change": raw_questions.MIN_REL_CHANGE,
+                                         "ratio_min_change": raw_questions.RATIO_MIN_CHANGE,
+                                         "ep_range": [raw_questions.EP_MIN, raw_questions.EP_MAX]},
                        "note": "题集先于 Agent 开发冻结；冻结后不按 Agent 表现修改，"
                                "任何修改都需重新运行 build.py 的质量检查"},
               "cases": all_cases}
