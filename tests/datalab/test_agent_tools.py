@@ -23,20 +23,23 @@ def tool_call(name, arguments, call_id='call_1'):
             'arguments': arguments if isinstance(arguments, str) else json.dumps(arguments, ensure_ascii=False)}
 
 
-def scripted_response(calls, finish='stop'):
+def scripted_response(calls, finish='stop', reasoning=None):
+    message = {'content': None, 'tool_calls': [
+        {'id': call['id'], 'type': 'function',
+         'function': {'name': call['name'], 'arguments': call['arguments']}} for call in calls]}
+    if reasoning is not None:
+        message['reasoning_content'] = reasoning
     return httpx.Response(200, json={
-        'choices': [{'message': {'content': None, 'tool_calls': [
-            {'id': call['id'], 'type': 'function',
-             'function': {'name': call['name'], 'arguments': call['arguments']}} for call in calls]},
-         'finish_reason': finish}],
+        'choices': [{'message': message, 'finish_reason': finish}],
         'usage': {'total_tokens': 40}})
 
 
 class ScriptedModel:
     """按顺序返回预设 tool_calls 的模拟 OpenAI 兼容服务，并记录请求体用于断言。"""
 
-    def __init__(self, steps):
+    def __init__(self, steps, reasoning=None):
         self.steps = list(steps)
+        self.reasoning = reasoning
         self.bodies = []
 
     def __call__(self, request):
@@ -46,7 +49,7 @@ class ScriptedModel:
         if step is None:
             return httpx.Response(200, json={'choices': [{'message': {'content': '没有需要调用的工具', 'tool_calls': None},
                                                           'finish_reason': 'stop'}], 'usage': {'total_tokens': 30}})
-        return scripted_response(step)
+        return scripted_response(step, reasoning=self.reasoning)
 
 
 def rows_handler(**kwargs):
@@ -207,9 +210,9 @@ class ToolCallTests(unittest.TestCase):
         self.assertAlmostEqual(stats.duplicate_ratio, 0.2)
 
 
-def loop_env(steps, handlers=None, **kwargs):
+def loop_env(steps, handlers=None, reasoning=None, **kwargs):
     registry = build(handlers)
-    model = ScriptedModel(steps)
+    model = ScriptedModel(steps, reasoning=reasoning)
     client = ChatClient(profile(), transport=httpx.MockTransport(model))
     budget = kwargs.pop('budget', CallBudget(8, 100000, 120))
     return registry, model, client, budget, kwargs
@@ -293,6 +296,46 @@ class AgentLoopTests(unittest.TestCase):
         registry, model, client, budget, _ = loop_env([[tool_call('finish', {'report': '最终报告'})]])
         result = run_loop(client, registry, 'lead', '系统提示', [{'role': 'user', 'content': 'x'}], budget=budget)
         self.assertIn('最终报告', result.report)
+
+    def test_assistant_content_null_filled_with_empty_string(self):
+        # MiMo 对 content: null 且带 tool_calls 的 assistant 历史消息返回 400；回填一律为空字符串。
+        registry, model, client, budget, _ = loop_env([
+            [tool_call('query_metric', {'metric': 'gmv', 'period': PERIOD})],
+            [tool_call('finish', {'report': 'done'})],
+        ])
+        result = run_loop(client, registry, 'lead', '系统提示', [{'role': 'user', 'content': 'x'}], budget=budget)
+        self.assertTrue(result.finished)
+        assistants = [item for item in result.messages if item['role'] == 'assistant']
+        self.assertTrue(all(item['content'] == '' for item in assistants))
+        second = model.bodies[1]['messages']
+        history_assistant = [item for item in second if item['role'] == 'assistant'][0]
+        self.assertEqual(history_assistant['content'], '')
+        self.assertNotIn('reasoning_content', history_assistant)
+
+    def test_reasoning_content_kept_in_assistant_history(self):
+        # 思考模式的 reasoning_content 原样保留在 assistant 历史消息里（字段存在才带，不进日志原文）。
+        registry, model, client, budget, _ = loop_env([
+            [tool_call('query_metric', {'metric': 'gmv', 'period': PERIOD})],
+            [tool_call('finish', {'report': 'done'})],
+        ], reasoning='先看 GMV，再下钻品类')
+        result = run_loop(client, registry, 'lead', '系统提示', [{'role': 'user', 'content': 'x'}], budget=budget)
+        self.assertTrue(result.finished)
+        assistants = [item for item in result.messages if item['role'] == 'assistant']
+        self.assertEqual(assistants[0]['reasoning_content'], '先看 GMV，再下钻品类')
+        self.assertEqual(assistants[0]['content'], '')
+        second = model.bodies[1]['messages']
+        history_assistant = [item for item in second if item['role'] == 'assistant'][0]
+        self.assertEqual(history_assistant['reasoning_content'], '先看 GMV，再下钻品类')
+        # reasoning_content 只随消息回填，不出现在 tool 观察或日志字段里。
+        self.assertNotIn('reasoning_content', json.dumps([item for item in result.messages if item['role'] == 'tool'],
+                                                         ensure_ascii=False))
+
+    def test_tool_choice_only_auto(self):
+        client = ChatClient(profile(), transport=httpx.MockTransport(ScriptedModel([[tool_call('finish', {'report': 'x'})]])))
+        with self.assertRaises(ValueError):
+            client.complete_tools([], [], timeout=1, max_tokens=10, tool_choice={'type': 'function', 'function': {'name': 'x'}})
+        with self.assertRaises(ValueError):
+            client.complete_tools([], [], timeout=1, max_tokens=10, tool_choice='required')
 
     def test_unconfigured_key_and_truncation(self):
         from datalab.roles.model_config import ModelProfile

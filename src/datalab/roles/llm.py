@@ -22,10 +22,15 @@ OLIST_PLAN_FIELDS = PLAN_FIELDS + ('time_field',)
 
 @dataclass(frozen=True)
 class ToolReply:
-    """complete_tools 的返回：content 可为 None（模型只调用工具时），tool_calls 为 OpenAI 兼容结构。"""
+    """complete_tools 的返回：content 可为 None（模型只调用工具时），tool_calls 为 OpenAI 兼容结构。
+
+    reasoning_content 是 MiMo 思考模式在 tool_calls 旁边返回的模型输出；官方建议后续请求把历史
+    assistant 消息的 reasoning_content 原样保留。它只随 ToolReply 与消息回填传递，不写入 trace/日志原文。
+    """
     content: str | None
     tool_calls: list[dict]
     tokens: int
+    reasoning_content: str | None = None
 
 
 def handoff_schema(handoff: dict) -> str:
@@ -69,8 +74,13 @@ class ChatClient:
         return content, self._record_usage(payload, messages, started)
 
     def complete_tools(self, messages: list[dict], tools: list[dict], *, timeout: float, max_tokens: int,
-                       tool_choice: str | dict = 'auto') -> ToolReply:
-        """Function Calling 请求（A4）；带 tools 时不加 response_format（与 JSON 模式互斥）。"""
+                       tool_choice: str = 'auto') -> ToolReply:
+        """Function Calling 请求（A4）；带 tools 时不加 response_format（与 JSON 模式互斥）。
+
+        MiMo 的 tool_choice 只支持 "auto"（其他值会被后端删除，行为仍等价 auto），这里也只接受 auto。
+        """
+        if tool_choice != 'auto':
+            raise ValueError("MiMo 的 tool_choice 只支持 'auto'")
         if not self.profile.configured:
             raise ModelCallError(f'{self.profile.provider} 尚未配置 API Key')
         body = {'model': self.profile.model, 'messages': messages, 'temperature': self.profile.temperature,
@@ -81,6 +91,7 @@ class ChatClient:
             choice = payload['choices'][0]
             message = choice['message']
             content = message.get('content')
+            reasoning = message.get('reasoning_content')
             raw_calls = message.get('tool_calls') or []
         except (KeyError, IndexError, TypeError) as error:
             raise ModelCallError('模型响应结构无效') from error
@@ -100,7 +111,8 @@ class ChatClient:
             tool_calls.append({'id': call_id if isinstance(call_id, str) and call_id else f'call_{index}',
                                'type': 'function', 'name': name, 'arguments': arguments})
         tokens = self._record_usage(payload, messages, started)
-        return ToolReply(content if isinstance(content, str) else None, tool_calls, tokens)
+        return ToolReply(content if isinstance(content, str) else None, tool_calls, tokens,
+                         reasoning if isinstance(reasoning, str) and reasoning else None)
 
     def _request(self, body: dict, timeout: float) -> dict:
         """单次 chat/completions POST；错误信息不回显密钥或响应原文。"""

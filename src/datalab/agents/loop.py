@@ -4,6 +4,10 @@ A4 只做通用机制：模型只能看到本 Agent 授权的工具 schema；观
 tool 消息回填（tool_call_id 一一对应）；直到模型调用 finish、不再调用工具或达到步数上限。
 预算接入 roles.runtime.CallBudget（每次请求 begin_call/finish_call）。
 计划、分派、并行、上下文压缩与重复动作检测由 A5 通过钩子扩展，不在本层实现。
+
+MiMo 适配：assistant 历史消息的 content 为 None 时一律回填 ""（content: null 且带 tool_calls
+会被 MiMo 拒绝）；思考模式返回的 reasoning_content 原样保留在 assistant 消息里（字段存在才带），
+reasoning_content 是模型输出，不写入 trace/日志原文。
 """
 from __future__ import annotations
 
@@ -47,8 +51,12 @@ class AgentLoop:
                 history, tools, timeout=max(1.0, min(timeout, self.request_timeout)),
                 max_tokens=max(1, min(token_limit, self.max_tokens)))
             self.budget.finish_call(reply.tokens)
-            message = {'role': 'assistant', 'content': reply.content,
+            # MiMo 对 content: null 且带 tool_calls 的 assistant 历史消息返回 400，回填一律写空字符串。
+            message = {'role': 'assistant', 'content': reply.content or '',
                        'tool_calls': [dict(call) for call in reply.tool_calls]}
+            # 思考模式的 reasoning_content 是模型输出，官方建议后续请求原样保留；字段存在才带。
+            if reply.reasoning_content:
+                message['reasoning_content'] = reply.reasoning_content
             history.append(message)
             if not reply.tool_calls:
                 return LoopResult(False, reply.content or None, step, 'no_tool_calls', history)
