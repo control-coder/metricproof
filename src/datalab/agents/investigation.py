@@ -548,6 +548,7 @@ class Investigation:
         report = None
         stop_reason = 'running'
         nudged = not nudge
+        reminded = False
         for step in range(1, max_steps + 1):
             self._lead_steps += 1
             history[:] = _compact(history)
@@ -566,8 +567,14 @@ class Investigation:
                 break
             history.append(_assistant_message(reply))
             if not reply.tool_calls:
-                stop_reason = 'no_tool_calls'
                 report = self._parse_report(reply.content)
+                if report is None and not reminded and step < max_steps:
+                    # A10 test 中 inj-price_cut-04 在第 2 步只回了文字就结束；提醒一次后继续，不直接放弃。
+                    reminded = True
+                    history.append({'role': 'user', 'content': '请通过工具调用继续：分派子 Agent、'
+                                    '调用归因工具，或用 finish 提交报告；不要只回复文字。'})
+                    continue
+                stop_reason = 'no_tool_calls'
                 break
             observations = []
             dispatches: list = []

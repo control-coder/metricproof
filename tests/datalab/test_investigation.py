@@ -243,6 +243,25 @@ class ReplannAndLimitTests(unittest.TestCase):
             self.assertTrue(result.report.get('degraded') or result.stop_reason.endswith('degraded'))
 
 
+class TextOnlyReplyTests(unittest.TestCase):
+    def test_lead_text_reply_reminded_once_then_continues(self):
+        # 主 Agent 第 1 步只回文字（无 tool_calls、不是报告）：提醒一次后继续，仍能 finish。
+        lead_steps = [None] + lead_script_basic()
+        model = ScriptModel(lead_steps, sub_script_contribution())
+        result = run('2017 年 5 月订单量环比变化？', make_folder(self), model)
+        self.assertEqual(result.stop_reason, 'finish')
+        reminders = [message for identity, body in model.requests if identity == 'lead'
+                     for message in body['messages']
+                     if message.get('role') == 'user' and '不要只回复文字' in (message.get('content') or '')]
+        self.assertTrue(reminders)
+
+    def test_lead_text_reply_twice_stops(self):
+        model = ScriptModel([None, None], [])
+        result = run('x', make_folder(self), model)
+        self.assertEqual(result.stop_reason, 'no_tool_calls')
+        self.assertEqual(result.steps['lead'], 2)
+
+
 class SubagentHintTests(unittest.TestCase):
     def test_stop_hint_at_80_percent(self):
         folder = make_folder(self)
