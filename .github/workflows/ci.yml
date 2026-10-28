@@ -75,7 +75,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
       - name: 构建受限执行镜像
-        run: docker build -t datalab-executor:py312-v1 scripts/executor
+        run: docker build -t datalab-executor:py312-v2 scripts/executor
       - name: 生成运行配置并初始化数据库
         run: python -B scripts/ci_prepare.py
       - name: 容器隔离与模拟模型闭环（真实 Docker）

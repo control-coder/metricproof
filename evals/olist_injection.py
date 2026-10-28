@@ -364,7 +364,7 @@ def markdown(payload: dict) -> str:
 def main():
     parser = argparse.ArgumentParser(description='Olist 错误注入基准（不调用模型）')
     parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument('--image', default='datalab-executor:py312-v1')
+    parser.add_argument('--image', default='datalab-executor:py312-v2')
     parser.add_argument('--raw', default=str(ROOT / 'artifacts/olist/raw'))
     parser.add_argument('--output', default='olist-injection.json')
     parser.add_argument('--markdown', default='olist-injection-report.md')

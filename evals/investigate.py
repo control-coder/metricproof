@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT / "evals" / "anomaly"))
 
 from datalab.agents.cassette import CassetteTransport  # noqa: E402
 from datalab.agents.investigation import InvestigationBudget, run_investigation  # noqa: E402
+from datalab.execution.runner import DockerRunner  # noqa: E402
 from datalab.roles.llm import ChatClient  # noqa: E402
 from datalab.roles.model_config import load_model_config  # noqa: E402
 from datalab.semantic.snapshot import SemanticSnapshot  # noqa: E402
@@ -51,6 +52,7 @@ OUTPUT = ROOT / "artifacts" / "evals" / "a5-dev.json"
 # 每个调查的预算（调用数、token、墙钟秒）：按计划第八节约 15 次调用留余量。
 BUDGET = {"max_calls": 30, "max_tokens": 300_000, "seconds": 600.0}
 REVIEW = True  # A6 起默认开启审查 Agent；--no-review 关闭
+SANDBOX = None  # main() 中按 --no-sandbox 决定是否接 DockerRunner
 # 主 Agent 可排查的候选维度提示（由案例指标允许的维度给出，注入到首条消息）。
 RAW_KIND = "raw"
 
@@ -143,7 +145,8 @@ def run_case(case: dict, folder: Path, snapshot, client, *, parallel: bool) -> d
             case["question"], folder, snapshot, client, parallel=parallel,
             budget=InvestigationBudget(**BUDGET), metric=case["metric"],
             period=case["period"], base_period=case["base_period"],
-            profile=profile_of(folder), dimensions_hint=dimensions_hint(case), review=REVIEW)
+            profile=profile_of(folder), dimensions_hint=dimensions_hint(case), review=REVIEW,
+            sandbox=SANDBOX)
     except Exception as error:
         return {"case": case["id"], "parallel": parallel, "error": type(error).__name__ + ": " + str(error)[:200],
                 "seconds": round(time.perf_counter() - started, 3)}
@@ -227,9 +230,13 @@ def main():
     parser.add_argument("--output", type=Path, default=OUTPUT, help="结果文件")
     parser.add_argument("--cassette-dir", type=Path, default=CASSETTE_DIR, help="cassette 目录（各轮分开）")
     parser.add_argument("--no-review", action="store_true", help="关闭审查 Agent（回放 A5 录制时用）")
+    parser.add_argument("--no-sandbox", action="store_true", help="不接执行沙箱（run_sql 返回未配置）")
     args = parser.parse_args()
-    global REVIEW
+    global REVIEW, SANDBOX
     REVIEW = not args.no_review
+    if not args.no_sandbox:
+        # A8 起子 Agent 可用 run_sql：本机 Docker + datalab-executor:py312-v2；容器工作目录在忽略的 artifacts 下。
+        SANDBOX = DockerRunner(None, ROOT / "artifacts" / "sandbox")
     started = time.time()
 
     data = load_cases()

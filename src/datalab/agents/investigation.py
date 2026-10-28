@@ -26,7 +26,7 @@ metric=None, period=None, base_period=None, profile=None) -> InvestigationResult
   outcome}；不保存提示、响应原文或数据内容。
 - 核验：结束后对报告 root_causes/findings 引用的 result_id 调用 toolset.verify_results
   （按引用核验）；每条结论标注核验等级：全部引用核验通过为 L1；未通过、无引用或
-  引用不可核验为 L3（L2 留给 A8 的 run_sql/run_python）。
+  引用不可核验为 L3；引用 run_sql 结果且其 L2 检查全部通过时为 L2（A8）。
 """
 from __future__ import annotations
 
@@ -455,14 +455,15 @@ class Investigation:
     def __init__(self, question: str, folder: Path, snapshot: SemanticSnapshot, client, *,
                  parallel: bool, budget: InvestigationBudget | None, profile: dict | None,
                  toolset: InvestigationToolset | None = None, subagent_thinking: bool | None = False,
-                 review: bool = True, memory=None):
+                 review: bool = True, memory=None, sandbox=None):
         self.question = question
         self.memory = memory
         self.pending: dict | None = None
         # 子 Agent 只按固定套路调用归因工具，默认关闭思考（MiMo thinking.disabled）以压低时延；
         # 主 Agent 负责计划与汇总，保留供应商默认的思考模式。
         self.subagent_thinking = subagent_thinking
-        self.toolset = toolset or InvestigationToolset(Path(folder), snapshot, profile=profile, memory=memory)
+        self.toolset = toolset or InvestigationToolset(Path(folder), snapshot, profile=profile, memory=memory,
+                                                         sandbox=sandbox)
         self.owns_toolset = toolset is None
         self.client = client
         self.parallel = parallel
@@ -733,7 +734,8 @@ class Investigation:
                 'recommendations': [], 'degraded': True}
 
     def _grade(self, report: dict | None, verification: dict, checker: ClaimChecker) -> dict | None:
-        """每条结论标注核验等级：全部引用核验通过为 L1，否则 L3；附因果断言扫描结果。
+        """每条结论标注核验等级：引用全部核验通过时取其中最低的等级（L1 复算 / L2 部分核验），
+        任一引用未核验或未通过为 L3；附因果断言扫描结果。
 
         引用 dispatch_subagent 时按展开后的子 Agent 工具结果判定（A5 中这类引用一律被记成 L3）。
         """
@@ -745,11 +747,14 @@ class Investigation:
             ids = [real for result_id in ids for real in checker.expand(result_id)]
             if not ids:
                 return 'L3'
+            level = 'L1'
             for result_id in ids:
                 outcome = verification.get(result_id) or {}
                 if outcome.get('skipped') or not outcome.get('passed'):
                     return 'L3'
-            return 'L1'
+                if outcome.get('level') == 'L2':
+                    level = 'L2'
+            return level
 
         def normalize(item):
             # 模型可能把条目写成纯字符串：保留原文并标 L3（无结构化 result_ids）。
@@ -789,7 +794,7 @@ def run_investigation(question: str, folder: Path, snapshot: SemanticSnapshot, c
                       dimensions_hint: list[str] | None = None,
                       toolset: InvestigationToolset | None = None,
                       subagent_thinking: bool | None = False,
-                      review: bool = True, memory=None,
+                      review: bool = True, memory=None, sandbox=None,
                       clarifications: list[dict] | None = None) -> InvestigationResult:
     """一次完整调查：主 Agent 检测与拆解 → 分派 → 子 Agent 排查 → 汇总 → 按引用核验。
 
@@ -805,7 +810,8 @@ def run_investigation(question: str, folder: Path, snapshot: SemanticSnapshot, c
     """
     investigation = Investigation(question, folder, snapshot, client, parallel=parallel,
                                   budget=budget, profile=profile, toolset=toolset,
-                                  subagent_thinking=subagent_thinking, review=review, memory=memory)
+                                  subagent_thinking=subagent_thinking, review=review, memory=memory,
+                                  sandbox=sandbox)
     try:
         return investigation.run(metric=metric, period=period, base_period=base_period,
                                  dimensions_hint=dimensions_hint, clarifications=clarifications)

@@ -68,6 +68,15 @@ def _filters_model(catalog: dict) -> type[BaseModel]:
                                                                                   description='过滤条件，条件之间为与')))
 
 
+def _reconcile_model(catalog: dict) -> type[BaseModel]:
+    """run_sql 的汇总比对声明：结果列 column 之和 = 语义层 metric 在 period 的值（只限加法型指标）。"""
+    metric = Literal[tuple(catalog['metrics'])] if catalog.get('metrics') else ShortText
+    return create_model('_Reconcile', __config__=ConfigDict(extra='forbid'),
+                        metric=(metric, Field(description='加法型指标名，如 gmv、order_count')),
+                        period=(Period, ...),
+                        column=(ShortText, Field(description='结果中求和的列名')))
+
+
 def _params(name: str, catalog: dict, fields: dict) -> type[BaseModel]:
     """构造参数模型：extra='forbid'，指标与维度字段在目录非空时收紧为枚举。"""
     metric = Literal[tuple(catalog['metrics'])] if catalog.get('metrics') else ShortText
@@ -127,7 +136,10 @@ def tool_params(catalog: dict) -> dict[str, type[BaseModel]]:
         }),
         'run_sql': _params('RunSqlParams', catalog, {
             'sql': (Annotated[str, StringConstraints(max_length=4096)],
-                    Field(description='只读 SELECT；表与列须在白名单内，强制 LIMIT')),
+                    Field(description='DuckDB 方言的单条只读 SELECT；表与列须在白名单内，外层必须 LIMIT ≤ 200')),
+            'reconcile': (_reconcile_model(catalog) | None,
+                          Field(default=None, description='可选：声明结果某列之和应等于语义层某加法型指标在某期间的值，'
+                                                          '服务端据此比对（L2 汇总比对）')),
         }),
         'run_python': _params('RunPythonParams', catalog, {
             'code': (Annotated[str, StringConstraints(max_length=8192)], Field(description='沙箱内执行的 Python 代码')),
@@ -183,7 +195,10 @@ DESCRIPTIONS = {
     'contribution': '维度贡献度：加法型用 Delta 法，比率型用组间组内拆解；各项之和等于总变化；可加 filters 在某个维度值内下钻',
     'find_root_cause': '多维根因定位：一次比较多个维度，返回按排名排序的候选（参考 Adtributor）；可加 filters 在某个维度值内下钻',
     'correlate': '两个指标按维度对齐的相关系数与样本量；报告中只能表述为相关',
-    'run_sql': '自由查询：只允许只读 SELECT，表与列在白名单内，强制 LIMIT，沙箱内执行',
+    'run_sql': ('自由查询（语义层工具无法表达时再用）：DuckDB 方言单条只读 SELECT，只能用 Olist 规范化表 orders、'
+                'customers、order_items、order_payments、order_reviews、products、category_translation、sellers '
+                '及其列，金额列为整数分（*_cents），外层必须 LIMIT ≤ 200；在无网络沙箱内执行。L2 核验：'
+                '行序置换不变、载入行数比对，给出 reconcile 时另与语义层汇总比对'),
     'run_python': '在受限沙箱内执行 Python 代码；L2 核验（不变量与汇总比对）',
     'search_memory': '检索情景记忆中的历史归因案例',
     'ask_user': '向用户提问并等待确认（任务进入 WAITING_CONFIRMATION）',

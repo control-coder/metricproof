@@ -24,7 +24,7 @@ def main():
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10, check=False)
             result['docker_engine'] = check.returncode == 0 and bool(check.stdout.strip())
             if result['docker_engine']:
-                image = subprocess.run([docker, 'image', 'inspect', '--format', '{{.Id}}', 'datalab-executor:py312-v1'],
+                image = subprocess.run([docker, 'image', 'inspect', '--format', '{{.Id}}', 'datalab-executor:py312-v2'],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10, check=False)
                 result['executor_image'] = image.returncode == 0
         except (OSError, subprocess.TimeoutExpired):

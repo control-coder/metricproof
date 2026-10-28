@@ -55,7 +55,7 @@ def sandbox_inputs(store: DatasetStore, plan) -> dict:
 class DockerRunner:
     """只向容器传入本次规范化订单、代码和收集器，不挂载宿主工作区。"""
 
-    def __init__(self, store: DatasetStore, root: Path, *, image: str = "datalab-executor:py312-v1"):
+    def __init__(self, store: DatasetStore | None, root: Path, *, image: str = "datalab-executor:py312-v2"):
         self.store = store
         self.root = root.resolve()
         self.root.mkdir(parents=True, exist_ok=True)
@@ -121,6 +121,28 @@ class DockerRunner:
 
         input_files 是多表数据（Olist）由服务端按计划投影出的输入表（文件名 → CSV 字节），写入同一只读挂载；
         多表数据版本必须提供，单表数据版本不接受。"""
+        self._validate(run_id, code, timeout, orders_csv, input_files)
+        version = self.store.get(dataset_version, project_id)
+        if (version.schema == "orders") != (input_files is None):
+            raise ValueError("单表数据使用规范化订单，多表数据必须由服务端按计划投影输入")
+        return self._run(run_id, dataset_version, code, timeout, output_spec,
+                         metric_version=metric_version, cancelled=cancelled,
+                         orders_csv=orders_csv, input_files=input_files)
+
+    def execute_inputs(self, run_id: str, input_files: dict[str, bytes], code: str, timeout: float,
+                       output_spec: OutputSpec, *, dataset_version: str, metric_version: str,
+                       cancelled: threading.Event | None = None) -> ExecutionManifest:
+        """不查 DatasetStore 的固定输入执行：输入表已由服务端投影为文件名 → CSV 字节（如 run_sql），
+        校验、容器参数、清理与执行清单和 execute_python 完全一致。"""
+        if input_files is None:
+            raise ValueError("固定输入执行必须提供服务端投影的输入表")
+        self._validate(run_id, code, timeout, None, input_files)
+        return self._run(run_id, dataset_version, code, timeout, output_spec,
+                         metric_version=metric_version, cancelled=cancelled, input_files=input_files)
+
+    @staticmethod
+    def _validate(run_id: str, code: str, timeout: float, orders_csv: bytes | None,
+                  input_files: dict[str, bytes] | None):
         if str(UUID(run_id)) != run_id:
             raise ValueError("任务标识必须为规范 UUID")
         if not math.isfinite(timeout) or not 0 < timeout <= 120:
@@ -135,9 +157,12 @@ class DockerRunner:
                        for name, data in input_files.items())
                 or sum(len(data) for data in input_files.values()) > MAX_INPUT_BYTES):
             raise ValueError("服务端输入表无效或超过限额")
-        version = self.store.get(dataset_version, project_id)
-        if (version.schema == "orders") != (input_files is None):
-            raise ValueError("单表数据使用规范化订单，多表数据必须由服务端按计划投影输入")
+
+    def _run(self, run_id: str, dataset_version: str, code: str, timeout: float,
+             output_spec: OutputSpec, *, metric_version: str,
+             cancelled: threading.Event | None = None, orders_csv: bytes | None = None,
+             input_files: dict[str, bytes] | None = None) -> ExecutionManifest:
+        """execute_python 与 execute_inputs 共用的容器生命周期、产物收集与清单落盘；入参已由调用方校验。"""
         folder = (self.root / run_id).resolve()
         if folder.parent != self.root:
             raise ValueError("任务目录越界")

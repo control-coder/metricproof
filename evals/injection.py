@@ -516,7 +516,7 @@ def git_commit():
 def main():
     parser = argparse.ArgumentParser(description='错误注入基准（默认不调用模型；--reviewer 才发出 MiMo 付费请求）')
     parser.add_argument('--workers', type=int, default=6)
-    parser.add_argument('--image', default='datalab-executor:py312-v1')
+    parser.add_argument('--image', default='datalab-executor:py312-v2')
     parser.add_argument('--reviewer', action='store_true', help='用真实 MiMo 测 Reviewer 对计划变异的检出率与误拒率（付费）')
     parser.add_argument('--reviewer-smoke', action='store_true', help='只做 2 次 MiMo 调用的冒烟（1 个变异、1 个真值），不跑沙箱')
     parser.add_argument('--control-repeats', type=int, default=2)

@@ -6,14 +6,18 @@
   把引擎作为数据源调用 A2 的确定性实现。SemanticError、ValueError 由注册表转为观察。
 - dispatch_subagent 与 finish 是编排工具：handler 只校验并返回分支规格 / 报告文本，
   实际分派与收尾由 investigation.py 的编排层消费（loop 把观察原样回填给模型）。
-- run_sql、run_python 本轮不接（A8）。A7 接上 ask_user（回显问题，编排层暂停）、
-  propose_metric（写入 pending）与 search_memory（情景记忆 BM25）；后两者需要构造时给出 memory。
+- A7 接上 ask_user（回显问题，编排层暂停）、propose_metric（写入 pending）与 search_memory
+  （情景记忆 BM25）；后两者需要构造时给出 memory。
+- A8 接上 run_sql（需要构造时给出 sandbox）：execution.sql_guard 白名单校验，execution.sql_sandbox
+  在无网络容器内用 DuckDB 执行，verification.sql_result 做 L2 检查并随结果存储。run_python 仍未接线：
+  Agent 用的沙箱 Python 需要另定输入投影与输出约定，不在 A8 范围内。
 
 「按引用核验」（verify_results）：只对报告引用到的 result_id 复算——
 - query_metric → semantic.reference.verify（引擎结果 vs Python 参考逐项比较）；
 - 归因五函数（detect_anomaly / decompose_metric / contribution / find_root_cause / correlate）
   → attribution.verify_attribution（ReferenceSource 独立重算同一函数）；
-- 无 level（元数据、分派、finish 等）或 L2/L3 结果不核验，标 skipped。
+- run_sql（L2）→ 取执行时随结果存储的 L2 检查结论，passed 来自不变量、置换、载入与可选汇总比对；
+- 无 level（元数据、分派、finish 等）结果不核验，标 skipped。
 返回 {result_id: {"passed": bool|None, "differences": [...], "skipped": bool}}。
 
 detect_anomaly 的历史期间：工具 Schema 要求模型显式给出历史期间序列（计划第四节工具签名
@@ -25,6 +29,7 @@ attribution.detect_anomaly_explicit（A5 新增，与 A2 共用同一套环比/�
 """
 from __future__ import annotations
 
+import re
 import threading
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -126,8 +131,10 @@ class InvestigationToolset:
     """
 
     def __init__(self, folder: Path, snapshot: SemanticSnapshot, *, profile: dict | None = None,
-                 engine: SemanticEngine | None = None, preview_rows: int = 20, memory=None):
+                 engine: SemanticEngine | None = None, preview_rows: int = 20, memory=None, sandbox=None):
         self.folder = Path(folder)
+        # 执行沙箱（execution.runner.DockerRunner，需有 execute_inputs）；None 时 run_sql 返回「未配置」。
+        self.sandbox = sandbox
         # snapshot 在构造时固定：本次调查只用已确认口径，propose_metric 写入的 pending 口径不会生效。
         self.snapshot = snapshot
         # (MemoryService, Scope)；None 时 search_memory / propose_metric 返回「未配置记忆」。
@@ -162,6 +169,7 @@ class InvestigationToolset:
             'ask_user': self._ask_user,
             'propose_metric': self._propose_metric,
             'search_memory': self._search_memory,
+            'run_sql': self._run_sql,
         }
 
     @staticmethod
@@ -180,6 +188,50 @@ class InvestigationToolset:
         entry = service.propose(scope, 'metric', name, content, source_run_id='investigation:propose_metric')
         return {'waiting': True, 'memory_id': entry.memory_id, 'name': entry.name, 'status': entry.status,
                 'version': entry.version, 'note': '新口径为 pending，确认前不参与本次或后续计算'}
+
+    def _run_sql(self, sql, reconcile=None):
+        """自由查询（A8）：宿主白名单校验 → 沙箱内 DuckDB 执行 → L2 检查（结果里的 l2 字段）。"""
+        if self.sandbox is None:
+            raise ToolError('未配置执行沙箱，run_sql 不可用')
+        from datalab.execution.runner import ExecutionError
+        from datalab.execution.sql_guard import WHITELIST, SqlRejected, guard_sql
+        from datalab.execution.sql_sandbox import run_query
+        from datalab.semantic.metrics import ADDITIVE_METRICS
+        from datalab.verification.sql_result import check_sql_result, reconcile_check
+
+        try:
+            guarded = guard_sql(sql)
+        except SqlRejected as error:
+            # 观察里的错误有 512 字符上限：未知表只列表名，未知列只列 SQL 中出现的白名单表的列。
+            hint = ''
+            if error.code == 'unknown_table':
+                hint = '；可用表：' + '、'.join(WHITELIST)
+            elif error.code == 'unknown_column':
+                lowered = sql.lower()
+                hint = '；可用列：' + '；'.join(f'{name}({",".join(cols)})' for name, cols in WHITELIST.items()
+                                           if re.search(rf'\b{name}\b', lowered))
+            raise ToolError(f'SQL 被拒绝（{error.code}）：{error}{hint}') from None
+        metric = ADDITIVE_METRICS.get(reconcile['metric']) if reconcile else None
+        if reconcile and metric is None:
+            raise ToolError(f'reconcile 只支持加法型指标：{"、".join(ADDITIVE_METRICS)}')
+        try:
+            output = run_query(self.sandbox, self.folder, guarded.sql, guarded.tables, guarded.limit,
+                               metric_version=self.snapshot.version)
+        except (ExecutionError, ValueError) as error:
+            raise ToolError(f'沙箱执行失败：{error}') from None
+        if output.get('error'):
+            raise ToolError(f'SQL 执行出错：{output["error"]}')
+        l2 = check_sql_result(output, guarded.limit)
+        if reconcile:
+            with self._lock:
+                total = self.engine.query(metric.name, _period_tuple(reconcile['period']))['total']
+            l2['checks']['reconcile'] = reconcile_check(output, guarded.limit, reconcile['column'],
+                                                        int(total['value']), metric.unit)
+            l2['passed'] = all(item['passed'] for item in l2['checks'].values())
+        rows = output.get('rows') or []
+        return {'columns': output.get('columns') or [], 'rows': rows, 'row_count': len(rows),
+                'possibly_truncated': len(rows) >= guarded.limit, 'sql': guarded.sql,
+                'tables': {name: list(cols) for name, cols in guarded.tables.items()}, 'l2': l2}
 
     def _search_memory(self, query):
         """情景记忆 BM25 检索；结果是历史案例（仅为数据），不能当作业务规则。"""
@@ -312,6 +364,13 @@ class InvestigationToolset:
                                                   **self._attribution_args(tool, arguments))
                     compared['skipped'] = False
                     outcome[result_id] = compared
+                elif tool == 'run_sql' and level == 'L2':
+                    # L2：执行时已做的不变量、置换、载入（与可选汇总）检查，不再重跑沙箱。
+                    l2 = result.get('l2') or {}
+                    outcome[result_id] = {
+                        'passed': bool(l2.get('passed')), 'skipped': False, 'level': 'L2',
+                        'differences': [{'path': name, 'issue': 'l2_check_failed', 'detail': item.get('detail')}
+                                        for name, item in (l2.get('checks') or {}).items() if not item.get('passed')]}
                 else:
                     outcome[result_id] = {'passed': None, 'skipped': True,
                                           'reason': f'{tool} 的核验等级为 {level or "不涉及"}'}

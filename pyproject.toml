@@ -16,6 +16,8 @@ dependencies = [
     "pydantic>=2.7,<3",
     # 图表在可信 worker 中渲染；固定次版本以保证同一结果输出相同 PNG。
     "matplotlib>=3.10.9,<3.11",
+    # A8 自由查询的 SQL 解析与白名单校验，只在宿主使用；执行在沙箱内用 DuckDB。
+    "sqlglot==30.25.0",
     "tzdata>=2025.2; sys_platform == 'win32'",
 ]
 
