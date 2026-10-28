@@ -589,6 +589,9 @@ def verify_attribution(kind: str, result: dict, folder: Path, snapshot, **argume
     functions = {"contribution": contribution, "decompose_metric": decompose_metric,
                  "detect_anomaly": detect_anomaly, "find_root_cause": find_root_cause,
                  "correlate": correlate}
+    if kind == "detect_anomaly" and "history_periods" in arguments:
+        # Agent 工具层显式给出历史期间（detect_anomaly_explicit）；A5 漏接此分支，核验恒报 TypeError。
+        functions["detect_anomaly"] = detect_anomaly_explicit
     # 同一次核验内的全部复算共享一份派生记录缓存（真实数据上避免逐次读表与连接）。
     reference = functions[kind](ReferenceSource(folder, snapshot, _store=_Cache()), **arguments)
     differences = _diff(result, reference, "$")
