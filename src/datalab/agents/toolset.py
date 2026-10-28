@@ -324,15 +324,21 @@ class InvestigationToolset:
         """编排工具：只校验并回显分支规格；investigation.py 随后运行子 Agent，并把观察内容
         替换为子 Agent 的结构化发现（主 Agent 在同一条 tool 消息里拿到结果）。"""
         dimensions = list(dict.fromkeys(dimensions))
-        if not 1 <= len(dimensions) <= 4:
-            raise ToolError('每个分支负责 1–4 个维度')
         allowed = allowed_dimensions(metric)
         rejected = [name for name in dimensions if name not in allowed]
-        if rejected:
-            # 在分派前拒绝，避免子 Agent 白跑一轮才发现语义层不支持（A5 实测）。
+        dimensions = [name for name in dimensions if name in allowed]
+        # 不支持的维度在分派前剔除，不会交给子 Agent 执行；剩余维度照常分派，并在结果中列出被剔除的
+        # 维度。A10 复测中 15/30 个案例的主 Agent 因分组里混入不支持的维度整批被拒、重发一轮，
+        # 每次多一轮主 Agent 调用。全部不支持时仍拒绝。
+        if not dimensions:
             raise ToolError(f'指标 {metric} 不支持按 {"、".join(rejected)} 拆解；允许的维度：{"、".join(allowed)}')
-        return {'dispatched': True, 'branch': branch, 'dimensions': dimensions, 'metric': metric,
-                'period': period, 'base_period': base_period}
+        if len(dimensions) > 4:
+            raise ToolError('每个分支负责 1–4 个维度')
+        result = {'dispatched': True, 'branch': branch, 'dimensions': dimensions, 'metric': metric,
+                  'period': period, 'base_period': base_period}
+        if rejected:
+            result['dropped_dimensions'] = rejected
+        return result
 
     @staticmethod
     def _finish(report):

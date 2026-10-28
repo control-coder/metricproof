@@ -31,6 +31,9 @@ root_causes 的写法：
   结构效应（between）为主的项时，也把它列入。
 - 每条带 result_ids（来自子 Agent 发现里的 result_id）。
 
+篇幅：summary 不超过 150 字；findings 至多 5 条、每条一句；recommendations 至多 3 条。报告越短，
+生成与修订越快，需要核对的数字也越少。
+
 报告为 JSON 字符串（finish 的 report 参数）：
 {
   "summary": "一段中文总结",

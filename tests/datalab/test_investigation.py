@@ -160,6 +160,22 @@ class BasicInvestigationTests(unittest.TestCase):
         self.assertIn(('subagent-1', 'model_call'), kinds)
         self.assertTrue(all(entry.get('seq') for entry in result.trace))
 
+    def test_unsupported_dimensions_dropped_not_rejected(self):
+        # 分组里混入该指标不支持的维度：剔除后照常分派，子 Agent 只拿到支持的维度，结果里列出被剔除的维度。
+        folder = make_folder(self)
+        steps = lead_script_basic()
+        dispatch = {'branch': '新老客结构', 'dimensions': ['customer_type', 'product_category'],
+                    'metric': 'order_count', 'period': P, 'base_period': B}
+        steps[1] = [tool_call('dispatch_subagent', dispatch)]
+        model = ScriptModel(steps, sub_script_contribution())
+        result = run('2017 年 5 月订单量环比变化？', folder, model)
+        self.assertEqual(len(result.branches), 1)
+        self.assertEqual(result.branches[0].branch['dimensions'], ['customer_type'])
+        lead_bodies = [body for role, body in model.requests if role == 'lead']
+        refill = json.dumps(lead_bodies[2]['messages'][-1], ensure_ascii=False)
+        self.assertIn('dropped_dimensions', refill)
+        self.assertIn('product_category', refill)
+
     def test_subagent_context_isolated(self):
         folder = make_folder(self)
         model = ScriptModel(lead_script_basic(), sub_script_contribution())

@@ -709,6 +709,10 @@ class Investigation:
                        'dimensions': result.branch.get('dimensions'), 'metric': result.branch.get('metric'),
                        'findings': result.findings, 'stop_reason': result.stop_reason,
                        'note': '子 Agent 结构化发现（摘要，不含完整轨迹）；数字的 result_id 可直接在报告中引用'}
+            dropped = (json.loads(observation.content).get('result') or {}).get('dropped_dimensions')
+            if dropped:
+                payload['dropped_dimensions'] = dropped
+                payload['note'] += f'；该指标不支持的维度 {"、".join(dropped)} 已剔除，不必重新分派'
             observation.content = json.dumps(payload, ensure_ascii=False)
 
     # ---------------------------------------------------------------- 报告
