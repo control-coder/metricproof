@@ -77,6 +77,8 @@ htmlcov/
 !/artifacts/evals/olist-heldout-report.md
 !/artifacts/evals/olist-injection.json
 !/artifacts/evals/olist-injection-report.md
+!/artifacts/evals/r4-dev.json
+!/artifacts/evals/r4-holdout.json
 *.db
 *.sqlite
 *.sqlite3
