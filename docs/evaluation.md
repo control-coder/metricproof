@@ -466,6 +466,27 @@ python -B evals/report.py artifacts/evals/heldout-single-vs-roles.json --markdow
 - L1 通过率上升来自两处修复：detect_anomaly 的核验在 A5 中恒报 TypeError；引用 dispatch_subagent 的结论原来一律记为 L3。
 - AC 与 A5 各差一题，单次运行区分不了是审查修订的影响还是模型随机性。审查与修订带来约 3.5 次额外调用和约 110 秒的 p50 时延。
 
+## 记忆与人在回路（A7，2026-10-28）
+
+### 做法
+
+- 情景记忆（`src/datalab/memory/episodes.py`）：通过代码核对的报告写入一条 kind=summary 的记录，内容包括问题、指标、期间、summary 和前 3 个根因。状态为 recorded，不能确认，也不会被 `retrieve` 当作业务规则返回。检索用 BM25（Okapi，k1=1.5，b=0.75），中文按字二元组切分，英文和标识符整词切分，不引入分词依赖。最相似的一条历史归因附在主 Agent 首条消息中作少样本参考，不额外占用模型调用。
+- `ask_user`：主 Agent 调用后调查暂停，返回 `stop_reason: waiting_confirmation` 与待确认问题。用户答复后，调用方带着 `clarifications` 重新发起调查。这是无状态恢复，不保存模型上下文。
+- `propose_metric`：参数由服务端按 Schema 校验，纳入状态限定在 Olist 词表内。新口径经 `MemoryService.propose` 写入 pending，调查同样暂停。本次调查的口径快照在构造时已固定，pending 口径不参与计算。用户确认后才能由 `snapshot_from_memory` 建立新快照，未确认的条目会被拒绝。
+- 外层任务状态机（investigation 任务类型与 API 接线）留到 A9。
+
+### 验证
+
+- 离线功能测试（`tests/datalab/test_hitl.py`，6 个；`tests/datalab/test_episodes.py`，10 个）：
+  - 5 道含糊问题全部进入等待确认，且没有启动子 Agent；
+  - 带答复恢复后能完成调查；
+  - pending 口径不出现在 `retrieve` 结果中，不能建立快照，确认后可以；
+  - 未配置记忆时两个记忆工具返回错误观察；
+  - 有效报告写入情景记忆并出现在下一次调查的首条消息中，无效报告不写入；
+  - 情景记忆按范围隔离，不能确认。
+- 真实模型冒烟（`evals/clarify_smoke.py`，MiMo，7 道固定题，一次）：服务端不给指标与期间。5 道含糊题和 2 道需要新口径的题全部进入等待确认（7/7），共 16 次模型调用，单题 10–46 秒。需要新口径的 2 道题中，1 道调用了 `propose_metric`，另 1 道（按商品金额统计 GMV）先用 `ask_user` 澄清。两种做法都没有在未确认的口径上计算。结果文件：`artifacts/evals/a7-clarify.json`。
+- 局限：冒烟只覆盖「应当澄清」的题，没有测能直接回答的问题会不会被多余地澄清；不过服务端给出指标与期间时，首条消息与 A6 相同。
+
 ## 提示注入的结构性检查
 
 `tests/datalab/test_prompt_injection.py` 不调用模型。它在订单的编号、渠道、品类，上传的数据语义家族和口径来源里埋入带指令的金丝雀串，跑完整工作流，包括核验失败后的反馈回路，然后断言这些串没有出现在任何一次角色调用的交接或 trace 里。脚本化的 Analyst 第一次故意写出以订单文本为键名的 `result.json`，用来走到“错误位置”回流这条路径。

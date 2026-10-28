@@ -1,0 +1,196 @@
+{
+  "meta": {
+    "date": "2026-10-28 11:59",
+    "replay": false,
+    "note": "A7 澄清冒烟：服务端不给指标与期间，7 道固定题"
+  },
+  "summary": {
+    "waiting": 7,
+    "total": 7,
+    "metric_proposed": 1,
+    "metric_questions": 2,
+    "model_calls": 16
+  },
+  "rows": [
+    {
+      "case": "vague-01",
+      "question": "最近卖得怎么样？",
+      "expected": "clarification",
+      "stop_reason": "waiting_confirmation",
+      "waiting": true,
+      "pending": {
+        "type": "clarification",
+        "question": "「最近卖得怎么样」可以对应不同指标和期间，请确认您想看哪一个？（数据范围约为 2017–2018 年，期间请一并说明，如「最近一个月」对应的 2018-08 与对比期 2018-07）",
+        "options": [
+          "GMV（订单金额合计），最近一个月，环比上月",
+          "GMV，最近一个月，同比去年同月",
+          "订单量（order_count），最近一个月，环比上月",
+          "客单价（AOV），最近一个月，环比上月"
+        ],
+        "result_id": "r2-ask_user"
+      },
+      "tools": [
+        "list_metrics",
+        "ask_user"
+      ],
+      "model_calls": 2,
+      "seconds": 11.955,
+      "pending_metrics": []
+    },
+    {
+      "case": "vague-02",
+      "question": "销售额为什么变了？",
+      "expected": "clarification",
+      "stop_reason": "waiting_confirmation",
+      "waiting": true,
+      "pending": {
+        "type": "clarification",
+        "question": "「销售额」在指标目录中有多个候选口径（如 gmv=订单金额合计、item_gmv=明细金额合计），且本期与对比期也未确定。数据覆盖 2016-09-04 至 2018-10-17（r2-get_profile）。请选择要分析的指标与期间组合：",
+        "options": [
+          "gmv（订单金额合计），本期 2018-09，对比期 2018-08（环比）",
+          "gmv（订单金额合计），本期 2018-09，对比期 2017-09（同比）",
+          "gmv（订单金额合计），本期 2018-08，对比期 2018-07（环比）",
+          "item_gmv（明细金额合计），本期 2018-09，对比期 2018-08（环比）",
+          "其他组合（请直接说明指标名与起止日期）"
+        ],
+        "result_id": "r3-ask_user"
+      },
+      "tools": [
+        "list_metrics",
+        "get_profile",
+        "ask_user"
+      ],
+      "model_calls": 2,
+      "seconds": 22.787,
+      "pending_metrics": []
+    },
+    {
+      "case": "vague-03",
+      "question": "哪里出问题了？",
+      "expected": "clarification",
+      "stop_reason": "waiting_confirmation",
+      "waiting": true,
+      "pending": {
+        "type": "clarification",
+        "question": "服务端未确认要分析的指标与期间。请问这次「哪里出问题了」要排查哪个指标的异动？（确认指标后我再确定本期与对比期，或一并告知期间）",
+        "options": [
+          "gmv（订单金额合计，2017-03 vs 2017-02 环比）",
+          "order_count（订单数，2017-03 vs 2017-02 环比）",
+          "avg_review_score / bad_review_rate（用户满意度类，2017-03 vs 2017-02 环比）",
+          "cancel_rate（取消率，2017-03 vs 2017-02 环比）"
+        ],
+        "result_id": "r2-ask_user"
+      },
+      "tools": [
+        "list_metrics",
+        "ask_user"
+      ],
+      "model_calls": 2,
+      "seconds": 9.42,
+      "pending_metrics": []
+    },
+    {
+      "case": "vague-04",
+      "question": "上个月表现如何，主要是什么原因？",
+      "expected": "clarification",
+      "stop_reason": "waiting_confirmation",
+      "waiting": true,
+      "pending": {
+        "type": "clarification",
+        "question": "数据范围为 2016-09 至 2018-10（r2-get_profile）。「上个月表现如何」需要明确指标与期间，请选择一个候选方案（或说明其他口径）：\n1. gmv（订单金额合计）：2018-09 vs 2018-08（环比）\n2. gmv：2018-09 vs 2017-09（同比）\n3. order_count（订单数）：2018-09 vs 2018-08（环比）\n4. aov（客单价）：2018-09 vs 2018-08（环比）",
+        "options": [
+          "gmv：2018-09 vs 2018-08（环比）",
+          "gmv：2018-09 vs 2017-09（同比）",
+          "order_count：2018-09 vs 2018-08（环比）",
+          "aov：2018-09 vs 2018-08（环比）"
+        ],
+        "result_id": "r3-ask_user"
+      },
+      "tools": [
+        "list_metrics",
+        "get_profile",
+        "ask_user"
+      ],
+      "model_calls": 2,
+      "seconds": 24.953,
+      "pending_metrics": []
+    },
+    {
+      "case": "vague-05",
+      "question": "这个指标最近波动大吗？",
+      "expected": "clarification",
+      "stop_reason": "waiting_confirmation",
+      "waiting": true,
+      "pending": {
+        "type": "clarification",
+        "question": "请问要检查哪个指标的近期波动？数据覆盖 2016-09-04 至 2018-10-17，我会以最近 6 个月为历史序列做异动检测（本期默认取最近完整月 2018-09，对比期为之前各期）。",
+        "options": [
+          "GMV（订单金额合计）",
+          "订单数（order_count）",
+          "客单价（aov）",
+          "取消率（cancel_rate）"
+        ],
+        "result_id": "r3-ask_user"
+      },
+      "tools": [
+        "list_metrics",
+        "list_metrics",
+        "get_profile",
+        "ask_user"
+      ],
+      "model_calls": 4,
+      "seconds": 21.208,
+      "pending_metrics": []
+    },
+    {
+      "case": "metric-01",
+      "question": "把已取消的订单也算进 GMV，2018 年 3 月环比为什么变化？",
+      "expected": "metric",
+      "stop_reason": "waiting_confirmation",
+      "waiting": true,
+      "pending": {
+        "type": "metric",
+        "question": "是否确认新口径「gmv_含取消订单」？",
+        "options": [
+          "确认",
+          "不确认"
+        ],
+        "memory_id": "699bd7aa-1436-4fd2-882e-b7b1974ca8bb",
+        "result_id": "r2-propose_metric"
+      },
+      "tools": [
+        "list_metrics",
+        "propose_metric"
+      ],
+      "model_calls": 2,
+      "seconds": 15.45,
+      "pending_metrics": [
+        "gmv_含取消订单"
+      ]
+    },
+    {
+      "case": "metric-02",
+      "question": "按商品金额而不是支付金额统计 GMV，2017 年 11 月主要增长来自哪里？",
+      "expected": "metric",
+      "stop_reason": "waiting_confirmation",
+      "waiting": true,
+      "pending": {
+        "type": "clarification",
+        "question": "已确认指标为 item_gmv（明细金额合计，按商品金额统计）。分析 2017 年 11 月的增长，应以哪个期间作为对比期？",
+        "options": [
+          "环比：对比 2017 年 10 月（看 11 月相对上月的增长来源）",
+          "同比：对比 2016 年 11 月（看 11 月相对去年同月的增长来源）",
+          "两个对比期都要（先环比、再同比，分别归因）"
+        ],
+        "result_id": "r2-ask_user"
+      },
+      "tools": [
+        "list_metrics",
+        "ask_user"
+      ],
+      "model_calls": 2,
+      "seconds": 22.833,
+      "pending_metrics": []
+    }
+  ]
+}
