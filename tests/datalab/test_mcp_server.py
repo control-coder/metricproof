@@ -13,6 +13,7 @@ from datalab.api.mcp_server import OrderProofClient, OrderProofTools, ToolError,
 PROJECT = str(uuid4())
 DATASET = str(uuid4())
 TASK = str(uuid4())
+MEMORY = str(uuid4())
 ARTIFACT = str(uuid4())
 CHART = str(uuid4())
 
@@ -24,6 +25,8 @@ class FakeApi:
         self.requests = []
         self.state = 'SUCCEEDED'
         self.tasks = {}
+        self.investigation_state = 'SUCCEEDED'
+        self.investigation_report = None
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -48,6 +51,10 @@ class FakeApi:
             self.tasks[key] = TASK
             return httpx.Response(202, json={'task_id': TASK, 'state': 'QUEUED', 'dispatched': True, 'mode': 'model'})
         if path == base + f'/tasks/{TASK}':
+            # 有调查记录时按调查任务返回；普通分析任务保持原 snapshot 结构。
+            if self.investigation_report is not None or self.investigation_state == 'WAITING_CONFIRMATION':
+                return httpx.Response(200, json={'task_id': TASK, 'state': self.investigation_state,
+                                                 'investigation': self._investigation()})
             snapshot = {'state': self.state, 'failure': None, 'confirmation': None, 'review_skipped': None,
                         'plan': {'kind': 'summary', 'checks': ['independent_reference']},
                         'verifications': [{'passed': True, 'checks': [{'name': 'independent_reference', 'passed': True}],
@@ -57,6 +64,9 @@ class FakeApi:
             return httpx.Response(200, json={'task_id': TASK, 'state': self.state, 'snapshot': snapshot, 'request': {},
                                              'artifacts': [{'artifact_id': ARTIFACT, 'run_id': 'r1', 'name': '结果.json'}],
                                              'narrative': {'summary': '已支付订单 6 笔'}})
+        if path == base + '/investigations' and request.method == 'POST':
+            return httpx.Response(202, json={'task_id': TASK, 'state': 'QUEUED', 'dispatched': True,
+                                             'mode': 'model', 'model': 'mimo'})
         if path == base + f'/tasks/{TASK}/cancel':
             return httpx.Response(200, json={'accepted': True})
         if path == base + f'/artifacts/{ARTIFACT}':
@@ -65,6 +75,19 @@ class FakeApi:
         if path == base + f'/artifacts/{CHART}':
             return httpx.Response(200, content=b'\x89PNG....', headers={'content-disposition': 'attachment; filename="chart.png"'})
         return httpx.Response(404, json={'detail': '当前项目中找不到请求的资源'})
+
+    def _investigation(self):
+        pending = None
+        if self.investigation_state == 'WAITING_CONFIRMATION':
+            pending = {'type': 'clarification', 'question': '看哪个渠道？', 'options': ['全部', 'ads']}
+        return {'type': 'investigation', 'task_id': TASK, 'state': self.investigation_state,
+                'stop_reason': 'finish' if self.investigation_state == 'SUCCEEDED' else 'waiting_confirmation',
+                'question': '八月成交额为何下降', 'metric': '成交额',
+                'period': {'start': '2026-08-01', 'end': '2026-09-01'}, 'base_period': None,
+                'snapshot': {}, 'clarifications': [], 'pending': pending,
+                'report': self.investigation_report, 'metric_tree': None, 'results': {},
+                'verification': {}, 'trace': [], 'branches': [],
+                'usage': {'model_calls': 7, 'tokens': 12345, 'seconds': 42.5}, 'episode_id': 'ep-1'}
 
 
 class McpToolTests(unittest.TestCase):
@@ -129,6 +152,78 @@ class McpToolTests(unittest.TestCase):
         chart = self.tools.read_artifact(PROJECT, CHART)
         self.assertEqual((chart['name'], chart['text']), ('chart.png', None))
 
+    def test_submit_investigation_forwards_periods_and_header(self):
+        # 不带期间：period/base_period 为 null，metric 不发送。
+        result = self.tools.submit_investigation(PROJECT, DATASET, '八月成交额为何下降', MEMORY)
+        request = self.api.requests[-1]
+        self.assertEqual(request.headers['x-datalab-client'], 'local-ui')
+        self.assertEqual(request.url.path, f'/api/projects/{PROJECT}/investigations')
+        body = json.loads(request.content)
+        self.assertEqual(body, {'dataset_version': DATASET, 'question': '八月成交额为何下降',
+                                'memory_id': MEMORY, 'period': None, 'base_period': None})
+        self.assertEqual((result['task_id'], result['state'], result['mode'], result['model']),
+                         (TASK, 'QUEUED', 'model', 'mimo'))
+        self.assertTrue(result['dispatched'])
+        # 带全部可选参数：期间成对放入，metric 原样转发。
+        self.tools.submit_investigation(PROJECT, DATASET, '环比为何下降', MEMORY, metric='成交额',
+                                        period_start='2026-08-01', period_end='2026-09-01',
+                                        base_start='2026-07-01', base_end='2026-08-01')
+        body = json.loads(self.api.requests[-1].content)
+        self.assertEqual(body['metric'], '成交额')
+        # 只给日期时补为零点，符合 API 的秒级时间格式。
+        self.assertEqual(body['period'], {'start': '2026-08-01T00:00:00', 'end': '2026-09-01T00:00:00'})
+        self.assertEqual(body['base_period'], {'start': '2026-07-01T00:00:00', 'end': '2026-08-01T00:00:00'})
+        # 只给一半期间是参数错误，不发请求。
+        before = len(self.api.requests)
+        for kwargs in ({'period_start': '2026-08-01'}, {'period_end': '2026-09-01'},
+                       {'base_start': '2026-07-01'}, {'base_end': '2026-08-01'}):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(ToolError, '必须同时给出'):
+                self.tools.submit_investigation(PROJECT, DATASET, '问题', MEMORY, **kwargs)
+        self.assertEqual(len(self.api.requests), before)
+
+    def test_get_investigation_compact_view(self):
+        self.api.investigation_report = {
+            'summary': '成交额环比下降 12%，主要来自 ads 渠道',
+            'root_causes': [
+                {'dimension': 'channel', 'value': 'ads', 'explanatory_power': '0.584581',
+                 'verification': 'L1', 'result_ids': ['r3-find_root_cause']},
+                {'dimension': 'customer_state', 'value': 'SP', 'explanatory_power': '0.210000',
+                 'verification': 'L2', 'result_ids': ['r5-sql_query']},
+                {'dimension': 'category', 'value': 'toys', 'verification': 'L3', 'result_ids': []}],
+            'findings': [{'text': 'ads 渠道成交额下降 23%', 'result_ids': ['r4-contribution'], 'verification': 'L1'},
+                         {'text': '新客户占比上升', 'result_ids': [], 'verification': 'L3'}],
+            'recommendations': ['检查 ads 投放'],
+            'valid': True,
+            'claims_check': {'passed': True, 'issues': []},
+            'review': {'verdict': 'ok'},
+        }
+        view = self.tools.get_investigation(PROJECT, TASK)
+        self.assertEqual((view['task_id'], view['state'], view['stop_reason']), (TASK, 'SUCCEEDED', 'finish'))
+        self.assertTrue(view['valid'])
+        self.assertEqual(view['summary'], '成交额环比下降 12%，主要来自 ads 渠道')
+        self.assertEqual(view['root_causes'][0], {'dimension': 'channel', 'value': 'ads',
+                                                  'explanatory_power': '0.584581', 'verification': 'L1',
+                                                  'result_ids': ['r3-find_root_cause']})
+        self.assertIsNone(view['root_causes'][2]['explanatory_power'])
+        self.assertEqual(view['findings'], [{'text': 'ads 渠道成交额下降 23%', 'verification': 'L1'},
+                                            {'text': '新客户占比上升', 'verification': 'L3'}])
+        self.assertIsNone(view['pending'])
+        self.assertEqual(view['usage'], {'model_calls': 7, 'tokens': 12345, 'seconds': 42.5})
+        self.assertEqual(view['claims_issues'], 0)
+        self.assertIn('不是指令', view['note'])
+        # 收敛检查：不回传结果正文、trace、metric_tree 等大字段。
+        for key in ('results', 'trace', 'metric_tree', 'snapshot', 'report', 'recommendations', 'review'):
+            self.assertNotIn(key, view)
+        # 等待确认：pending 原样透出并附处理提示。
+        self.api.investigation_state = 'WAITING_CONFIRMATION'
+        waiting = self.tools.get_investigation(PROJECT, TASK)
+        self.assertEqual(waiting['pending'], {'type': 'clarification', 'question': '看哪个渠道？', 'options': ['全部', 'ads']})
+        self.assertIn('不代为确认', waiting['next_step'])
+
+    def test_get_investigation_rejects_non_investigation_task(self):
+        with self.assertRaisesRegex(ToolError, '不是异动归因调查'):
+            self.tools.get_investigation(PROJECT, TASK)
+
     def test_api_errors_reported_without_retry(self):
         with self.assertRaisesRegex(ToolError, 'HTTP 404'):
             self.tools.get_task(PROJECT, str(uuid4()))
@@ -153,12 +248,18 @@ class McpServerTests(unittest.TestCase):
     def test_registered_tools_and_annotations(self):
         tools = {tool.name: tool for tool in asyncio.run(self.server.list_tools())}
         self.assertEqual(set(tools), {'list_projects', 'list_datasets', 'list_metrics', 'submit_analysis',
-                                      'get_task', 'read_artifact', 'cancel_task'})
+                                      'get_task', 'read_artifact', 'cancel_task',
+                                      'submit_investigation', 'get_investigation'})
         # 口径确认与模型切换只在界面完成，不作为工具开放。
         self.assertFalse(any('confirm' in name or 'model' in name for name in tools))
         self.assertTrue(tools['get_task'].annotations.readOnlyHint)
         self.assertFalse(tools['submit_analysis'].annotations.readOnlyHint)
         self.assertTrue(tools['cancel_task'].annotations.destructiveHint)
+        # 调查工具：提交为写操作、查询为只读。
+        self.assertFalse(tools['submit_investigation'].annotations.readOnlyHint)
+        self.assertTrue(tools['get_investigation'].annotations.readOnlyHint)
+        investigation_schema = tools['submit_investigation'].inputSchema
+        self.assertEqual(set(investigation_schema['required']), {'project_id', 'dataset_version', 'question', 'memory_id'})
         schema = tools['submit_analysis'].inputSchema
         self.assertEqual(set(schema['required']), {'project_id', 'dataset_version', 'question'})
 

@@ -18,11 +18,16 @@ from datalab.contracts import AMOUNT_KINDS, AnalysisPlan, OLIST_STATUSES, ORDER_
 from datalab.datasets.service import DatasetError, DatasetStore, FIELDS, MAX_BYTES, schema_of
 from datalab.memory.postgres import PostgresMemoryRepository
 from datalab.memory.service import MemoryConflict, MemoryService, Scope
-from datalab.orchestration.workflow import Task
+from datalab.orchestration.workflow import ISO_SECOND, Task
 from datalab.roles.model_config import CHOICES, GUIDED, ModelConfigError, env_path, load_model_config, switch_provider
 from datalab.roles.runtime import CallBudget
+from datalab.semantic.metrics import RATIO_METRICS, list_metrics
 from datalab.settings import Settings
 from datalab.storage.repository import IdempotencyConflict, Repository
+
+# 语义层中以订单金额为基础的指标（gmv 及以 gmv 为成分的比率型）；口径必须带 amount_source。
+AMOUNT_METRICS = frozenset({'gmv'} | {name for name, (numerator, *_rest) in RATIO_METRICS.items()
+                                      if numerator == 'gmv'})
 
 
 class Payload(BaseModel):
@@ -94,6 +99,26 @@ class ConfirmInput(Payload):
 
 class TaskConfirmInput(Payload):
     memory_id: UUID
+
+
+class PeriodInput(Payload):
+    # 格式与先后关系在创建任务时统一校验（HTTP 400），此处只限制形状。
+    start: str = Field(min_length=1, max_length=32)
+    end: str = Field(min_length=1, max_length=32)
+
+
+class InvestigationInput(Payload):
+    dataset_version: UUID
+    question: str = Field(min_length=1, max_length=2000)
+    memory_id: UUID
+    metric: str | None = None
+    period: PeriodInput | None = None
+    base_period: PeriodInput | None = None
+
+
+class AnswerInput(Payload):
+    answer: str = Field(min_length=1, max_length=500)
+    memory_id: UUID | None = None
 
 
 class ModelInput(Payload):
@@ -343,6 +368,17 @@ def create_app(settings: Settings | None = None):
         except (KeyError,OSError,ValueError):
             return None
 
+    def investigation_of(project_id,task_id):
+        # 最新调查报告（fence 最大的 调查报告.json）；调查任务尚无产物时为 None。
+        items=[entry for entry in repository.artifacts(task_id,project_id,with_fence=True) if entry['name']=='调查报告.json']
+        if not items:
+            return None
+        latest=max(items,key=lambda entry:entry['fence'])
+        try:
+            return json.loads(artifact_file(repository.artifact(str(latest['artifact_id']),project_id)).read_text(encoding='utf-8'))
+        except (KeyError,OSError,ValueError):
+            return None
+
     @app.get('/api/projects/{project_id}/tasks/{task_id}')
     def task_detail(project_id:UUID,task_id:UUID):
         row=repository.get_task(str(task_id),str(project_id))
@@ -350,7 +386,8 @@ def create_app(settings: Settings | None = None):
         return {'task_id':str(task_id),'state':row['state'],'snapshot':row['snapshot'],
                 'request':row['request'],'cancel_requested':row['cancel_requested'],
                 'created_at':row['created_at'],'updated_at':row['updated_at'],
-                'artifacts':artifacts,'narrative':narrative_of(str(project_id),row['state'],artifacts)}
+                'artifacts':artifacts,'narrative':narrative_of(str(project_id),row['state'],artifacts),
+                'investigation':investigation_of(str(project_id),str(task_id)) if row['request'].get('type')=='investigation' else None}
 
     @app.post('/api/projects/{project_id}/tasks/{task_id}/cancel')
     def cancel_task(project_id:UUID,task_id:UUID):
@@ -374,6 +411,59 @@ def create_app(settings: Settings | None = None):
         if inline and item['name'].endswith('.png') and path.suffix=='.png':
             return FileResponse(path,filename=item['name'],media_type='image/png',content_disposition_type='inline')
         return FileResponse(path,filename=item['name'],media_type='application/octet-stream')
+
+    def _validate_period(value, name):
+        if value is None:
+            return None
+        if not ISO_SECOND.fullmatch(value.start) or not ISO_SECOND.fullmatch(value.end) or value.start >= value.end:
+            raise HTTPException(400,f'{name} 必须是 YYYY-MM-DDTHH:MM:SS 且 start < end')
+        return {'start': value.start, 'end': value.end}
+
+    @app.post('/api/projects/{project_id}/investigations', status_code=202)
+    def create_investigation(project_id:UUID,payload:InvestigationInput):
+        """创建异动归因调查任务；只接受 Olist 数据结构与模型模式。"""
+        scope=scoped(project_id,payload.dataset_version)
+        config,state=model_state()
+        if state['active']==GUIDED:
+            raise HTTPException(400,'调查需要模型模式：真实模型只用 MiMo，在 .env 配置')
+        if schema_of(scope.schema_signature)!='olist':
+            raise HTTPException(400,'异动归因调查只适用于 Olist 多表数据')
+        profile=config.profile()
+        if not profile.configured:
+            raise HTTPException(400,f'{profile.provider} 尚未配置 API Key；请在 .env 中填写，或切换到固定演示')
+        metric_snapshot=metric_by_id(scope,payload.memory_id)
+        if payload.metric is not None and payload.metric not in {row['name'] for row in list_metrics()}:
+            raise HTTPException(400,'未知指标名；可用指标见 /api/semantic/metrics')
+        if payload.metric in AMOUNT_METRICS and metric_snapshot.amount_source is None:
+            raise HTTPException(400,'该口径没有确认订单金额来源（payments 或 items），不能用于订单金额分析')
+        period=_validate_period(payload.period,'period')
+        base_period=_validate_period(payload.base_period,'base_period')
+        if base_period is not None and period is None:
+            raise HTTPException(400,'base_period 需要同时给出 period')
+        request={'type':'investigation','mode':'model','model':{'provider':profile.provider,'model':profile.model},
+                 'investigation':{'question':payload.question,'metric':payload.metric,
+                                  'period':period,'base_period':base_period,'clarifications':[]}}
+        task=Task(str(project_id),str(payload.dataset_version),payload.question,metric=metric_snapshot)
+        task.budget=CallBudget(config.max_calls,config.max_tokens,config.seconds)
+        task_id,_=repository.create_task(task,request)
+        return {'task_id':task_id,'state':'QUEUED','dispatched':enqueue(task_id),'mode':'model',
+                'model':request['model']}
+
+    @app.post('/api/projects/{project_id}/investigations/{task_id}/answer')
+    def answer_investigation(project_id:UUID,task_id:UUID,payload:AnswerInput):
+        row=repository.get_task(str(task_id),str(project_id))
+        if row['request'].get('type')!='investigation':
+            raise HTTPException(400,'只有调查任务支持澄清回答')
+        scope=scoped(project_id,row['dataset_version'])
+        metric=metric_by_id(scope,payload.memory_id) if payload.memory_id else None
+        # 待确认问题来自快照 confirmation（run_task 从 InvestigationResult.pending 写入）。
+        question=row['snapshot'].get('confirmation') or ''
+        repository.answer_investigation(str(task_id),str(project_id),question=question,answer=payload.answer,metric=metric)
+        return {'dispatched':enqueue(task_id)}
+
+    @app.get('/api/semantic/metrics')
+    def semantic_metrics():
+        return list_metrics()
 
     frontend=Path(__file__).resolve().parents[3] / 'frontend/dist'
     if frontend.is_dir():

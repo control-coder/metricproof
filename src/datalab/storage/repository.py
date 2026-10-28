@@ -118,7 +118,11 @@ class Repository:
 
     def tasks(self, project_id):
         with self.connection() as connection:
-            rows = connection.execute('SELECT task_id,state,snapshot,created_at,updated_at FROM datalab_tasks WHERE project_id=%s ORDER BY created_at DESC LIMIT 100', (project_id,)).fetchall()
+            rows = connection.execute('SELECT task_id,state,request,snapshot,created_at,updated_at FROM datalab_tasks WHERE project_id=%s ORDER BY created_at DESC LIMIT 100', (project_id,)).fetchall()
+        for row in rows:
+            # 列表行的展示字段：任务类型（调查/统计）与问题；request 本身不交给列表页。
+            row['type'] = 'investigation' if (row.pop('request') or {}).get('type') == 'investigation' else 'analysis'
+            row['question'] = row['snapshot'].get('question')
         return rows
 
     def claim(self, task_id):
@@ -179,6 +183,34 @@ class Repository:
             connection.execute("UPDATE datalab_tasks SET state='QUEUED',snapshot=%s,cancel_requested=false,updated_at=now() WHERE task_id=%s",
                                (Jsonb(encode_task(task)), task_id))
 
+    def answer_investigation(self, task_id, project_id, *, question, answer, metric=None):
+        """调查任务的澄清回答：追加一轮 {question, answer}，可选替换口径，重新排队。
+
+        与 confirm_task 同一风格：行锁、只允许无租约的 WAITING_CONFIRMATION；
+        澄清轮数超过 MAX_CLARIFICATION_ROUNDS 时拒绝（计划的人机往返上限）。
+        """
+        from datalab.orchestration.investigation_task import MAX_CLARIFICATION_ROUNDS
+        with self.connection() as connection:
+            row = connection.execute('SELECT * FROM datalab_tasks WHERE task_id=%s AND project_id=%s FOR UPDATE', (task_id,project_id)).fetchone()
+            if not row or row['state'] != 'WAITING_CONFIRMATION' or row['lease_id'] is not None:
+                raise ValueError('任务不在可确认的等待阶段')
+            request = dict(row['request'])
+            if request.get('type') != 'investigation':
+                raise ValueError('只有调查任务支持澄清回答')
+            task = decode_task(row['snapshot'])
+            if metric is not None:
+                task.metric = metric
+            task.confirmation = None
+            investigation = dict(request.get('investigation') or {})
+            clarifications = list(investigation.get('clarifications') or [])
+            if len(clarifications) >= MAX_CLARIFICATION_ROUNDS:
+                raise ValueError('澄清轮数已达上限')
+            clarifications.append({'question': question, 'answer': answer})
+            investigation['clarifications'] = clarifications
+            request['investigation'] = investigation
+            connection.execute("UPDATE datalab_tasks SET state='QUEUED',request=%s,snapshot=%s,cancel_requested=false,updated_at=now() WHERE task_id=%s",
+                               (Jsonb(request), Jsonb(encode_task(task)), task_id))
+
     def pending_ids(self):
         with self.connection() as connection:
             stale = connection.execute('SELECT task_id,snapshot,cancel_requested FROM datalab_tasks WHERE lease_until<now() FOR UPDATE SKIP LOCKED').fetchall()
@@ -219,10 +251,11 @@ class Repository:
                 raise RuntimeError('任务租约失效，禁止旧 worker 登记产物')
         return False
 
-    def artifacts(self, task_id, project_id):
+    def artifacts(self, task_id, project_id, *, with_fence=False):
         self.get_task(task_id,project_id)
+        columns = 'artifact_id,run_id,name,fence' if with_fence else 'artifact_id,run_id,name'
         with self.connection() as connection:
-            return connection.execute('SELECT artifact_id,run_id,name FROM datalab_artifacts WHERE task_id=%s ORDER BY name', (task_id,)).fetchall()
+            return connection.execute(f'SELECT {columns} FROM datalab_artifacts WHERE task_id=%s ORDER BY name', (task_id,)).fetchall()
 
     def artifact(self, artifact_id, project_id):
         with self.connection() as connection:

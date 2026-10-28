@@ -63,6 +63,18 @@ def process_task(task_id: str):
     task._on_transition = lambda current: repository.save(current, token) if current.state not in TERMINAL else None
     runner = None
     try:
+        if row['request'].get('type') == 'investigation':
+            # 异动归因调查（A9）：独立的状态序列与产物，不经过统计任务工作流；沙箱不可用时不失败。
+            from datalab.orchestration import investigation_task
+            if task.state == State.QUEUED:
+                investigation_task.run_task(task, row, repository, token, settings, cancelled)
+            else:
+                # 恢复到非 QUEUED 检查点：调查无状态（不保存模型上下文），从头重跑。
+                task.state = State.QUEUED
+                task.timeline.append({'from': row['snapshot']['state'], 'to': 'QUEUED',
+                                      'note': '调查任务不可恢复，从头重新执行'})
+                investigation_task.run_task(task, row, repository, token, settings, cancelled)
+            return
         # 沙箱构造放在 try 内：缺少 Docker 时任务以 SANDBOX_UNAVAILABLE 失败并释放租约，
         # 不会留在已领取状态由心跳无限续租，也不降级为宿主机执行。
         runner = DockerRunner(DatasetStore(settings.artifact_root / 'datasets'), settings.artifact_root / 'runs', image=settings.executor_image)

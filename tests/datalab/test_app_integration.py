@@ -397,3 +397,63 @@ class AppIntegrationTests(unittest.TestCase):
             results=list(pool.map(submit,range(8)))
         self.assertEqual(len({item[0] for item in results}),1)
         self.assertEqual(sum(1 for item in results if item[1]),1)
+
+    def test_investigation_guided_mode_rejected(self):
+        """固定演示模式下不能创建调查任务。"""
+        response=self.client.post(self.base+'/investigations',
+            json={'dataset_version':self.dataset,'question':'为什么变了','memory_id':str(uuid4())})
+        self.assertEqual(response.status_code,400)
+        self.assertIn('模型模式',response.json()['detail'])
+
+    def test_investigation_non_olist_rejected(self):
+        """单表数据结构不能创建调查任务（模型模式下）。"""
+        self.client.put('/api/model',json={'provider':'mimo'})
+        with patch.dict(os.environ,{'DATALAB_MIMO_API_KEY':'test-key-not-real'}):
+            memory_id=self.confirm_rule()
+            response=self.client.post(self.base+'/investigations',
+                json={'dataset_version':self.dataset,'question':'为什么变了','memory_id':memory_id})
+        self.assertEqual(response.status_code,400)
+        self.assertIn('Olist',response.json()['detail'])
+
+    def test_investigation_bad_period_rejected(self):
+        """期间格式不合法或 start >= end 返回 400（模型模式下）。"""
+        self.client.put('/api/model',json={'provider':'mimo'})
+        with patch.dict(os.environ,{'DATALAB_MIMO_API_KEY':'test-key-not-real'}):
+            memory_id=self.confirm_rule()
+            for bad in [{'start':'2017-01-01','end':'2017-02-01T00:00:00'},
+                        {'start':'2017-02-01T00:00:00','end':'2017-01-01T00:00:00'}]:
+                response=self.client.post(self.base+'/investigations',
+                    json={'dataset_version':self.dataset,'question':'为什么变了','memory_id':memory_id,'period':bad})
+                self.assertEqual(response.status_code,400,bad)
+
+    def test_investigation_unknown_metric_rejected(self):
+        """未知指标名返回 400。"""
+        memory_id=self.confirm_rule()
+        response=self.client.post(self.base+'/investigations',
+            json={'dataset_version':self.dataset,'question':'为什么变了','memory_id':memory_id,'metric':'no_such_metric'})
+        self.assertEqual(response.status_code,400)
+
+    def test_investigation_answer_non_waiting_rejected(self):
+        """非等待确认的任务回答返回 400。"""
+        response=self.client.post(self.base+'/investigations/'+str(uuid4())+'/answer',json={'answer':'x'})
+        self.assertEqual(response.status_code,404)
+        # 单表任务（非调查类型）回答也返回 400
+        task=self.new_task('非调查任务')
+        response=self.client.post(self.base+'/investigations/'+task.task_id+'/answer',json={'answer':'x'})
+        self.assertEqual(response.status_code,400)
+
+    def test_semantic_metrics(self):
+        """语义层指标目录可用，包含 gmv 与 order_count。"""
+        response=self.client.get('/api/semantic/metrics')
+        self.assertEqual(response.status_code,200)
+        names={row['name'] for row in response.json()}
+        self.assertIn('gmv',names)
+        self.assertIn('order_count',names)
+
+    def test_task_list_exposes_type_and_question(self):
+        """任务列表行包含 type 与 question。"""
+        task=self.new_task('列表字段检查')
+        rows=self.client.get(self.base+'/tasks').json()
+        row=next(item for item in rows if item['task_id']==task.task_id)
+        self.assertEqual(row['type'],'analysis')
+        self.assertEqual(row['question'],'列表字段检查')
