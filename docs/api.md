@@ -116,7 +116,7 @@
 
 - `results` 只收录数值类工具（`decompose_metric`、`contribution`、`find_root_cause`、`detect_anomaly`、`query_metric`、`correlate`、`run_sql`）的成功结果；单条结果里任何超过 20 项的列表截断为前 20 项，`truncated` 为 `true`；`contribution` 的 `rows` 先按 `|contribution|` 降序再截断。
 - `metric_tree` 为第一个成功 `decompose_metric` 调用的完整存储结果（未截断）；没有该调用时为 `null`。
-- `report` 为带核验等级标注的归因报告；未通过代码核对时 `valid` 为 `false`，任务以 `FAILED/REPORT_INVALID` 结束但报告仍保存。`redacted` 列出因未通过核对而被删去的句子或条目，包括位置、原文和问题类型。`ranking.result_id` 指向决定根因先后的 `find_root_cause` 结果。没有产出报告时 `report` 为 `null`，任务以 `FAILED/INVESTIGATION_STOPPED` 结束。
+- `report` 为带核验等级标注的归因报告；未通过代码核对时 `valid` 为 `false`，任务以 `FAILED/REPORT_INVALID` 结束但报告仍保存。`redacted` 列出因未通过核对而被删去的句子或条目，包括位置、原文和问题类型。`ranking.result_id` 指向决定根因先后的 `find_root_cause` 结果，`ranking.supplemented` 为由算法补入的根因条数（这些根因带 `source: "ranking"`）。没有产出报告时 `report` 为 `null`，任务以 `FAILED/INVESTIGATION_STOPPED` 结束。
 - `pending` 为 `waiting_confirmation` 时的待确认事项（`type: clarification|metric`，含问题、选项或 `memory_id`）；否则为 `null`。
 - `usage` 为本次调查的模型调用数、token 与墙钟秒数。
 - 状态序列：`QUEUED → PROFILING → PLANNING`（主 Agent、子 Agent 与审查 Agent 都在此阶段运行）→ `WAITING_CONFIRMATION`，或 `EXECUTING → VERIFYING → SUCCEEDED/FAILED`。等待态同样写调查报告，`pending` 从中读取。答复后从 `PLANNING` 重新发起整次调查，并带上全部澄清答复（无状态恢复，不保存模型上下文）；租约过期后同样从头重跑。
