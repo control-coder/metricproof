@@ -294,6 +294,7 @@ class RankRootCausesTests(unittest.TestCase):
         items = [{'dimension': item['dimension'], 'value': item['value'], 'result_ids': ['r1-x']}
                  for item in reversed(expected[:2])]
         items.insert(0, {'dimension': 'customer_state', 'value': 'ZZ', 'result_ids': ['r1-x']})
+        items.append(dict(items[-1]))  # 重复的维度值只保留一条
         ranked = investigation._rank_root_causes({'summary': 's', 'root_causes': items}, 'order_count', P, B)
         self.assertEqual([(item['dimension'], item['value']) for item in ranked['root_causes']],
                          [(item['dimension'], item['value']) for item in expected[:2]]

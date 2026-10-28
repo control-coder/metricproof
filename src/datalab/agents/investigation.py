@@ -768,7 +768,13 @@ class Investigation:
             else:
                 ranked.append(((1, position), item))  # 不在算法候选集中的保持原相对顺序，排在后面
         ranked.sort(key=lambda pair: pair[0])
-        return {**report, 'root_causes': [item for _, item in ranked],
+        unique, seen = [], set()
+        for _, item in ranked:
+            key = (item.get('dimension'), str(item.get('value'))) if isinstance(item, dict) else id(item)
+            if key not in seen:  # 主 Agent 偶尔把同一维度值写两次（不同分支各报一次），只保留排在前面的一条
+                seen.add(key)
+                unique.append(item)
+        return {**report, 'root_causes': unique,
                 'ranking': {'method': 'find_root_cause', 'result_id': result_id}}
 
     def _degraded_report(self) -> dict:
