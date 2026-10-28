@@ -273,7 +273,9 @@ class InvestigationToolset:
                 allowed[key] = value
         if not allowed:
             allowed = {'note': '数据概况未提供（服务端未注入 profile）'}
-        allowed['data_floor'] = self.engine.data_floor
+        # data_floor 会按需载入 orders 表；必须与其他工具一样持锁，否则并行子 Agent 会在同一连接上并发建表。
+        with self._lock:
+            allowed['data_floor'] = self.engine.data_floor
         return allowed
 
     def _query_metric(self, metric, period, compare_period=None, filters=None, group_by=None):

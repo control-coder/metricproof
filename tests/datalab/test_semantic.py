@@ -187,6 +187,46 @@ class RejectionTests(Fixture):
         finally:
             engine.close()
 
+    def test_interrupted_load_leaves_no_half_table(self):
+        """载入中途失败后，引擎仍可在同一连接上重新载入（A10 raw-09：半成品表使引擎永久报错）。"""
+        engine = SemanticEngine(self.folder, SNAPSHOT)
+        try:
+            original = engine._connection
+            db = original()
+
+            class Flaky:
+                """第一次 executemany 抛错，模拟载入中途内存不足或中断。"""
+
+                def __init__(self):
+                    self.failed = False
+
+                def execute(self, *args):
+                    return db.execute(*args)
+
+                def executemany(self, *args):
+                    if not self.failed:
+                        self.failed = True
+                        raise MemoryError("模拟载入中断")
+                    return db.executemany(*args)
+
+            engine._db = Flaky()
+            with self.assertRaises(MemoryError):
+                engine._load("orders")
+            self.assertNotIn("orders", engine._loaded)
+            engine._load("orders")
+            self.assertIn("orders", engine._loaded)
+            engine._db = db
+            self.assertIsNotNone(engine.data_floor)
+        finally:
+            engine.close()
+
+    def test_close_then_reuse_reloads_tables(self):
+        engine = SemanticEngine(self.folder, SNAPSHOT)
+        first = engine.query("order_count", (None, None))["total"]
+        engine.close()
+        self.assertEqual(engine.query("order_count", (None, None))["total"], first)
+        engine.close()
+
     def test_unknown_metric_dimension_and_bad_period(self):
         engine = SemanticEngine(self.folder, SNAPSHOT)
         try:

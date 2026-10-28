@@ -466,9 +466,11 @@ class ToolRegistry:
             value = spec.handler(**params.model_dump())
         except (ToolError, ValueError) as error:
             return Observation(False, None, '', error=str(error)[:512])
-        except Exception:
-            # 其他异常不回显细节，避免把内部信息送进模型上下文。
-            return Observation(False, None, '', error='工具内部错误')
+        except Exception as error:
+            # 只回异常类型，不回消息（可能含路径等内部信息）；并提示不要原样重试，避免模型空转。
+            return Observation(False, None, '',
+                               error=f'工具内部错误（{type(error).__name__}）；相同参数重试通常无效，'
+                                     '请换用其他工具，或在报告中如实说明该数据无法取得')
         result, data = value if isinstance(value, tuple) and len(value) == 2 else (value, None)
         result_id = self.store.add(spec.name, arguments, spec.level, result)
         if spec.view is not None:

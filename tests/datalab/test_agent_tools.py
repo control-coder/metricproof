@@ -158,7 +158,8 @@ class ToolCallTests(unittest.TestCase):
         self.assertIn('粒度不匹配', domain.error)
         internal = registry.call('subagent', tool_call('run_sql', {'sql': 'select 1'}))
         self.assertFalse(internal.ok)
-        self.assertEqual(internal.error, '工具内部错误')
+        self.assertTrue(internal.error.startswith('工具内部错误（RuntimeError）'))
+        self.assertIn('重试通常无效', internal.error)
         self.assertNotIn('泄漏', internal.error)
 
     def test_truncation_and_read_result_pagination(self):

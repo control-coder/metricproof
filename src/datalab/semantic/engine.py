@@ -84,6 +84,10 @@ class SemanticEngine:
         if self._db is not None:
             self._db.close()
             self._db = None
+            # 内存库随连接消失，已载入标记一并清空，关闭后再用会重新载入而不是报「无此表」。
+            self._loaded.clear()
+            self._first_order_ready = False
+            self._analyzed = False
 
     def __enter__(self):
         return self
@@ -102,14 +106,21 @@ class SemanticEngine:
         db = self._connection()
         columns = olist.columns(name)
         definition = ", ".join(f'"{column}" {"INTEGER" if column in INTEGER_COLUMNS else "TEXT"}' for column in columns)
-        db.execute(f'CREATE TABLE "{name}" ({definition})')
-        with path.open(encoding="utf-8", newline="") as handle:
-            db.executemany(f'INSERT INTO "{name}" VALUES ({", ".join("?" for _ in columns)})',
-                           ([int(row[column]) if column in INTEGER_COLUMNS and row[column] != "" else row[column]
-                             for column in columns] for row in csv.DictReader(handle)))
-        # 内存 SQLite 没有自动索引；给固定连接键建索引，否则真实数据上嵌套循环不可接受。
-        for index, (table, column) in enumerate(_INDEX_KEYS.get(name, ())):
-            db.execute(f'CREATE INDEX "ix_{name}_{index}" ON "{name}" ("{column}")')
+        # 载入中途失败（内存不足、中断等）必须删掉半成品表，否则同一连接上的后续载入
+        # 全部因「表已存在」失败，引擎永久不可用（A10 raw-09）。
+        db.execute(f'DROP TABLE IF EXISTS "{name}"')
+        try:
+            db.execute(f'CREATE TABLE "{name}" ({definition})')
+            with path.open(encoding="utf-8", newline="") as handle:
+                db.executemany(f'INSERT INTO "{name}" VALUES ({", ".join("?" for _ in columns)})',
+                               ([int(row[column]) if column in INTEGER_COLUMNS and row[column] != "" else row[column]
+                                 for column in columns] for row in csv.DictReader(handle)))
+            # 内存 SQLite 没有自动索引；给固定连接键建索引，否则真实数据上嵌套循环不可接受。
+            for index, (table, column) in enumerate(_INDEX_KEYS.get(name, ())):
+                db.execute(f'CREATE INDEX "ix_{name}_{index}" ON "{name}" ("{column}")')
+        except BaseException:
+            db.execute(f'DROP TABLE IF EXISTS "{name}"')
+            raise
         self._loaded.add(name)
 
     def _connection(self) -> sqlite3.Connection:
