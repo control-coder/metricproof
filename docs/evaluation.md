@@ -421,7 +421,7 @@ python -B evals/report.py artifacts/evals/heldout-single-vs-roles.json --markdow
 ### 局限
 
 - 只有 10 个 dev 案例、每种模式一次，没有区间估计；提示词按这 10 个案例调过，test 集上的结果可能更低。
-- 3 个注入案例（dev 1 个、test 2 个）的注入幅度不足以在边际贡献中排进前 3，题集冻结后没有改，按「全部」和「可定位子集」两种口径报告。
+- dev 的 inj-order_drop-03 注入幅度不足以在边际贡献中排进前 3，题集冻结后没有改，按「全部」和「可定位子集」两种口径报告。（本节初稿还写了「test 有 2 个同类案例」，A10 复查题集的 `quality.rank` 时没有找到依据，已删去，见 A10 一节。）
 - 时延受同时运行的其他调查影响，串行与并行不是隔离环境下的对照。
 
 ## 审查 Agent 与报告核验（A6，2026-10-28）
@@ -551,9 +551,14 @@ python -B evals/report.py artifacts/evals/heldout-single-vs-roles.json --markdow
 - 贡献度绝对误差不报。`evals/investigate.py` 在报告的 root_causes 没有 `contribution` 时用 `explanatory_power` 代替，而 gold 的 magnitude 单位随案例变化（订单数、分、比率），两者不在同一量纲，20 个有值案例的误差从 0.3 到 560 万不等，汇总没有意义。
 - mix_shift 4 个案例的 AC@3 都未命中。gold 是 boleto 的组间（between）效应，4 份报告中 3 份的根因里没有 payment_type=boleto；mix_shift-05 列出了 boleto，但效应类型为 within，按评分规则不算命中。order_drop 的 3 份报告的根因均不含 gold 的品类或州。
 - 异常案例：
-  - inj-price_cut-04：主 Agent 第 2 步没有调用工具也没有输出报告（`no_tool_calls`），共 2 次模型调用，18 秒，root_causes 为空。
+  - inj-price_cut-04：主 Agent 第 2 步没有调用工具也没有输出报告（`no_tool_calls`），共 2 次模型调用，18 秒，root_causes 为空。之后改为先提醒一次、再次只回文字才停止（离线测试覆盖），修改后没有重跑。
   - raw-10：主 Agent 连续重复相同的调用，7 次工具调用里 3 次重复，被重复调用检查在第 4 步终止（`repeated_action`），没有报告。
-  - raw-09：21 次模型调用、37 次工具调用，其中 17 次重复。报告称 detect_anomaly、decompose_metric、query_metric、get_profile 均返回内部错误，子 Agent 的 findings 为空，因此 root_causes 为空，所有结论为 L3。这份报告的「因果断言」是「由于缺少可引用的数据」的字面命中，并非对数据的因果判断；它因引用了不存在的 result_id 被判为无效。工具内部错误的原因没有在本轮排查。
+  - raw-09：21 次模型调用、37 次工具调用，其中 17 次重复。报告称 detect_anomaly、decompose_metric、query_metric、get_profile 均返回内部错误，子 Agent 的 findings 为空，因此 root_causes 为空，所有结论为 L3。这份报告的「因果断言」是「由于缺少可引用的数据」的字面命中，并非对数据的因果判断；它因引用了不存在的 result_id 被判为无效。事后排查：用 raw-09 的参数离线调用这 4 个工具都能成功，说明错误来自运行时状态。结果文件没有保存 trace，所以没能复现当时的错误。排查中找到并修复了三处与现象相符的缺陷：
+    - 语义层引擎载入表时中途失败会留下半成品表，之后的载入都报「表已存在」；
+    - `get_profile` 读 `data_floor` 时没有持锁，并行子 Agent 可能在同一连接上同时建表；
+    - 内部错误的观察只有「工具内部错误」几个字，模型只能原样重试，这是 17 次重复调用的来源；现在会给出异常类型并提示换用其他工具。
+
+    修复后没有重跑 test 集。
 - 与 dev 对比：test 注入 AC@1 / AC@3 为 0.261 / 0.609，A5 并行 dev 为 2/7 / 5/7（0.286 / 0.714），A6 含审查为 3/7 / 4/7（0.429 / 0.571）；原始问题 AC@3 test 为 5/7，dev 两轮均为 3/3。dev 只有 10 个案例，区分不出这些差异来自过拟合还是随机波动，数字上 test 没有比 dev 更好。
 
 ### 局限
@@ -561,7 +566,7 @@ python -B evals/report.py artifacts/evals/heldout-single-vs-roles.json --markdow
 - 样本量：注入 23 个、原始 7 个，每个案例只运行一次，没有区间估计，不做显著性结论。按类型拆分后每类只有 3–4 个案例，类型间的差别不能当作稳定的规律。
 - 提示词按 dev 的 10 个案例调过；test 题集与 dev 同属一个生成过程，结果不外推到真实业务数据。
 - 时延包含供应商侧排队，4 个调查同时运行，不是隔离环境下的单次耗时。
-- A5 小节提到 test 有 2 个注入案例的幅度不足、无模型算法也排不进前 3。题集的质量检查（`quality.rank`）里 test 注入案例的 gold 排名都不超过 3，没有找到逐案的依据，所以本节不报「可定位子集」，只报全部案例的口径。
+- 题集的质量检查（`quality.rank`）中，test 注入案例的 gold 排名都不超过 3，所以本节不另报「可定位子集」，只报全部案例。
 - 没有做单 Agent 对照，本节不比较多 Agent 与单 Agent 的准确率。
 
 ### 提示注入（10 个案例）
