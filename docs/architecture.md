@@ -30,12 +30,12 @@ flowchart TB
 | --- | --- |
 | `api/` | HTTP 接口、请求体上限、Host 与写入来源校验、产物下载 |
 | `datasets/` | 标准 CSV 模板与字段映射、Olist 多表导入、质量检查、数据版本与 schema 签名 |
-| `semantic/` | 语义层：指标定义、维度与粒度校验、SQL 编译、内存引擎、独立 Python 参考与指标树（A1） |
-| `attribution/` | 归因算法：异动检测、指标拆解、贡献度、根因定位、相关分析与 L1 核验（A2），全部确定性实现 |
-| `agents/` | 异动归因调查：Function Calling 工具层与按 Agent 授权、主 Agent（Plan-and-Solve）、子 Agent（ReAct）、审查 Agent（Reflection）、报告代码核对、cassette 录制回放（A4–A7） |
+| `semantic/` | 语义层：指标定义、维度与粒度校验、SQL 编译、内存引擎、独立 Python 参考与指标树 |
+| `attribution/` | 归因算法：异动检测、指标拆解、贡献度、根因定位、相关分析与 L1 核验，全部确定性实现 |
+| `agents/` | 异动归因调查：Function Calling 工具层与按 Agent 授权、主 Agent（Plan-and-Solve）、子 Agent（ReAct）、审查 Agent（Reflection）、报告自动校验、cassette 录制回放 |
 | `orchestration/` | 任务状态机、有界修正、Celery worker、租约与补发 |
-| `roles/` | 三角色运行时与工具白名单、固定演示后端、OpenAI 兼容模型适配与提示 |
-| `memory/` | 业务记忆的范围、版本、确认、失效与冲突，PostgreSQL 实现；情景记忆（BM25 检索，不能升级为业务规则，A7） |
+| `roles/` | Planner、Analyst、Reviewer 运行时与工具白名单、固定演示后端、OpenAI 兼容模型适配与提示 |
+| `memory/` | 业务记忆的范围、版本、确认、失效与冲突，PostgreSQL 实现；情景记忆（BM25 检索，不能升级为业务规则） |
 | `execution/` | 六类固定分析、代码框架组装、Docker runner 与容器内收集器 |
 | `verification/` | 独立 SQL 参考复算与下载表比对；不依赖参考值的结果不变量、蜕变关系，以及第二份纯 Python 参考 |
 | `artifacts/` | 核验通过后的确定性图表与模板化说明 |
@@ -47,7 +47,7 @@ flowchart TB
 
 ### 多表数据（Olist）
 
-除单表 `orders` 外，数据版本可以是结构固定的 Olist 多表 `olist`（`datasets/olist.py`）。表、列、类型与连接键全部由服务端定义，只从固定目录读取八个已知文件名，不接受任意表或列；结构签名由这份定义计算，与单表签名不同，业务记忆据此分开范围。单表路径的导入、签名与数据版本格式不变（`DatasetVersion.schema` 新增，旧元数据缺省为 `orders`）。A1 起加入卖家表 `sellers`：新导入使用含卖家表的八表签名 `olist.SIGNATURE`；A1 之前导入的七表数据版本仍由旧签名 `olist.LEGACY_SIGNATURE`（固定值，逐字节与旧计算一致）识别为 `olist`，旧九类统计任务只读 `needed(plan)` 的表、不受影响，但语义层使用卖家维度时对该版本给出「该数据版本导入时没有卖家表，请重新导入」的错误。新旧签名分属不同的业务记忆范围：八表版本的口径需重新确认，不继承七表版本的已确认口径。
+除单表 `orders` 外，数据版本可以是结构固定的 Olist 多表 `olist`（`datasets/olist.py`）。表、列、类型与连接键全部由服务端定义，只从固定目录读取八个已知文件名，不接受任意表或列；结构签名由这份定义计算，与单表签名不同，业务记忆据此分开范围。单表路径的导入、签名与数据版本格式不变（`DatasetVersion.schema` 新增，旧元数据缺省为 `orders`）。此后加入卖家表 `sellers`：新导入使用含卖家表的八表签名 `olist.SIGNATURE`；加入卖家表之前导入的七表数据版本仍由旧签名 `olist.LEGACY_SIGNATURE`（固定值，逐字节与旧计算一致）识别为 `olist`，旧九类统计任务只读 `needed(plan)` 的表、不受影响，但语义层使用卖家维度时对该版本给出「该数据版本导入时没有卖家表，请重新导入」的错误。新旧签名分属不同的业务记忆范围：八表版本的口径需重新确认，不继承七表版本的已确认口径。
 
 | 表 | 规范化列 | 主键 | 上限（行 / 字节） |
 | --- | --- | --- | --- |
@@ -76,9 +76,9 @@ flowchart TB
 
 真实数据（`scripts/fetch_olist.py` 固定的版本）的实测概况：订单、客户各 99441 行，明细 112650、支付 103886、评价 100000、商品 32951、翻译 71、卖家 3095 行；下单时间 2016-09-04 至 2018-10-17；严格连接键孤儿行全为 0；2 个品类（13 个商品）没有英文翻译，610 个商品品类为空；775 单没有明细、1 单没有支付；827 个 review_id 对应不止一笔订单；8 单状态为 delivered 却没有送达日期；96096 个不同的 customer_unique_id。按支付合计与按明细价格加运费计算的订单金额有 1349 单不一致，支付合计比明细合计多 16531888 分（165318.88 BRL）。本机导入八张表约 10 秒。
 
-### 语义层与指标树（A1）
+### 语义层与指标树
 
-`semantic/` 是 MetricProof 改造的第一个新模块：把经营指标按统一口径声明、校验并编译为查询，供归因工具（A2 起）与未来的 Agent 工具层（A4 起）调用，替代「每类分析一份固定实现」的扩展方式。它只服务 Olist 多表数据，单表与旧九类统计任务仍走原有路径。模块：指标定义 `metrics.py`、维度 `dimensions.py`、编译器 `compiler.py`、引擎 `engine.py`、独立 Python 参考 `reference.py`、指标树 `tree.py`；口径快照 `snapshot.py` 只含计算所需字段，由服务端从已确认口径建立。
+`semantic/` 是 MetricProof 改造的第一个新模块：把经营指标按统一口径声明、校验并编译为查询，供归因工具与后续的 Agent 工具层调用，替代「每类分析一份固定实现」的扩展方式。它只服务 Olist 多表数据，单表与旧九类统计任务仍走原有路径。模块：指标定义 `metrics.py`、维度 `dimensions.py`、编译器 `compiler.py`、引擎 `engine.py`、独立 Python 参考 `reference.py`、指标树 `tree.py`；口径快照 `snapshot.py` 只含计算所需字段，由服务端从已确认口径建立。
 
 指标（名称、粒度、类型、单位；比率型给出分子/分母成分）：
 
@@ -110,48 +110,48 @@ flowchart TB
 
 L1 核验（`reference.py`）：纯 Python 逐行实现同一套指标与维度，不用 SQL、不与编译器共享计算代码；`verify(engine_result, folder, snapshot, filters=, group_by=)` 逐项比较语义层结果与参考。参考侧同样有性能措施：`_Cache` 按 (folder, snapshot) 缓存读入的规范化表、首单集合与逐粒度派生记录（每单/每明细/每评价一行，金额、首笔支付、品类、卖家、评分等在构建时一次算好），之后每个查询只做期间与过滤器判断；订单级金额来源为 payments 时不读 order_items。缓存只是同一套逐行算法的预计算，不共享时（`python_reference` 直接调用）逐次读表、行为不变。`tests/datalab/test_semantic.py` 在固定种子合成数据上验证：与 olist_sql 重叠的指标（gmv/order_count 不分组、按州、按月 × 两种金额来源，late_delivery_rate 含按州，repeat_rate 含按州，明细金额/件数按品类）逐行一致；全部指标 × 允许维度与 Python 参考逐项一致；粒度不匹配、未知维度、过滤器注入（维度名为任意字符串、取值含引号）被拒绝或安全绑定；指标树结构校验通过。
 
-指标树（`tree.py`）：声明拆解关系供 A2 的 decompose_metric 使用，本轮只做声明与结构校验，不做归因算法。乘法型：gmv = order_count × aov、item_gmv = item_count × avg_item_price；加法型：order_count 按 customer_type 拆为新老客订单之和；比率型指标声明分子/分母关系（归因时分别计算分子分母的变化再合成）。
+指标树（`tree.py`）：声明拆解关系供 decompose_metric 使用，指标树本身只做声明与结构校验，不做归因算法。乘法型：gmv = order_count × aov、item_gmv = item_count × avg_item_price；加法型：order_count 按 customer_type 拆为新老客订单之和；比率型指标声明分子/分母关系（归因时分别计算分子分母的变化再合成）。
 
 真实数据冒烟（一次性，数据不入库）：导入八张表约 10 秒；随后 13 组代表性查询（gmv 按州/月、repeat_rate 按州、item_gmv 按品类/卖家州/卖家 ID 带过滤、评价按送达状态、新老客按州、freight_ratio 按价格带等）引擎耗时 0.01–5.8 秒（首单窗口查询最慢），每组 verify 全部通过。语义层结果未与既有九类任务混算，后续归因轮次单独报告。
 
-性能优化（2026-10-27，A5 前的遗留问题修复）：定位到三个慢点——首单窗口子查询逐次执行（customer_type 查询 2.1 秒、repeat_rate 5.3–6.4 秒）、归因层对同一分组结果逐元素重复查询（find_root_cause 3 个维度共 236 次 query）、参考侧逐次读 CSV 与逐次连接。修复后实测（引擎首次载入 4 表+建索引+ANALYZE 约 3.1–3.5 秒、首单表物化约 1 秒，均为一次性开销）：常见单次查询 0.03–0.99 秒（明细级分组 0.07–0.30 秒、gmv 按 customer_type 0.76–0.99 秒、按月份 0.67–0.93 秒、repeat_rate 按州 0.16–0.17 秒）；detect_anomaly(history=6) 2.0–3.1 秒；find_root_cause(item_gmv, [product_category, customer_state, seller_state]) 0.16–0.44 秒。参考路径同量级：verify(item_gmv 按品类) 约 2.5 秒、verify_attribution(detect_anomaly) 3.4–5.6 秒、verify_attribution(find_root_cause) 2.2–3.5 秒（含一次性建派生记录约 1.7 秒）。逐位一致：test_semantic、test_attribution 全部通过且断言未放宽。
+性能优化（2026-10-27，主 Agent 与子 Agent 接入前的遗留问题修复）：定位到三个慢点——首单窗口子查询逐次执行（customer_type 查询 2.1 秒、repeat_rate 5.3–6.4 秒）、归因层对同一分组结果逐元素重复查询（find_root_cause 3 个维度共 236 次 query）、参考侧逐次读 CSV 与逐次连接。修复后实测（引擎首次载入 4 表+建索引+ANALYZE 约 3.1–3.5 秒、首单表物化约 1 秒，均为一次性开销）：常见单次查询 0.03–0.99 秒（明细级分组 0.07–0.30 秒、gmv 按 customer_type 0.76–0.99 秒、按月份 0.67–0.93 秒、repeat_rate 按州 0.16–0.17 秒）；detect_anomaly(history=6) 2.0–3.1 秒；find_root_cause(item_gmv, [product_category, customer_state, seller_state]) 0.16–0.44 秒。参考路径同量级：verify(item_gmv 按品类) 约 2.5 秒、verify_attribution(detect_anomaly) 3.4–5.6 秒、verify_attribution(find_root_cause) 2.2–3.5 秒（含一次性建派生记录约 1.7 秒）。逐位一致：test_semantic、test_attribution 全部通过且断言未放宽。
 
-### 归因算法（A2）
+### 归因算法
 
 `attribution/` 是归因工具层：`detect_anomaly`、`decompose_metric`、`contribution`、`find_root_cause`、`correlate` 五个确定性算法与 L1 核验入口 `verify_attribution`，全部为纯函数，输入是任意带 `query(metric, period, compare_period=None, filters=None, group_by=None)` 方法、返回语义层引擎同结构结果的数据源。数据源有两种：语义层引擎本身，以及 `ReferenceSource(folder, snapshot)`——包装 `semantic/reference.py` 的独立纯 Python 计算（不用 SQL、不与编译器共享代码，查询结果按 (folder, snapshot, 指标, 期间, 过滤器, 分组) 做模块级 LRU 缓存，派生记录经 `semantic.reference._Cache` 按 (folder, snapshot) 共享，同一数据版本上的多个 ReferenceSource 实例不重复读表），供 L1 核验路径独立重算。期间统一为 (start, end) 元组，左闭右开、秒级 ISO。金额与计数输出为整数，比值、贡献度与份额为 6 位小数字符串（与语义层一致），加法和比率拆解内部全程 Fraction，不变量精确成立。
 
-- `contribution(source, metric, dimension, period, base_period, filters=None)`：维度下钻贡献度。加法型用 Delta 法：change_i = current_i − base_i，contribution_i = change_i / 基期总量（计划术语表「各维度值的差值除以基期总量」；基期总量为 0 时贡献度为 null），share_of_change_i = change_i / 总变化（总变化为 0 时各组 share 为 null 并给 status: "no_change"）；不变量 Σchange_i = 总变化精确成立。比率型用对称组间组内拆解（between-within）：w 为组分母份额、r 为组内比率、R̄ = (R0+R1)/2，structure_i = (w1−w0)·((r0+r1)/2 − R̄)，within_i = (w0+w1)/2·(r1−r0)，Σ(structure_i+within_i) = R1−R0 精确成立（Σ(w1−w0)=0，居中项合计为 0）。结构项居中（2026-10-27 A5 调试时修正）：不居中时每个份额变化的组都带上 (w1−w0)·r 的大额抵消项，排名失去意义；两期之一没有分组行时不居中。一期缺席的组（该期没有分组行或分母为 0）：该期 w 按 0、r 取另一期的值——组整体进出，没有组内信息，全部变化计入结构项（此时 within_i 恰好为 0）。总比率 R0/R1 与份额分母都按分组行分子、分母之和复算，不取引擎总计的 6 位舍入值，保证不变量精确。rows 按 |change|（比率型按 |structure+within|）降序、组名升序。输出 {metric, dimension, method: "delta"|"between_within", period, base_period, base_total, current_total, total_change, change_rate, rows, invariant: {passed, residual}}。
+- `contribution(source, metric, dimension, period, base_period, filters=None)`：维度下钻贡献度。加法型用 Delta 法：change_i = current_i − base_i，contribution_i = change_i / 基期总量（计划术语表「各维度值的差值除以基期总量」；基期总量为 0 时贡献度为 null），share_of_change_i = change_i / 总变化（总变化为 0 时各组 share 为 null 并给 status: "no_change"）；不变量 Σchange_i = 总变化精确成立。比率型用对称组间组内拆解（between-within）：w 为组分母份额、r 为组内比率、R̄ = (R0+R1)/2，structure_i = (w1−w0)·((r0+r1)/2 − R̄)，within_i = (w0+w1)/2·(r1−r0)，Σ(structure_i+within_i) = R1−R0 精确成立（Σ(w1−w0)=0，居中项合计为 0）。结构项居中（2026-10-27 调试主 Agent 与子 Agent 时修正）：不居中时每个份额变化的组都带上 (w1−w0)·r 的大额抵消项，排名失去意义；两期之一没有分组行时不居中。一期缺席的组（该期没有分组行或分母为 0）：该期 w 按 0、r 取另一期的值——组整体进出，没有组内信息，全部变化计入结构项（此时 within_i 恰好为 0）。总比率 R0/R1 与份额分母都按分组行分子、分母之和复算，不取引擎总计的 6 位舍入值，保证不变量精确。rows 按 |change|（比率型按 |structure+within|）降序、组名升序。输出 {metric, dimension, method: "delta"|"between_within", period, base_period, base_total, current_total, total_change, change_rate, rows, invariant: {passed, residual}}。
 - `decompose_metric(source, metric, period, base_period)`：按指标树声明拆解。乘法型（gmv = order_count × aov 等）用 LMDI-I 加法形式：贡献_k = L(V1,V0)·ln(x_k1/x_k0)，L 为对数平均 (a−b)/(ln a − ln b)，Σ贡献 = V1−V0（浮点，残差 ≤ 1e-6·|V1−V0| 或绝对 1e-6，随结果输出）；比率型父子（aov = gmv / order_count 等）的分母因子以倒数参与乘积，贡献取符号相反的对数项。item_gmv = item_count × avg_item_price 的乘积只在不含运费的价格口径上精确成立（item_gmv 含运费），指标树用 `target: item_price_sum` 声明拆解目标为 item_price_sum，输出附 target 字段。边界：V1 = V0 时各因子贡献为 0.0（status: "no_change"）；父值或任一因子任一期为 0 / null（对数平均无定义）时返回 status: "undefined"、factors 为空。加法型（order_count 按 customer_type）子项即父指标按声明维度分组的各组，贡献等于各组变化量，Σ贡献 = 总变化精确成立。输出 {metric, kind, method, factors: [{metric, base, current, contribution, share}], total_change, invariant}（LMDI 的贡献与 share 为浮点）。
 - `detect_anomaly(source, metric, period, history=6)`：异动检测。历史期取与 period 同长度、紧邻的前 history 个期间：period 两端都是月初零点时按日历月平移（保持自然月语义），否则按时间差平移。数据源可提供 `data_floor` 属性（数据的最早可用起点，引擎与 ReferenceSource 都按全部订单的最早下单时间给出）：起点早于它的历史期按「还没有这份数据」丢弃，不计入有效历史——语义层对没有数据的期间返回 0 而不是「无数据」，归因靠 floor 区分这两种情形。环比是与紧邻上一期；同比是去年同期（两端各减一年，2 月 29 日退到 2 月 28 日；去年同期早于最早有效历史期起点时为 null）。稳健 z 分数 z = 0.6745·(x − median)/MAD（Iglewicz–Hoaglin），|z| > 3.5 判为异动；有效历史不足 3 期给 status: "insufficient_history"（不判异动），MAD 为 0 给 status: "zero_mad"（历史值全部相同，本期偏离中位数即异动、z 为 null）。中位数与 MAD 先吸附到 1/(2×10⁶) 有理数网格（历史值都是 6 位精度有理数，统计量落在半整数网格上，浮点误差远小于网格间距），保证两条路径逐位一致。输出 {metric, period, value, history, mom, yoy, median, mad, robust_z, is_anomaly, status}。
-- `find_root_cause(source, metric, dimensions, period, base_period, filters=None, tep=0.8, teep=0.1, top=3)`：多维根因定位，参考 Adtributor（Bhagwan et al., NSDI 2014）。元素解释力 EP_ij 取 contribution 的结果（加法型 change_i / 总变化，比率型 (structure_i+within_i)/(R1−R0)），各元素 EP 之和精确为 1；惊奇度 S_ij 用基期份额 p 与本期份额 q 的 Jensen–Shannon 散度项 D(p‖m)+D(q‖m)（m=(p+q)/2，自然对数），加法型按指标值份额、比率型分别对分子份额与分母份额各算一次相加（两个成分的分布变化都算惊奇）。维度内元素按 S 降序（并列按取值升序），EP ≥ teep 的依次加入候选集，累计 EP ≥ tep 即停止；维度按候选集的平均惊奇度降序（并列按维度名升序）取前 top 个（原文用惊奇度之和，偏向取值多的品类、卖家维度；2026-10-27 改为平均，dev 注入案例上无模型基线 Top-1 由 3/7 升到 4/7）。比率型元素另给 effect（between 组间为主 / within 组内为主）。candidates 是扁平化的根因候选列表：先按所在维度排名、再按维度内解释力降序，排序确定性，供 A3/A5 计算 AC@1/AC@3。总变化为 0 时返回空候选与 status: "no_change"。输出 {metric, period, base_period, total_change, dimensions: [{dimension, elements, explained, surprise}], candidates: [{dimension, value, explanatory_power, surprise}]}。
+- `find_root_cause(source, metric, dimensions, period, base_period, filters=None, tep=0.8, teep=0.1, top=3)`：多维根因定位，参考 Adtributor（Bhagwan et al., NSDI 2014）。元素解释力 EP_ij 取 contribution 的结果（加法型 change_i / 总变化，比率型 (structure_i+within_i)/(R1−R0)），各元素 EP 之和精确为 1；惊奇度 S_ij 用基期份额 p 与本期份额 q 的 Jensen–Shannon 散度项 D(p‖m)+D(q‖m)（m=(p+q)/2，自然对数），加法型按指标值份额、比率型分别对分子份额与分母份额各算一次相加（两个成分的分布变化都算惊奇）。维度内元素按 S 降序（并列按取值升序），EP ≥ teep 的依次加入候选集，累计 EP ≥ tep 即停止；维度按候选集的平均惊奇度降序（并列按维度名升序）取前 top 个（原文用惊奇度之和，偏向取值多的品类、卖家维度；2026-10-27 改为平均，开发集异常注入用例上无模型基线 Top-1 由 3/7 升到 4/7）。比率型元素另给 effect（between 组间为主 / within 组内为主）。candidates 是扁平化的根因候选列表：先按所在维度排名、再按维度内解释力降序，排序确定性，供评测计算 AC@1/AC@3。总变化为 0 时返回空候选与 status: "no_change"。输出 {metric, period, base_period, total_change, dimensions: [{dimension, elements, explained, surprise}], candidates: [{dimension, value, explanatory_power, surprise}]}。
 - `correlate(source, metric_a, metric_b, by, period)`：两个指标按维度 by 分组的相关分析：Pearson r、Spearman ρ（平均秩处理并列）与样本量 n。只用两个指标都有值（比率型分母非 0）的组；n < 3 时系数为 null（样本太少，相关无意义）。输出附 note「相关不代表因果，报告中只能表述为相关」——只做描述性归因，不做因果推断。
 - L1 核验 `verify_attribution(kind, result, folder, snapshot, **arguments)`：用 ReferenceSource 独立重算同一函数并逐项比较（Fraction 精确结果比较格式化后的字符串/整数，LMDI 贡献与相关系数为浮点允许 1e-9 相对误差），并检查不变量；返回 {passed, differences, invariant}。这是计划中「L1 由语义层与独立参考复算；贡献度满足各项之和等于总变化」的实现。
 
-A1 的语义层有两处小改动配合本轮：`tree.py` 的 Decomposition 增加 `target` 字段（乘法拆解的目标指标，None 表示 parent 本身；item_gmv 声明为 item_price_sum）；`engine.py` 增加 `data_floor` 只读属性（全部订单的最早下单时间），行为不变。
+语义层有两处小改动配合归因算法：`tree.py` 的 Decomposition 增加 `target` 字段（乘法拆解的目标指标，None 表示 parent 本身；item_gmv 声明为 item_price_sum）；`engine.py` 增加 `data_floor` 只读属性（全部订单的最早下单时间），行为不变。
 
 测试（`tests/datalab/test_attribution.py`，20 个用例）：手算小样本用最小假数据源覆盖 Delta 法（含基期为 0、总变化为 0）、组间组内（含一期缺席的组）、LMDI（V0=100=10×10、V1=150=12×12.5，含比率型父子的分母取倒数与 0 因子边界）、MAD z 分数（含 insufficient_history、zero_mad、data_floor 裁剪、非月初期间按时间差平移）、Adtributor 选元素与排序（ΣEP=1、候选确定性）、Pearson/Spearman 已知值（含并列平均秩与 n<3）。不变量在 olist_bundle 合成数据（6 个种子 × 10 组指标×维度，共 60 组）上验证 contribution 的 Σ=总变化精确成立、decompose_metric 的 LMDI 残差在容差内；L1 在同一合成数据上验证引擎与 ReferenceSource 两条路径对五类函数逐项一致，篡改一个数字即被检出。
 
-真实数据冒烟（一次性，数据不入库，导入临时目录用完删除）：导入八表约 10.3 秒；2017-11 vs 2017-10 的 gmv 检测为异动（环比 +40,785,395 分即 +53.3%，稳健 z 5.36），LMDI 拆解订单量贡献 +46,768,269 分、客单价贡献 −5,982,874 分（残差 0.001，在 1e-6·|总变化| 容差内）；item_gmv 按品类的贡献度 Top-3 为 bed_bath_table（+5,094,662 分）、health_beauty（+4,069,126 分）、furniture_decor（+4,014,444 分），不变量精确成立；find_root_cause(item_gmv, [product_category, customer_state, seller_state]) 的 Top-3 候选为 seller_state=RJ（EP 0.1455）、PR（EP 0.1293）、SP（EP 0.5874）。A1 引擎优化前的耗时：detect_anomaly 4.96 秒、decompose_metric 1.35 秒、contribution 0.38 秒、find_root_cause 26.1 秒（3 个维度、归因层对同一分组结果逐元素重复查询，共 236 次 query）。优化后实测：detect_anomaly 2.0–3.1 秒、find_root_cause 0.16–0.44 秒；verify_attribution(detect_anomaly) 3.4–5.6 秒、verify_attribution(find_root_cause) 2.2–3.5 秒。
+真实数据冒烟（一次性，数据不入库，导入临时目录用完删除）：导入八表约 10.3 秒；2017-11 vs 2017-10 的 gmv 检测为异动（环比 +40,785,395 分即 +53.3%，稳健 z 5.36），LMDI 拆解订单量贡献 +46,768,269 分、客单价贡献 −5,982,874 分（残差 0.001，在 1e-6·|总变化| 容差内）；item_gmv 按品类的贡献度 Top-3 为 bed_bath_table（+5,094,662 分）、health_beauty（+4,069,126 分）、furniture_decor（+4,014,444 分），不变量精确成立；find_root_cause(item_gmv, [product_category, customer_state, seller_state]) 的 Top-3 候选为 seller_state=RJ（EP 0.1455）、PR（EP 0.1293）、SP（EP 0.5874）。引擎优化前的耗时：detect_anomaly 4.96 秒、decompose_metric 1.35 秒、contribution 0.38 秒、find_root_cause 26.1 秒（3 个维度、归因层对同一分组结果逐元素重复查询，共 236 次 query）。优化后实测：detect_anomaly 2.0–3.1 秒、find_root_cause 0.16–0.44 秒；verify_attribution(detect_anomaly) 3.4–5.6 秒、verify_attribution(find_root_cause) 2.2–3.5 秒。
 
-## 异动归因调查（A4–A7）
+## 异动归因调查
 
 调查在 Olist 数据上由三类 Agent 按编排者-工作者模式完成（`agents/investigation.py`）：
 
 - 主 Agent（Plan-and-Solve）：做异动检测与指标拆解，按维度组分派子 Agent，汇总报告；需要澄清口径时调用 `ask_user` 或 `propose_metric`，调查暂停并返回 `waiting_confirmation`，用户答复后无状态地重新发起。
 - 子 Agent（ReAct）：至多 3 个并行，各自独立上下文，负责一组维度，用 `contribution`、`find_root_cause`、`correlate`、`run_sql` 排查，只回传结构化发现。
-- 审查 Agent（Reflection）：只收到报告和代码核对结果，看不到生成过程，至多 3 步后给出 pass 或 revise；要求修订时主 Agent 修订一次，修订后不再送审。
+- 审查 Agent（Reflection）：只收到报告和自动校验结果，看不到生成过程，至多 3 步后给出 pass 或 revise；要求修订时主 Agent 修订一次，修订后不再送审。
 
 工具层（`agents/tools.py`）使用 Function Calling：参数由服务端按 JSON Schema 校验，工具按 Agent 授权，模型只看到本 Agent 的工具，越权调用不会到达 handler。授权表：主 Agent 为元数据、`detect_anomaly`、`decompose_metric`、`query_metric`、`ask_user`、`propose_metric`、`search_memory`、`dispatch_subagent`、`finish`、`read_result`；子 Agent 为 `query_metric`、`contribution`、`find_root_cause`、`correlate`、`run_sql`、`read_result`、`finish`（`run_python` 的接线不在当前范围内）；审查 Agent 为 `verify_claims`、`read_result`。
 
-报告中的每个数字必须引用工具结果的 `result_id` 并标注核验等级：L1 由语义层与独立参考复算，L2 为 `run_sql` 的不变量、蜕变关系与汇总比对，L3 为未核验的文字。`agents/claims.py` 由代码逐条核对数字、引用与因果措辞，不由模型自我审批：
+报告中的每个数字必须引用工具结果的 `result_id` 并标注核验等级：L1 由语义层与独立参考复算，L2 为 `run_sql` 的不变量、蜕变关系与汇总比对，L3 为未核验的文字。`agents/claims.py` 由代码逐条校验数字、引用与因果表述，不由模型自评：
 
 - 数字须能在所引结果中找到，或等于其中两个数之和、之差（由代码复算，计入 `derived_numbers`）；`r5` 这类缩写引用只在能唯一对应到一个 result_id 时才采纳。
-- 修订一次后仍不通过时，如果问题只出在摘要、发现或建议中，则删去这些句子或条目，逐条列在 `redacted`，其余部分再核对一次。根因有问题时不删，整份报告判为无效（`valid: false`）。
+- 修订一次后仍不通过时，如果问题只出在摘要、发现或建议中，则删去这些句子或条目，逐条列在 `redacted`，其余部分再校验一次。根因有问题时不删，整份报告判为无效（`valid: false`）。
 - 根因的候选集由主 Agent 给出，先后顺序由服务端在这些维度上运行一次 `find_root_cause` 决定，比率型的 effect 也以算法结果为准。这次排序登记为一条 L1 工具结果，result_id 写在 `ranking` 中。比率型指标中，算法前 3 个候选里以组间效应为主、而主 Agent 漏报的项会被补入，标 `source: ranking`，引用这次排序结果；加法型指标不补入。
 
-调查作为任务类型接入既有任务表与 Celery worker（接口见《API》的「异动归因调查」），报告通过代码核对后写入情景记忆。每次调查有调用数、token 与墙钟时间预算。
+调查作为任务类型接入既有任务表与 Celery worker（接口见《API》的「异动归因调查」），报告通过自动校验后写入情景记忆。每次调查有调用数、token 与墙钟时间预算。
 
-## 固定分析：三角色与状态
+## 固定分析：Planner–Analyst–Reviewer 流水线与状态
 
 下面三个角色（Planner、Analyst、Reviewer）属于改造前的单表与 Olist 固定分析流水线，仍保留用于回归，与上面的调查流程相互独立。
 
@@ -173,7 +173,7 @@ Olist 数据的三个角色使用 `roles/olist_prompts.py` 中的提示：Planne
 
 模型看到的概况与口径是白名单视图（`model_profile`、`model_metric`）：概况只含行数、状态计数、起止时间、币种与时区，并逐字段校验类型与格式；Olist 概况另含逐表行数（表名来自固定词表）与下单、送达、预计送达三个日期的范围，状态计数只取 Olist 词表，孤儿行、空值、金额来源差异与原始文件哈希不进入提示。口径只含版本号与纳入状态（Olist 口径另含金额来源）。数据语义家族、结构签名、口径来源、项目标识这些自由文本或内部标识只用于服务端的范围校验，不进入提示。核验反馈中的字段路径也只保留输出契约内的键名（`RESULT_KEYS`）与数组下标，其余键换成 `<key>`：路径来自模型代码写出的 `result.json`，键名可能取自订单文本。模型能看到的自由文本只剩用户的问题，这是用户自己的输入，边界由输出侧校验把住：计划的纳入状态和版本必须等于已确认口径，否则任务失败且不执行。
 
-每次角色调用在任务里追加一条 trace：序号、角色、所处状态、交接的 SHA-256 与字段路径清单、模型用量、耗时和结果类别（成功或异常类名）。不保存提示、响应或数据内容。trace 随任务快照落库，并写入核验报告，用来事后核对某次调用实际能看到哪些字段。`tests/datalab/test_prompt_injection.py` 用金丝雀检查这一点，见 [评测与验证](evaluation.md)。
+每次角色调用在任务里追加一条 trace：序号、角色、所处状态、交接的 SHA-256 与字段路径清单、模型用量、耗时和结果类别（成功或异常类名）。不保存提示、响应或数据内容。trace 随任务快照落库，并写入核验报告，用来事后核对某次调用实际能看到哪些字段。`tests/datalab/test_prompt_injection.py` 用金丝雀令牌检查这一点，见 [评测与验证](evaluation.md)。
 
 ### 状态机
 
@@ -220,7 +220,7 @@ Olist 数据版本的容器输入由服务端按计划投影（`datasets/olist.n
 
 用真实数据（`scripts/verify_olist.py`）在生产限额（256 MB、1 核、30 秒）下测量只读入输入表的开销：每类代表性计划的输入 10.5–18.3 MB、20–31 万行，容器运行（含创建与清理）1.5–2.0 秒，进程峰值 RSS 85–132 MiB，cgroup `memory.peak` 90–137 MiB；宿主投影输入另需 0.8–1.3 秒。内存与时间限额不变。
 
-### 自由查询 run_sql（A8）
+### 自由查询 run_sql
 
 子 Agent 在语义层工具表达不了时可以写 SQL。流程分三层：
 
@@ -228,7 +228,7 @@ Olist 数据版本的容器输入由服务端按计划投影（`datasets/olist.n
 2. 沙箱执行（`execution/sql_sandbox.py`）：宿主只投影这些列写入只读输入，容器里运行服务端生成的固定脚本，SQL 以 base64 载荷传入，不拼进源码。DuckDB 1.5.6 预装在执行镜像 `datalab-executor:py312-v2` 中，运行时不安装；连接后设单线程、160 MB 内存、`allowed_directories=['/input']`、关闭外部访问与扩展自动安装，再锁定配置。即使绕过白名单，读 `/etc/passwd`、`COPY TO`、改配置、`INSTALL` 在容器内也会失败（有集成测试）。容器参数与 `execute_python` 相同，经 `DockerRunner.execute_inputs` 运行。
 3. L2 检查（`verification/sql_result.py`）：不变量（列名唯一、列数一致、数值有限、行数不超过 LIMIT）；蜕变关系：同一容器内在按固定种子打乱行序的表上再执行一次，结果作为多重集合必须相同，没有确定排序的 LIMIT 查询会因此不通过；载入比对：沙箱载入的每表行数等于宿主投影行数；汇总比对：模型给出 `reconcile {metric, period, column}` 时，结果列之和须等于语义层该加法型指标在该期间的值。检查结论随结果存储，报告引用通过检查的 run_sql 结果时标 L2，不通过为 L3。
 
-自由 SQL 没有独立参考实现，L2 只是必要条件：不变量与置换检查不验证查询语义，只有汇总比对把结果与语义层对上。`run_python` 的 Agent 接线不在 A8 范围内，调用时返回「未接线」。
+自由 SQL 没有独立参考实现，L2 只是必要条件：不变量与置换检查不验证查询语义，只有汇总比对把结果与语义层对上。`run_python` 的 Agent 接线不在自由查询的范围内，调用时返回「未接线」。
 
 ## 核验
 
@@ -260,7 +260,7 @@ Olist 数据走同一个 `run_checks`：`independent_reference` 用 `verificatio
 - 分组唯一、每组至少一个对象、按契约排序；州名为两个大写字母；可加字段之和等于总计；品类各组订单数之和不少于去重总数、单组不超过总数。
 - 留存：每个 cohort 的 offset 从 0 连续、不超过 6、人数一致，offset 0 留存为 1（`offset_zero`）；不越过最后一个完整月份，也不在完整月份之前提前截断；给了 end 时最后完整月份必须是 end 所在月的上一个月（`censoring`）；cohort 人数之和等于总计，cohort 不早于 start 所在月。
 
-Olist 的蜕变关系与单表同名同开关：`permutation` 每张表各自按固定种子打乱；`irrelevant_rows` 追加属于新客户（新的 customer_unique_id）的合成订单及其客户、明细、支付与评价子行，口径外状态放在期间内，口径内状态放在期间终点或起点前一秒，所有日期字段取同一时间，留存未给终点时合成订单不晚于最晚下单时间（否则观察终点会变）；`window_split` 用于订单级 summary/trend/ranking、品类销售（订单数、明细数、金额）与送达延迟（两个计数），复购率与留存按客户跨期间计数、share 与 comparison 含比值，均不适用。变换后的规范化表经同一服务端投影成输入表，通过 `input_files` 写入同一只读挂载。离线测试（`tests/datalab/test_olist_verification.py`）确认固定代码与框架版本都满足关系，含终点的期间、依赖行序的归州和不可加的总计分别被三条关系拦下；开启后的金丝雀测试同样不泄漏数据。
+Olist 的蜕变关系与单表同名同开关：`permutation` 每张表各自按固定种子打乱；`irrelevant_rows` 追加属于新客户（新的 customer_unique_id）的合成订单及其客户、明细、支付与评价子行，口径外状态放在期间内，口径内状态放在期间终点或起点前一秒，所有日期字段取同一时间，留存未给终点时合成订单不晚于最晚下单时间（否则观察终点会变）；`window_split` 用于订单级 summary/trend/ranking、品类销售（订单数、明细数、金额）与送达延迟（两个计数），复购率与留存按客户跨期间计数、share 与 comparison 含比值，均不适用。变换后的规范化表经同一服务端投影成输入表，通过 `input_files` 写入同一只读挂载。离线测试（`tests/datalab/test_olist_verification.py`）确认固定代码与框架版本都满足关系，含终点的期间、依赖行序的归州和不可加的总计分别被三条关系拦下；开启后的金丝雀令牌测试同样不泄漏数据。
 
 真实数据实测（`scripts/verify_olist.py`，生产限额 256 MB、1 核、30 秒，七个代表性计划）：
 
@@ -274,7 +274,7 @@ Olist 的蜕变关系与单表同名同开关：`permutation` 每张表各自按
 
 反馈与提示注入：新检查的问题只含字段路径、关系名和封闭词表里的问题类型，不含数值。工作流转发前对检查名（`CHECK_NAMES`）、关系名（`RELATION_NAMES`）和问题类型（`ISSUE_NAMES`）逐项白名单过滤，词表外一律换成 `other`；路径仍经 `safe_path` 处理。按项目规则，第二份数值实现必须是服务端代码，不能让模型再算一遍。
 
-不变量与蜕变关系看不到计划读错题（参考跟着计划走），也看不到恰好自洽的错误口径；Analyst 提示没有为新问题类型补充说明，问题名本身是自解释的英文词。
+不变量与蜕变关系看不到计划读错问题（参考跟着计划走），也看不到恰好自洽的错误口径；Analyst 提示没有为新问题类型补充说明，问题名本身是自解释的英文词。
 
 ## 业务记忆
 

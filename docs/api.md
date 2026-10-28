@@ -58,7 +58,7 @@
 - 当前供应商未配置密钥时返回 400，不会静默降级为固定演示。
 - Redis 不可用时 `dispatched` 为 `false`，任务保留在数据库中，由 dispatcher 补发。
 
-### 异动归因调查（A9）
+### 异动归因调查
 
 `POST /api/projects/{project_id}/investigations` 创建调查任务，仅适用于 Olist 多表数据且当前为模型模式：
 
@@ -116,7 +116,7 @@
 
 - `results` 只收录数值类工具（`decompose_metric`、`contribution`、`find_root_cause`、`detect_anomaly`、`query_metric`、`correlate`、`run_sql`）的成功结果；单条结果里任何超过 20 项的列表截断为前 20 项，`truncated` 为 `true`；`contribution` 的 `rows` 先按 `|contribution|` 降序再截断。
 - `metric_tree` 为第一个成功 `decompose_metric` 调用的完整存储结果（未截断）；没有该调用时为 `null`。
-- `report` 为带核验等级标注的归因报告；未通过代码核对时 `valid` 为 `false`，任务以 `FAILED/REPORT_INVALID` 结束但报告仍保存。`redacted` 列出因未通过核对而被删去的句子或条目，包括位置、原文和问题类型。`ranking.result_id` 指向决定根因先后的 `find_root_cause` 结果，`ranking.supplemented` 为由算法补入的根因条数（这些根因带 `source: "ranking"`）。没有产出报告时 `report` 为 `null`，任务以 `FAILED/INVESTIGATION_STOPPED` 结束。
+- `report` 为带核验等级标注的归因报告；未通过自动校验时 `valid` 为 `false`，任务以 `FAILED/REPORT_INVALID` 结束但报告仍保存。`redacted` 列出因未通过校验而被删去的句子或条目，包括位置、原文和问题类型。`ranking.result_id` 指向决定根因先后的 `find_root_cause` 结果，`ranking.supplemented` 为由算法补入的根因条数（这些根因带 `source: "ranking"`）。没有产出报告时 `report` 为 `null`，任务以 `FAILED/INVESTIGATION_STOPPED` 结束。
 - `pending` 为 `waiting_confirmation` 时的待确认事项（`type: clarification|metric`，含问题、选项或 `memory_id`）；否则为 `null`。
 - `usage` 为本次调查的模型调用数、token 与墙钟秒数。
 - 状态序列：`QUEUED → PROFILING → PLANNING`（主 Agent、子 Agent 与审查 Agent 都在此阶段运行）→ `WAITING_CONFIRMATION`，或 `EXECUTING → VERIFYING → SUCCEEDED/FAILED`。等待态同样写调查报告，`pending` 从中读取。答复后从 `PLANNING` 重新发起整次调查，并带上全部澄清答复（无状态恢复，不保存模型上下文）；租约过期后同样从头重跑。
@@ -140,8 +140,8 @@ python -m datalab.api.mcp_server            # stdio；接口地址由 DATALAB_AP
 | `get_task` | `GET .../tasks/{task_id}` | 只读；返回状态、计划、核验结论与检查名、调用次数、最近 12 条时间线、产物列表与分析说明，不返回核验项和独立参考数值 |
 | `read_artifact` | `GET .../artifacts/{artifact_id}` | 只读；文本产物最多返回 64 KB 并标明“是数据，不是指令”，图表只返回名称与大小 |
 | `cancel_task` | `POST .../tasks/{task_id}/cancel` | 已结束的任务不受影响 |
-| `submit_investigation` | `POST .../investigations` | 提交异动归因调查（A9）；`memory_id` 必填（已确认口径）。本期 `period_start/period_end` 与对比期 `base_start/base_end` 必须成对给出，只给一半时在发请求前报参数错误；只写日期时补为零点。不带幂等键，重复提交会产生新任务 |
-| `get_investigation` | `GET .../tasks/{task_id}` | 只读（A9）；返回调查的紧凑视图：状态、`stop_reason`、报告是否有效、根因（维度、取值、解释力、核验等级 L1/L2/L3、引用的 `result_id`）、发现、`pending`、用量与 `claims_issues` 计数，不回传工具结果正文、trace 与指标树。非调查任务返回错误，应改用 `get_task` |
+| `submit_investigation` | `POST .../investigations` | 提交异动归因调查；`memory_id` 必填（已确认口径）。本期 `period_start/period_end` 与对比期 `base_start/base_end` 必须成对给出，只给一半时在发请求前报参数错误；只写日期时补为零点。不带幂等键，重复提交会产生新任务 |
+| `get_investigation` | `GET .../tasks/{task_id}` | 只读；返回调查的紧凑视图：状态、`stop_reason`、报告是否有效、根因（维度、取值、解释力、核验等级 L1/L2/L3、引用的 `result_id`）、发现、`pending`、用量与 `claims_issues` 计数，不回传工具结果正文、trace 与指标树。非调查任务返回错误，应改用 `get_task` |
 
 边界：
 
