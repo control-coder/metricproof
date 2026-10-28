@@ -143,7 +143,11 @@ A1 的语义层有两处小改动配合本轮：`tree.py` 的 Decomposition 增�
 
 工具层（`agents/tools.py`）使用 Function Calling：参数由服务端按 JSON Schema 校验，工具按 Agent 授权，模型只看到本 Agent 的工具，越权调用不会到达 handler。授权表：主 Agent 为元数据、`detect_anomaly`、`decompose_metric`、`query_metric`、`ask_user`、`propose_metric`、`search_memory`、`dispatch_subagent`、`finish`、`read_result`；子 Agent 为 `query_metric`、`contribution`、`find_root_cause`、`correlate`、`run_sql`、`read_result`、`finish`（`run_python` 的接线不在当前范围内）；审查 Agent 为 `verify_claims`、`read_result`。
 
-报告中的每个数字必须引用工具结果的 `result_id` 并标注核验等级：L1 由语义层与独立参考复算，L2 为 `run_sql` 的不变量、蜕变关系与汇总比对，L3 为未核验的文字。`agents/claims.py` 由代码逐条核对数字、引用与因果措辞，不通过则报告无效（`valid: false`），不由模型自我审批。
+报告中的每个数字必须引用工具结果的 `result_id` 并标注核验等级：L1 由语义层与独立参考复算，L2 为 `run_sql` 的不变量、蜕变关系与汇总比对，L3 为未核验的文字。`agents/claims.py` 由代码逐条核对数字、引用与因果措辞，不由模型自我审批：
+
+- 数字须能在所引结果中找到，或等于其中两个数之和、之差（由代码复算，计入 `derived_numbers`）；`r5` 这类缩写引用只在能唯一对应到一个 result_id 时才采纳。
+- 修订一次后仍不通过时，如果问题只出在摘要、发现或建议中，则删去这些句子或条目，逐条列在 `redacted`，其余部分再核对一次。根因有问题时不删，整份报告判为无效（`valid: false`）。
+- 根因的候选集由主 Agent 给出，先后顺序由服务端在这些维度上运行一次 `find_root_cause` 决定，比率型的 effect 也以算法结果为准。这次排序登记为一条 L1 工具结果，result_id 写在 `ranking` 中。
 
 调查作为任务类型接入既有任务表与 Celery worker（接口见《API》的「异动归因调查」），报告通过代码核对后写入情景记忆。每次调查有调用数、token 与墙钟时间预算。
 
