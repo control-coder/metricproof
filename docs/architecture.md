@@ -1,6 +1,6 @@
 # 架构与取舍
 
-OrderProof 是模块化单体：FastAPI 接口、Celery worker 与领域工作流在同一个 Python 包 `datalab` 中，按职责分模块，不拆微服务。PostgreSQL 是数据版本、业务记忆、任务状态与产物索引的唯一权威；Redis 只携带任务 ID；生成的分析代码只在专用的无网络 Docker 容器中执行。
+MetricProof（前身 OrderProof）是模块化单体：FastAPI 接口、Celery worker 与领域工作流在同一个 Python 包 `datalab` 中，按职责分模块，不拆微服务。PostgreSQL 是数据版本、业务记忆、任务状态与产物索引的唯一权威；Redis 只携带任务 ID；生成的分析代码只在专用的无网络 Docker 容器中执行。
 
 ```mermaid
 flowchart TB
@@ -32,9 +32,10 @@ flowchart TB
 | `datasets/` | 标准 CSV 模板与字段映射、Olist 多表导入、质量检查、数据版本与 schema 签名 |
 | `semantic/` | 语义层：指标定义、维度与粒度校验、SQL 编译、内存引擎、独立 Python 参考与指标树（A1） |
 | `attribution/` | 归因算法：异动检测、指标拆解、贡献度、根因定位、相关分析与 L1 核验（A2），全部确定性实现 |
+| `agents/` | 异动归因调查：Function Calling 工具层与按 Agent 授权、主 Agent（Plan-and-Solve）、子 Agent（ReAct）、审查 Agent（Reflection）、报告代码核对、cassette 录制回放（A4–A7） |
 | `orchestration/` | 任务状态机、有界修正、Celery worker、租约与补发 |
 | `roles/` | 三角色运行时与工具白名单、固定演示后端、OpenAI 兼容模型适配与提示 |
-| `memory/` | 业务记忆的范围、版本、确认、失效与冲突，PostgreSQL 实现 |
+| `memory/` | 业务记忆的范围、版本、确认、失效与冲突，PostgreSQL 实现；情景记忆（BM25 检索，不能升级为业务规则，A7） |
 | `execution/` | 六类固定分析、代码框架组装、Docker runner 与容器内收集器 |
 | `verification/` | 独立 SQL 参考复算与下载表比对；不依赖参考值的结果不变量、蜕变关系，以及第二份纯 Python 参考 |
 | `artifacts/` | 核验通过后的确定性图表与模板化说明 |
@@ -132,7 +133,23 @@ A1 的语义层有两处小改动配合本轮：`tree.py` 的 Decomposition 增�
 
 真实数据冒烟（一次性，数据不入库，导入临时目录用完删除）：导入八表约 10.3 秒；2017-11 vs 2017-10 的 gmv 检测为异动（环比 +40,785,395 分即 +53.3%，稳健 z 5.36），LMDI 拆解订单量贡献 +46,768,269 分、客单价贡献 −5,982,874 分（残差 0.001，在 1e-6·|总变化| 容差内）；item_gmv 按品类的贡献度 Top-3 为 bed_bath_table（+5,094,662 分）、health_beauty（+4,069,126 分）、furniture_decor（+4,014,444 分），不变量精确成立；find_root_cause(item_gmv, [product_category, customer_state, seller_state]) 的 Top-3 候选为 seller_state=RJ（EP 0.1455）、PR（EP 0.1293）、SP（EP 0.5874）。A1 引擎优化前的耗时：detect_anomaly 4.96 秒、decompose_metric 1.35 秒、contribution 0.38 秒、find_root_cause 26.1 秒（3 个维度、归因层对同一分组结果逐元素重复查询，共 236 次 query）。优化后实测：detect_anomaly 2.0–3.1 秒、find_root_cause 0.16–0.44 秒；verify_attribution(detect_anomaly) 3.4–5.6 秒、verify_attribution(find_root_cause) 2.2–3.5 秒。
 
-## 三角色与状态
+## 异动归因调查（A4–A7）
+
+调查在 Olist 数据上由三类 Agent 按编排者-工作者模式完成（`agents/investigation.py`）：
+
+- 主 Agent（Plan-and-Solve）：做异动检测与指标拆解，按维度组分派子 Agent，汇总报告；需要澄清口径时调用 `ask_user` 或 `propose_metric`，调查暂停并返回 `waiting_confirmation`，用户答复后无状态地重新发起。
+- 子 Agent（ReAct）：至多 3 个并行，各自独立上下文，负责一组维度，用 `contribution`、`find_root_cause`、`correlate`、`run_sql` 排查，只回传结构化发现。
+- 审查 Agent（Reflection）：只收到报告和代码核对结果，看不到生成过程，至多 3 步后给出 pass 或 revise；要求修订时主 Agent 修订一次，修订后不再送审。
+
+工具层（`agents/tools.py`）使用 Function Calling：参数由服务端按 JSON Schema 校验，工具按 Agent 授权，模型只看到本 Agent 的工具，越权调用不会到达 handler。授权表：主 Agent 为元数据、`detect_anomaly`、`decompose_metric`、`query_metric`、`ask_user`、`propose_metric`、`search_memory`、`dispatch_subagent`、`finish`、`read_result`；子 Agent 为 `query_metric`、`contribution`、`find_root_cause`、`correlate`、`run_sql`、`read_result`、`finish`（`run_python` 的接线不在当前范围内）；审查 Agent 为 `verify_claims`、`read_result`。
+
+报告中的每个数字必须引用工具结果的 `result_id` 并标注核验等级：L1 由语义层与独立参考复算，L2 为 `run_sql` 的不变量、蜕变关系与汇总比对，L3 为未核验的文字。`agents/claims.py` 由代码逐条核对数字、引用与因果措辞，不通过则报告无效（`valid: false`），不由模型自我审批。
+
+调查作为任务类型接入既有任务表与 Celery worker（接口见《API》的「异动归因调查」），报告通过代码核对后写入情景记忆。每次调查有调用数、token 与墙钟时间预算。
+
+## 固定分析：三角色与状态
+
+下面三个角色（Planner、Analyst、Reviewer）属于改造前的单表与 Olist 固定分析流水线，仍保留用于回归，与上面的调查流程相互独立。
 
 ### 上下文与权限
 
