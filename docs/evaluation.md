@@ -487,6 +487,16 @@ python -B evals/report.py artifacts/evals/heldout-single-vs-roles.json --markdow
 - 真实模型冒烟（`evals/clarify_smoke.py`，MiMo，7 道固定题，一次）：服务端不给指标与期间。5 道含糊题和 2 道需要新口径的题全部进入等待确认（7/7），共 16 次模型调用，单题 10–46 秒。需要新口径的 2 道题中，1 道调用了 `propose_metric`，另 1 道（按商品金额统计 GMV）先用 `ask_user` 澄清。两种做法都没有在未确认的口径上计算。结果文件：`artifacts/evals/a7-clarify.json`。
 - 局限：冒烟只覆盖「应当澄清」的题，没有测能直接回答的问题会不会被多余地澄清；不过服务端给出指标与期间时，首条消息与 A6 相同。
 
+## 自由查询 run_sql（A8，2026-10-28）
+
+做法见《架构》的「自由查询 run_sql」一节：sqlglot 白名单，DuckDB 1.5.6 预装在执行镜像 `datalab-executor:py312-v2`，L2 检查由不变量、行序置换、载入行数与可选的语义层汇总比对组成。本轮只做离线与本机 Docker 验证，没有调用模型。
+
+- 越权 SQL（`tests/datalab/test_sql_guard.py`，25 个测试）：计划验收的四类全部被拒绝。写操作与 DDL（INSERT、UPDATE、DELETE、CREATE、DROP、COPY、ATTACH、PRAGMA、SET、INSTALL、LOAD、CREATE MACRO、数据修改 CTE、SELECT INTO），未授权表（`information_schema.tables`、`sqlite_master`、未知表、`duckdb_tables()`、`read_csv('/etc/passwd')`、文件路径、`main.orders`），无 LIMIT（含集合运算与非字面量 LIMIT）、LIMIT 超过 200，多语句。另外拒绝读环境与元数据的函数，以及白名单外的列（含规范化时去掉的自由文本列）。连接、CTE、窗口函数、子查询、UNION ALL 可以通过，且投影列正确。
+- 沙箱纵深防御（`tests/datalab/test_sql_sandbox.py`，Docker 集成 5 个）：故意绕过白名单时，读 `/etc/passwd`、`COPY TO`、`SET enable_external_access=true` 与 `INSTALL httpfs` 在容器内都失败。可空时间的空串载入为 NULL，载入行数与宿主一致。
+- 工具接线与 L2（`tests/datalab/test_run_sql_tool.py`，26 个，其中 Docker 集成 3 个）：拒绝发生在进入沙箱之前；主 Agent 无权调用；引用通过检查的结果标 L2，与 L1 混合时取 L2，检查不通过为 L3。合成数据上按语义层口径写的 GMV 分州查询通过汇总比对；去掉状态过滤后列之和为 261156，语义层为 140469，汇总比对不通过。没有 ORDER BY 的 `LIMIT 3` 在行序置换后结果不同，L2 判为不通过，这是设计中的预期行为。
+- 真实数据：2018 年 3 月按卖家州汇总明细金额（三表连接），单次 run_sql 约 3 秒（含宿主投影、容器创建与清理），L2 通过。
+- 局限：自由 SQL 没有独立参考实现，不变量与置换检查不验证查询语义；只有模型给出 `reconcile` 时才与语义层比对。`run_python` 的 Agent 接线不在本轮范围内。`run_sql` 的工具 Schema 有变化，A5–A7 录制的 cassette 中子 Agent 的请求不再能回放。
+
 ## 提示注入的结构性检查
 
 `tests/datalab/test_prompt_injection.py` 不调用模型。它在订单的编号、渠道、品类，上传的数据语义家族和口径来源里埋入带指令的金丝雀串，跑完整工作流，包括核验失败后的反馈回路，然后断言这些串没有出现在任何一次角色调用的交接或 trace 里。脚本化的 Analyst 第一次故意写出以订单文本为键名的 `result.json`，用来走到“错误位置”回流这条路径。

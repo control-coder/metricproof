@@ -84,7 +84,7 @@ conda activate datalab
 python -m pip install --no-build-isolation -e .
 npm ci --prefix frontend
 npm run build --prefix frontend
-docker build -t datalab-executor:py312-v1 -f scripts/executor/Dockerfile .
+docker build -t datalab-executor:py312-v2 -f scripts/executor/Dockerfile .
 
 # 2. 启动本项目专用的 PostgreSQL/Redis（回环随机端口），然后启动应用
 python -B scripts/local_services.py start

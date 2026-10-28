@@ -183,7 +183,7 @@ stateDiagram-v2
 
 ## 受限执行
 
-可信宿主 runner 管理 Docker；生成代码只在专用镜像 `datalab-executor:py312-v1` 中执行，没有宿主执行降级。
+可信宿主 runner 管理 Docker；生成代码只在专用镜像 `datalab-executor:py312-v2` 中执行，没有宿主执行降级。
 
 - 挂载：只读挂载本次复制的规范化 CSV、分析代码与收集器；不挂载工作区、原始数据目录、Docker socket 或凭据。每次尝试使用新的 UUID 目录和随机容器名。
 - 隔离：非 root、默认 seccomp、丢弃全部 capabilities、禁止权限提升、无网络、只读根文件系统；CPU 1 核、内存 256 MB 且无额外 swap、32 个进程、文件描述符上限。只有 16 MB 的 `/output` tmpfs 可写。
@@ -198,6 +198,16 @@ stateDiagram-v2
 Olist 数据版本的容器输入由服务端按计划投影（`datasets/olist.needed`）：只给本类分析用到的表和列（例如复购率只有订单的编号、状态、下单时间、客户编号与客户的 customer_unique_id），所有行原样保留，不预先按状态、期间过滤或连接，这些都由被核验的代码完成；评价表不进入任何分析的输入。投影结果作为 `/input/<表名>.csv` 经 `DockerRunner.execute_python(..., input_files=...)` 写入同一只读挂载，容器参数与单表路径逐项相同（有离线测试对照）。单表数据版本不接受 `input_files`，多表数据版本必须提供；文件名只能是小写表名加 `.csv`，最多 8 个，合计不超过 32 MB。框架尾部（`analysis_frame.TAIL`）按计划的 `schema` 决定 `data`：单表仍是订单行列表；`olist` 是 `{表名: 行列表}`，值都是字符串。
 
 用真实数据（`scripts/verify_olist.py`）在生产限额（256 MB、1 核、30 秒）下测量只读入输入表的开销：每类代表性计划的输入 10.5–18.3 MB、20–31 万行，容器运行（含创建与清理）1.5–2.0 秒，进程峰值 RSS 85–132 MiB，cgroup `memory.peak` 90–137 MiB；宿主投影输入另需 0.8–1.3 秒。内存与时间限额不变。
+
+### 自由查询 run_sql（A8）
+
+子 Agent 在语义层工具表达不了时可以写 SQL。流程分三层：
+
+1. 宿主白名单（`execution/sql_guard.py`，sqlglot，DuckDB 方言）：只放行单条只读 SELECT（可含 WITH 与集合运算）；树中出现任何写操作、DDL、COPY、ATTACH、PRAGMA、SET、INSTALL/LOAD 或 SELECT INTO 节点即拒绝；表只能是 Olist 八张规范化表或查询内的 CTE，不能带库名前缀，不能是表函数或文件路径；读文件、环境与元数据的函数（`read_*`、`glob`、`getenv`、`duckdb_*` 等）拒绝；列经 sqlglot 的 qualify 逐个解析到白名单列；外层必须有 1–200 的整数字面量 LIMIT。校验同时得出每张表实际引用的列。
+2. 沙箱执行（`execution/sql_sandbox.py`）：宿主只投影这些列写入只读输入，容器里运行服务端生成的固定脚本，SQL 以 base64 载荷传入，不拼进源码。DuckDB 1.5.6 预装在执行镜像 `datalab-executor:py312-v2` 中，运行时不安装；连接后设单线程、160 MB 内存、`allowed_directories=['/input']`、关闭外部访问与扩展自动安装，再锁定配置。即使绕过白名单，读 `/etc/passwd`、`COPY TO`、改配置、`INSTALL` 在容器内也会失败（有集成测试）。容器参数与 `execute_python` 相同，经 `DockerRunner.execute_inputs` 运行。
+3. L2 检查（`verification/sql_result.py`）：不变量（列名唯一、列数一致、数值有限、行数不超过 LIMIT）；蜕变关系：同一容器内在按固定种子打乱行序的表上再执行一次，结果作为多重集合必须相同，没有确定排序的 LIMIT 查询会因此不通过；载入比对：沙箱载入的每表行数等于宿主投影行数；汇总比对：模型给出 `reconcile {metric, period, column}` 时，结果列之和须等于语义层该加法型指标在该期间的值。检查结论随结果存储，报告引用通过检查的 run_sql 结果时标 L2，不通过为 L3。
+
+自由 SQL 没有独立参考实现，L2 只是必要条件：不变量与置换检查不验证查询语义，只有汇总比对把结果与语义层对上。`run_python` 的 Agent 接线不在 A8 范围内，调用时返回「未接线」。
 
 ## 核验
 

@@ -17,10 +17,10 @@ conda activate datalab
 python -m pip install --no-build-isolation -e .
 npm ci --prefix frontend --no-audit --no-fund
 npm run build --prefix frontend
-docker build -t datalab-executor:py312-v1 -f scripts/executor/Dockerfile .
+docker build -t datalab-executor:py312-v2 -f scripts/executor/Dockerfile .
 ```
 
-PowerShell 执行策略阻止 `npm.ps1` 时，改用 `npm.cmd`。如果 Docker Hub 不可访问，可以只为这次构建显式指定一个经过核实的镜像源，例如 `--build-arg PYTHON_IMAGE=mirror.gcr.io/library/python:3.12.12-slim-bookworm`，不需要修改系统全局设置。执行镜像只在构建时安装依赖，运行时不联网。
+PowerShell 执行策略阻止 `npm.ps1` 时，改用 `npm.cmd`。如果 Docker Hub 不可访问，可以只为这次构建显式指定一个经过核实的镜像源，例如 `--build-arg PYTHON_IMAGE=mirror.gcr.io/library/python:3.12.12-slim-bookworm`，不需要修改系统全局设置。本机构建 py312-v2 时 Docker Hub 不可达，实际使用该镜像源。执行镜像只在构建时安装依赖（预装 DuckDB 供 run_sql 使用），运行时不联网。
 
 ## 启动本地演示
 
