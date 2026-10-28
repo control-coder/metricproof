@@ -468,7 +468,7 @@ def freeze(cases: list[dict], raw_cases: list[dict], folder: Path, log) -> None:
         case["split"] = "dev" if chosen else "test"
     import raw_questions
     metadata = json.loads((folder / "metadata.json").read_text(encoding="utf-8"))
-    frozen = {"meta": {"frozen_at": "2026-10-27", "revision": 2,
+    frozen = {"meta": {"frozen_at": "2026-10-27", "revision": 3,
                        "revision_history": [
                            {"revision": 1, "date": "2026-10-27",
                             "note": "首次冻结（先于 Agent 开发）"},
@@ -477,7 +477,12 @@ def freeze(cases: list[dict], raw_cases: list[dict], folder: Path, log) -> None:
                                     "「EP 最高」改为「变化显著（加法型 |环比|≥5%、比率型达指标阈值）且"
                                     "集中（0.3≤EP≤1.5）中取最显著者」；问题方向词全部由实际总变化方向"
                                     "生成；注入案例问题不再陈述方向并核对 gold.direction 与实际总变化"
-                                    "一致；gold.unit 取语义层指标单位"}],
+                                    "一致；gold.unit 取语义层指标单位"},
+                           {"revision": 3, "date": "2026-10-27",
+                            "note": "A2 算法修正后重算原始问题 gold（注入案例不变，其 gold 来自注入参数）："
+                                    "比率型组间组内拆解的结构项改为以总比率均值居中；find_root_cause 的维度"
+                                    "按候选集平均惊奇度排序、候选按解释力输出。原始问题 gold 由 A2 参考实现"
+                                    "定义，算法改动后必须重算；test 集未被任何 Agent 运行过"}],
                        "base_version": metadata["dataset_version"],
                        "source_sha256": metadata["profile"]["source_sha256"],
                        "snapshot": {"version": SNAPSHOT.version, "included_statuses": list(SNAPSHOT.included_statuses),

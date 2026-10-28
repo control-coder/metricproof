@@ -341,8 +341,8 @@ class FrozenQualityTests(unittest.TestCase):
 
     def test_revision_recorded(self):
         self.assertEqual(self.data["meta"]["frozen_at"], "2026-10-27")
-        self.assertEqual(self.data["meta"]["revision"], 2)
-        self.assertEqual(len(self.data["meta"]["revision_history"]), 2)
+        self.assertEqual(self.data["meta"]["revision"], 3)
+        self.assertEqual(len(self.data["meta"]["revision_history"]), 3)
 
     def test_question_direction_matches_gold(self):
         for case in self.data["cases"]:

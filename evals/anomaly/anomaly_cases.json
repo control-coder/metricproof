@@ -1,7 +1,7 @@
 {
   "meta": {
     "frozen_at": "2026-10-27",
-    "revision": 2,
+    "revision": 3,
     "revision_history": [
       {
         "revision": 1,
@@ -12,6 +12,11 @@
         "revision": 2,
         "date": "2026-10-27",
         "note": "复核发现构造缺陷并在任何 Agent 运行前修正：原始问题月份选择由「EP 最高」改为「变化显著（加法型 |环比|≥5%、比率型达指标阈值）且集中（0.3≤EP≤1.5）中取最显著者」；问题方向词全部由实际总变化方向生成；注入案例问题不再陈述方向并核对 gold.direction 与实际总变化一致；gold.unit 取语义层指标单位"
+      },
+      {
+        "revision": 3,
+        "date": "2026-10-27",
+        "note": "A2 算法修正后重算原始问题 gold（注入案例不变，其 gold 来自注入参数）：比率型组间组内拆解的结构项改为以总比率均值居中；find_root_cause 的维度按候选集平均惊奇度排序、候选按解释力输出。原始问题 gold 由 A2 参考实现定义，算法改动后必须重算；test 集未被任何 Agent 运行过"
       }
     ],
     "base_version": "0e3d3121-45a5-41f0-9ded-845f99e724ff",
@@ -1451,39 +1456,45 @@
       "split": "dev",
       "kind": "raw",
       "injection_type": "raw",
-      "question": "2018 年 1 月GMV环比上升，主要是哪些地区的变化？",
+      "question": "2017 年 11 月GMV环比上升，主要是哪些地区的变化？",
       "metric": "gmv",
       "period": {
-        "start": "2018-01-01T00:00:00",
-        "end": "2018-02-01T00:00:00"
+        "start": "2017-11-01T00:00:00",
+        "end": "2017-12-01T00:00:00"
       },
       "base_period": {
-        "start": "2017-12-01T00:00:00",
-        "end": "2018-01-01T00:00:00"
+        "start": "2017-10-01T00:00:00",
+        "end": "2017-11-01T00:00:00"
       },
       "gold": {
         "dimensions": [
           {
             "dimension": "customer_state",
             "value": "SP",
-            "explanatory_power": "0.440458",
-            "surprise": 0.000156
+            "explanatory_power": "0.367810",
+            "surprise": 9e-05
+          },
+          {
+            "dimension": "customer_state",
+            "value": "RJ",
+            "explanatory_power": "0.154393",
+            "surprise": 1.2e-05
           },
           {
             "dimension": "customer_state",
             "value": "MG",
-            "explanatory_power": "0.108380",
-            "surprise": 2.7e-05
+            "explanatory_power": "0.149802",
+            "surprise": 0.000171
           }
         ],
         "direction": "up",
-        "magnitude": "10602926",
+        "magnitude": "15001283",
         "unit": "cents",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "24072495",
-        "change_rate": 0.279291,
-        "month": "2018-01",
-        "top_ep": 0.440458
+        "total_change": "40785395",
+        "change_rate": 0.533292,
+        "month": "2017-11",
+        "top_ep": 0.36781
       }
     },
     {
@@ -1551,9 +1562,9 @@
           },
           {
             "dimension": "product_category",
-            "value": "baby",
-            "explanatory_power": "0.113334",
-            "surprise": 0.001698
+            "value": "toys",
+            "explanatory_power": "0.127087",
+            "surprise": 0.00091
           }
         ],
         "direction": "up",
@@ -1591,15 +1602,15 @@
           },
           {
             "dimension": "product_category",
-            "value": "furniture_decor",
-            "explanatory_power": "0.160542",
-            "surprise": 0.000767
-          },
-          {
-            "dimension": "product_category",
             "value": "health_beauty",
             "explanatory_power": "0.191401",
             "surprise": 0.000759
+          },
+          {
+            "dimension": "product_category",
+            "value": "furniture_decor",
+            "explanatory_power": "0.160542",
+            "surprise": 0.000767
           }
         ],
         "direction": "up",
@@ -1617,45 +1628,39 @@
       "split": "test",
       "kind": "raw",
       "injection_type": "raw",
-      "question": "2018 年 3 月送达延迟率环比上升，主要是哪些州的变化？",
+      "question": "2018 年 2 月送达延迟率环比上升，主要是哪些州的变化？",
       "metric": "late_delivery_rate",
       "period": {
-        "start": "2018-03-01T00:00:00",
-        "end": "2018-04-01T00:00:00"
-      },
-      "base_period": {
         "start": "2018-02-01T00:00:00",
         "end": "2018-03-01T00:00:00"
+      },
+      "base_period": {
+        "start": "2018-01-01T00:00:00",
+        "end": "2018-02-01T00:00:00"
       },
       "gold": {
         "dimensions": [
           {
             "dimension": "customer_state",
-            "value": "MG",
-            "explanatory_power": "0.308489",
-            "surprise": 0.009158
-          },
-          {
-            "dimension": "customer_state",
-            "value": "ES",
-            "explanatory_power": "0.105605",
-            "surprise": 0.004227
+            "value": "RJ",
+            "explanatory_power": "0.338707",
+            "surprise": 0.002262
           },
           {
             "dimension": "customer_state",
             "value": "SP",
-            "explanatory_power": "0.217912",
-            "surprise": 0.00032
+            "explanatory_power": "0.200933",
+            "surprise": 0.002393
           }
         ],
         "direction": "up",
-        "magnitude": "0.014921",
+        "magnitude": "0.028538",
         "unit": "ratio",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "0.048367",
-        "change_rate": 0.342382,
-        "month": "2018-03",
-        "top_ep": 0.308489
+        "total_change": "0.084257",
+        "change_rate": 1.47796,
+        "month": "2018-02",
+        "top_ep": 0.338707
       }
     },
     {
@@ -1663,33 +1668,45 @@
       "split": "test",
       "kind": "raw",
       "injection_type": "raw",
-      "question": "2018 年 1 月送达延迟率环比改善，主要是哪些州的变化？",
+      "question": "2018 年 6 月送达延迟率环比改善，主要是哪些州的变化？",
       "metric": "late_delivery_rate",
       "period": {
-        "start": "2018-01-01T00:00:00",
-        "end": "2018-02-01T00:00:00"
+        "start": "2018-06-01T00:00:00",
+        "end": "2018-07-01T00:00:00"
       },
       "base_period": {
-        "start": "2017-12-01T00:00:00",
-        "end": "2018-01-01T00:00:00"
+        "start": "2018-05-01T00:00:00",
+        "end": "2018-06-01T00:00:00"
       },
       "gold": {
         "dimensions": [
           {
             "dimension": "customer_state",
+            "value": "SP",
+            "explanatory_power": "0.300789",
+            "surprise": 0.00069
+          },
+          {
+            "dimension": "customer_state",
+            "value": "MG",
+            "explanatory_power": "0.190504",
+            "surprise": 0.069248
+          },
+          {
+            "dimension": "customer_state",
             "value": "RJ",
-            "explanatory_power": "0.955806",
-            "surprise": 0.018624
+            "explanatory_power": "0.122808",
+            "surprise": 5.2e-05
           }
         ],
         "direction": "down",
-        "magnitude": "-0.016766",
+        "magnitude": "-0.016240",
         "unit": "ratio",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "-0.017542",
-        "change_rate": -0.235302,
-        "month": "2018-01",
-        "top_ep": 0.955806
+        "total_change": "-0.053992",
+        "change_rate": -0.82256,
+        "month": "2018-06",
+        "top_ep": 0.300789
       }
     },
     {
@@ -1712,18 +1729,18 @@
           {
             "dimension": "payment_type",
             "value": "credit_card",
-            "explanatory_power": "1.004142",
+            "explanatory_power": "0.909919",
             "surprise": 0.000135
           }
         ],
         "direction": "up",
-        "magnitude": "1475.152966",
+        "magnitude": "1336.733654",
         "unit": "cents",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
         "total_change": "1469.068384",
         "change_rate": 0.094791,
         "month": "2017-09",
-        "top_ep": 1.004142
+        "top_ep": 0.909919
       }
     },
     {
@@ -1746,24 +1763,24 @@
           {
             "dimension": "payment_type",
             "value": "boleto",
-            "explanatory_power": "0.787881",
+            "explanatory_power": "0.535412",
             "surprise": 0.003476
           },
           {
             "dimension": "payment_type",
             "value": "credit_card",
-            "explanatory_power": "0.239111",
+            "explanatory_power": "0.441203",
             "surprise": 0.000559
           }
         ],
         "direction": "down",
-        "magnitude": "-912.289905",
+        "magnitude": "-619.954810",
         "unit": "cents",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
         "total_change": "-1157.902472",
         "change_rate": -0.069404,
         "month": "2018-08",
-        "top_ep": 0.787881
+        "top_ep": 0.535412
       }
     },
     {
@@ -1771,45 +1788,39 @@
       "split": "test",
       "kind": "raw",
       "injection_type": "raw",
-      "question": "2018 年 2 月差评率环比上升，主要是哪些州的变化？",
+      "question": "2017 年 11 月差评率环比上升，主要是哪些州的变化？",
       "metric": "bad_review_rate",
       "period": {
-        "start": "2018-02-01T00:00:00",
-        "end": "2018-03-01T00:00:00"
+        "start": "2017-11-01T00:00:00",
+        "end": "2017-12-01T00:00:00"
       },
       "base_period": {
-        "start": "2018-01-01T00:00:00",
-        "end": "2018-02-01T00:00:00"
+        "start": "2017-10-01T00:00:00",
+        "end": "2017-11-01T00:00:00"
       },
       "gold": {
         "dimensions": [
           {
             "dimension": "customer_state",
             "value": "RJ",
-            "explanatory_power": "0.448870",
-            "surprise": 0.005139
+            "explanatory_power": "0.322373",
+            "surprise": 0.002816
           },
           {
             "dimension": "customer_state",
             "value": "SP",
-            "explanatory_power": "0.118320",
-            "surprise": 0.003056
-          },
-          {
-            "dimension": "customer_state",
-            "value": "MG",
-            "explanatory_power": "0.103140",
-            "surprise": 2.2e-05
+            "explanatory_power": "0.132178",
+            "surprise": 0.003167
           }
         ],
         "direction": "up",
-        "magnitude": "0.022940",
+        "magnitude": "0.018698",
         "unit": "ratio",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
-        "total_change": "0.051106",
-        "change_rate": 0.334992,
-        "month": "2018-02",
-        "top_ep": 0.44887
+        "total_change": "0.058002",
+        "change_rate": 0.471741,
+        "month": "2017-11",
+        "top_ep": 0.322373
       }
     },
     {
@@ -1831,25 +1842,31 @@
         "dimensions": [
           {
             "dimension": "seller_state",
+            "value": "SP",
+            "explanatory_power": "0.556933",
+            "surprise": 0.000926
+          },
+          {
+            "dimension": "seller_state",
             "value": "MG",
-            "explanatory_power": "0.419709",
+            "explanatory_power": "0.289892",
             "surprise": 0.000933
           },
           {
             "dimension": "seller_state",
-            "value": "SP",
-            "explanatory_power": "1.139097",
-            "surprise": 0.000926
+            "value": "RJ",
+            "explanatory_power": "0.211534",
+            "surprise": 0.003833
           }
         ],
         "direction": "up",
-        "magnitude": "0.003517",
+        "magnitude": "0.004667",
         "unit": "ratio",
         "note": "gold 由 A2 的 ReferenceSource + find_root_cause 在原始数据上计算（Top 候选）",
         "total_change": "0.008380",
         "change_rate": 0.065397,
         "month": "2017-05",
-        "top_ep": 0.419709
+        "top_ep": 0.556933
       }
     }
   ]
