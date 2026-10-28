@@ -55,6 +55,7 @@ STOP_HINT_THRESHOLD = 0.8
 WAITING_TOOLS = ('ask_user', 'propose_metric')
 REVISION_MAX_STEPS = 2
 REVIEWER_MAX_STEPS = 3
+SUPPLEMENT = 3  # 根因排序时，算法前 3 个候选中 Agent 漏报的组间效应项并入报告
 
 REPORT_ID = re.compile(r"r\d+-[a-z_]+")
 
@@ -736,7 +737,8 @@ class Investigation:
 
     def _rank_root_causes(self, report: dict, metric: str, period: dict, base_period: dict) -> dict:
         """根因排序交给确定性算法：在报告根因涉及的维度上跑一次 find_root_cause，按其候选顺序重排，
-        比率型的 effect 以算法结果为准。候选集仍由 Agent 给出，算法只决定先后。
+        比率型的 effect 以算法结果为准。维度由 Agent 报告的根因决定，算法决定先后，并补上算法前
+        SUPPLEMENT 个候选中 Agent 漏报的组间效应项。
 
         A10 test 中模型常把占比大、随总量同比例变化的维度值（如 customer_type=new、seller_state=SP）
         排在第一；离线按本方法重排同一批报告，注入案例 AC@1 由 6/23 升至 11/23，AC@3 不变。
@@ -752,11 +754,24 @@ class Investigation:
             result = self.toolset.rank_candidates(metric, dimensions, period, base_period)
         except Exception as error:
             return {**report, 'ranking': {'method': 'find_root_cause', 'error': type(error).__name__}}
+        # 参数与 rank_candidates 的调用一致（含 top），verify_results 可按原参数独立复算。
         result_id = self.toolset.registry.store.add(
             'find_root_cause', {'metric': metric, 'dimensions': dimensions, 'period': period,
-                                'base_period': base_period, 'purpose': 'rank_root_causes'}, 'L1', result)
+                                'base_period': base_period, 'top': len(dimensions)}, 'L1', result)
+        candidates = result.get('candidates') or []
         order = {(item['dimension'], str(item['value'])): (index, item.get('effect'))
-                 for index, item in enumerate(result.get('candidates') or [])}
+                 for index, item in enumerate(candidates)}
+        present = {(item.get('dimension'), str(item.get('value'))) for item in items if isinstance(item, dict)}
+        # 补全：比率型指标中，算法前 SUPPLEMENT 个候选里以组间（结构）效应为主、而 Agent 漏报的项
+        # 按算法位置并入，标 source=ranking，引用这次排序结果；维度仍只来自 Agent 报告的根因。
+        # 结构效应常被同维度的组内波动掩盖，模型容易漏报。离线重评 A10 的 40 份报告时，不限效应
+        # 类型的补入在加法型指标上挤掉了 3 个原命中项（净 AC@3 −1），因此只补 between 项。
+        items = list(items) + [
+            {'dimension': item['dimension'], 'value': item['value'],
+             'explanatory_power': item['explanatory_power'], 'effect': 'between',
+             'result_ids': [result_id], 'source': 'ranking'}
+            for item in candidates[:SUPPLEMENT]
+            if item.get('effect') == 'between' and (item['dimension'], str(item['value'])) not in present]
         ranked = []
         for position, item in enumerate(items):
             key = (item.get('dimension'), str(item.get('value'))) if isinstance(item, dict) else None
@@ -774,8 +789,9 @@ class Investigation:
             if key not in seen:  # 主 Agent 偶尔把同一维度值写两次（不同分支各报一次），只保留排在前面的一条
                 seen.add(key)
                 unique.append(item)
+        supplemented = sum(1 for item in unique if isinstance(item, dict) and item.get('source') == 'ranking')
         return {**report, 'root_causes': unique,
-                'ranking': {'method': 'find_root_cause', 'result_id': result_id}}
+                'ranking': {'method': 'find_root_cause', 'result_id': result_id, 'supplemented': supplemented}}
 
     def _degraded_report(self) -> dict:
         """预算耗尽/步数用尽/提前停止时的降级报告：用已有子 Agent 发现拼最小报告并标注。"""

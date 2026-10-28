@@ -296,11 +296,45 @@ class RankRootCausesTests(unittest.TestCase):
         items.insert(0, {'dimension': 'customer_state', 'value': 'ZZ', 'result_ids': ['r1-x']})
         items.append(dict(items[-1]))  # 重复的维度值只保留一条
         ranked = investigation._rank_root_causes({'summary': 's', 'root_causes': items}, 'order_count', P, B)
-        self.assertEqual([(item['dimension'], item['value']) for item in ranked['root_causes']],
+        self.assertEqual([(item['dimension'], item['value']) for item in ranked['root_causes']
+                          if item.get('source') != 'ranking'],
                          [(item['dimension'], item['value']) for item in expected[:2]]
                          + [('customer_state', 'ZZ')])
-        entry = investigation.toolset.registry.store.get(ranked['ranking']['result_id'])
+        # 加法型指标没有组间效应，不补入；排序结果可按登记参数独立复算通过。
+        result_id = ranked['ranking']['result_id']
+        self.assertEqual(ranked['ranking']['supplemented'], 0)
+        entry = investigation.toolset.registry.store.get(result_id)
         self.assertEqual(entry['tool'], 'find_root_cause')
+        self.assertTrue(investigation.toolset.verify_results([result_id])[result_id]['passed'])
+
+    def test_ratio_metric_supplements_missing_between_candidates(self):
+        from datalab.agents.investigation import SUPPLEMENT, Investigation
+
+        folder = make_folder(self)
+        client = ChatClient(profile(), transport=httpx.MockTransport(ScriptModel()))
+        investigation = Investigation('x', folder, SNAPSHOT, client, parallel=False, budget=None, profile=None)
+        self.addCleanup(investigation.close)
+        dimensions = ['payment_type', 'customer_state']
+        candidates = investigation.toolset.rank_candidates('aov', dimensions, P, B)['candidates']
+        between = [c for c in candidates[:SUPPLEMENT] if c.get('effect') == 'between']
+        self.assertTrue(between, candidates)
+        # Agent 报了该维度的另一个取值、漏报了这个 between 候选：它应被补入。
+        target = between[0]
+        groups = [row['group'] for row in investigation.toolset.engine.query(
+            'aov', (P['start'], P['end']), group_by=target['dimension'])['rows']]
+        other = next(group for group in groups if group != target['value'])
+        items = [{'dimension': target['dimension'], 'value': other, 'result_ids': ['r1-x']},
+                 {'dimension': 'customer_state', 'value': 'ZZ', 'result_ids': ['r1-x']}]
+        reported = {(item['dimension'], item['value']) for item in items}
+        expected = [(c['dimension'], c['value']) for c in between if (c['dimension'], c['value']) not in reported]
+        self.assertIn((target['dimension'], target['value']), expected)
+        ranked = investigation._rank_root_causes({'summary': 's', 'root_causes': items}, 'aov', P, B)
+        added = [(item['dimension'], item['value']) for item in ranked['root_causes']
+                 if item.get('source') == 'ranking']
+        self.assertEqual(sorted(added), sorted(expected))
+        self.assertTrue(all(item['effect'] == 'between' for item in ranked['root_causes']
+                            if item.get('source') == 'ranking'))
+        self.assertEqual(ranked['ranking']['supplemented'], len(added))
 
 
 class SubagentHintTests(unittest.TestCase):
