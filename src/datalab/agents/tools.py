@@ -497,6 +497,9 @@ class ToolRegistry:
             return {'result_id': result_id, 'tool': entry['tool'], 'offset': offset, 'limit': limit,
                     'row_count': len(rows), 'rows': window,
                     'has_more': offset + limit < len(rows), 'level': entry['level']}
+        spec = self._specs.get(entry['tool'])
+        if spec is not None and spec.view is not None:
+            result = spec.view(result)  # 非行列表结果（如 find_root_cause）也用模型视图，避免整份大结果
         return {'result_id': result_id, 'tool': entry['tool'], 'level': entry['level'], 'result': result}
 
 

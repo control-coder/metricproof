@@ -49,15 +49,19 @@ class ScriptModel:
     加延迟（用于并行/串行时延对照；子 Agent 用 sub_delay）。
     """
 
-    def __init__(self, lead_steps=None, sub_steps=None, sub_delay=0.0):
+    def __init__(self, lead_steps=None, sub_steps=None, sub_delay=0.0, review_content=None):
         self.lead_steps = list(lead_steps or [])
         self.sub_steps = list(sub_steps or [])
         self.sub_delay = sub_delay
+        self.review_content = review_content or json.dumps({'verdict': 'pass', 'issues': []})
         self.requests = []  # (身份, body)
 
     def __call__(self, request):
         body = json.loads(request.content)
         system = body['messages'][0]['content']
+        if '你是 MetricProof 的审查 Agent' in system:
+            self.requests.append(('reviewer', body))
+            return _response([], content=self.review_content)
         # 子 Agent 系统提示里也会提到「主 Agent」，用开头身份句区分。
         is_lead = '你是 MetricProof 的主 Agent' in system
         self.requests.append(('lead' if is_lead else 'sub', body))
@@ -137,7 +141,7 @@ class BasicInvestigationTests(unittest.TestCase):
         self.assertEqual(findings['dimension'], 'customer_type')
         # 发现回填：主 Agent 第三次请求的最后一条消息是 dispatch 的 tool 结果，内容即子 Agent 发现。
         lead_bodies = [body for role, body in model.requests if role == 'lead']
-        self.assertIn('top_contributors', json.dumps(lead_bodies[-1]['messages'][-1], ensure_ascii=False))
+        self.assertIn('top_contributors', json.dumps(lead_bodies[2]['messages'][-1], ensure_ascii=False))
         # 报告结构与核验等级
         report = result.report
         self.assertEqual(report['root_causes'][0]['dimension'], 'customer_type')
@@ -168,6 +172,40 @@ class BasicInvestigationTests(unittest.TestCase):
                                                 for call in (m.get('tool_calls') or [])])
             self.assertNotIn('subagent_summaries', text)
             self.assertNotIn('decompose_metric 的观察', text)
+
+
+class ReviewTests(unittest.TestCase):
+    def test_bad_report_revised_once_and_marked_invalid(self):
+        # 主 Agent 的报告把 customer_type=new 绑到 decompose_metric 结果上（取值与数字都对不上）：
+        # 代码核对发现问题 → 修订一次（脚本重复同一 finish）→ 不再送审，最终判为无效。
+        folder = make_folder(self)
+        model = ScriptModel(lead_script_basic(), sub_script_contribution())
+        result = run('2017 年 5 月订单量环比变化？', folder, model)
+        review = result.report['review']
+        self.assertEqual(review['verdict'], 'pass')
+        self.assertIn('value_not_found', [item['issue'] for item in review['code_issues_before']])
+        self.assertTrue(review['revised'])
+        self.assertFalse(result.report['valid'])
+        self.assertEqual(sum(1 for role, _ in model.requests if role == 'reviewer'), 1)
+        # 审查 Agent 只看报告与代码核对结果，看不到主 Agent 与子 Agent 的工具调用历史。
+        reviewer_body = next(body for role, body in model.requests if role == 'reviewer')
+        self.assertEqual([m['role'] for m in reviewer_body['messages']], ['system', 'user'])
+        self.assertEqual({tool['function']['name'] for tool in reviewer_body['tools']},
+                         {'verify_claims', 'read_result'})
+
+    def test_good_report_passes_without_revision(self):
+        # 报告只引用子 Agent 分支（dispatch 展开为其 contribution 结果），取值与数字一致。
+        def good_finish():
+            return json.dumps({'summary': '订单量变化集中在新客（r3-dispatch_subagent）。',
+                               'root_causes': [{'dimension': 'customer_type', 'value': 'new',
+                                                'result_ids': ['r3-dispatch_subagent']}],
+                               'findings': [], 'recommendations': []}, ensure_ascii=False)
+        lead_steps = lead_script_basic()[:2] + [[tool_call('finish', {'report': good_finish()})]]
+        model = ScriptModel(lead_steps, sub_script_contribution())
+        result = run('2017 年 5 月订单量环比变化？', make_folder(self), model)
+        self.assertTrue(result.report['valid'], result.report['claims_check'])
+        self.assertFalse(result.report['review']['revised'])
+        self.assertEqual(result.report['root_causes'][0]['verification'], 'L1')
 
 
 class ReplannAndLimitTests(unittest.TestCase):

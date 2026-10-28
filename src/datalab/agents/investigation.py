@@ -38,7 +38,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from datalab.agents import lead, subagent
+from datalab.agents import lead, reviewer, subagent
+from datalab.agents.claims import CAUSAL_WORDS, ClaimChecker, review_view
 from datalab.agents.loop import BOUNDARY
 from datalab.agents.toolset import InvestigationToolset
 from datalab.semantic.snapshot import SemanticSnapshot
@@ -51,8 +52,10 @@ COMPACT_CHARS = 60_000
 KEEP_OBSERVATIONS = 6
 STOP_HINT_THRESHOLD = 0.8
 
+REVISION_MAX_STEPS = 2
+REVIEWER_MAX_STEPS = 3
+
 REPORT_ID = re.compile(r"r\d+-[a-z_]+")
-CAUSAL_WORDS = ("导致", "因为", "由于", "使得")
 
 
 class BudgetExceeded(Exception):
@@ -102,6 +105,7 @@ class BranchResult:
     report: str | None
     steps: int
     stop_reason: str
+    result_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -287,6 +291,7 @@ def run_subagent(investigation: 'Investigation', branch: dict, index: int) -> Br
     stop_reason = 'max_steps'
     steps = 0
     last_results: list[str] = []
+    produced: list[str] = []
     for step in range(1, SUBAGENT_MAX_STEPS + 1):
         steps = step
         try:
@@ -309,6 +314,8 @@ def run_subagent(investigation: 'Investigation', branch: dict, index: int) -> Br
             _trace(investigation, agent_id, 'tool_call', tool=call.get('name'),
                    result_id=observation.result_id, outcome='ok' if observation.ok else 'error')
             stopped = guard.check(call, observation)
+            if observation.ok and observation.result_id and call.get('name') not in ('finish', 'read_result'):
+                produced.append(observation.result_id)
             if observation.ok and call.get('name') in ('contribution', 'find_root_cause'):
                 last_results.append(observation.result_id)
             if not stopped and observation.ok and observation.result_id \
@@ -340,7 +347,46 @@ def run_subagent(investigation: 'Investigation', branch: dict, index: int) -> Br
         # 子 Agent 没有正常 finish（步数、预算、重复动作）：用它最后一次归因结果的前几项兜底，
         # 标注 fallback，主 Agent 仍能拿到可引用 result_id 的发现。
         findings = _fallback_findings(registry.store.get(last_results[-1]))
-    return BranchResult(branch, findings, report, steps, stop_reason)
+    # dispatch 引用的展开范围：优先取发现里引用到的本分支结果，没有引用时取本分支全部结果。
+    cited = [item for item in REPORT_ID.findall(json.dumps(findings or {}, ensure_ascii=False))
+             if item in produced]
+    return BranchResult(branch, findings, report, steps, stop_reason,
+                        list(dict.fromkeys(cited)) or produced)
+
+
+def run_reviewer(investigation: 'Investigation', report: dict, code_check: dict) -> dict:
+    """审查 Agent（Reflection）：只看报告与代码核对结果（不看生成过程），可调 verify_claims 与
+    read_result；最后直接回复 JSON 裁决。返回 {verdict: pass|revise|none, issues, steps}。
+
+    没有给出可解析裁决（步数、预算、模型错误）时 verdict 为 none，不触发修订，只由代码核对决定。
+    """
+    registry = investigation.toolset.registry
+    history = [{'role': 'system', 'content': reviewer.SYSTEM + '\n' + BOUNDARY},
+               {'role': 'user', 'content': reviewer.opening_message(review_view(report), code_check)}]
+    tools = registry.schemas('reviewer')
+    steps = 0
+    for step in range(1, REVIEWER_MAX_STEPS + 1):
+        steps = step
+        if step == REVIEWER_MAX_STEPS:
+            history.append({'role': 'user', 'content': '请立即直接回复裁决 JSON，不要再调用工具。'})
+        try:
+            reply = _request_model(investigation, 'reviewer', history, tools,
+                                   thinking=investigation.subagent_thinking, max_tokens=4096)
+        except Exception as error:
+            return {'verdict': 'none', 'issues': [], 'steps': steps, 'error': type(error).__name__}
+        history.append(_assistant_message(reply))
+        if not reply.tool_calls:
+            parsed = reviewer.parse_verdict(reply.content)
+            if parsed is None:
+                return {'verdict': 'none', 'issues': [], 'steps': steps, 'error': 'unparsable'}
+            return {**parsed, 'steps': steps}
+        for call in reply.tool_calls:
+            observation = registry.call('reviewer', call)
+            _trace(investigation, 'reviewer', 'tool_call', tool=call.get('name'),
+                   result_id=observation.result_id, outcome='ok' if observation.ok else 'error')
+            history.append({'role': 'tool', 'tool_call_id': call['id'], 'name': call['name'],
+                            'content': json.dumps(observation.message(), ensure_ascii=False)})
+    return {'verdict': 'none', 'issues': [], 'steps': steps, 'error': 'max_steps'}
 
 
 def _fallback_findings(entry: dict | None) -> dict | None:
@@ -389,7 +435,8 @@ class Investigation:
 
     def __init__(self, question: str, folder: Path, snapshot: SemanticSnapshot, client, *,
                  parallel: bool, budget: InvestigationBudget | None, profile: dict | None,
-                 toolset: InvestigationToolset | None = None, subagent_thinking: bool | None = False):
+                 toolset: InvestigationToolset | None = None, subagent_thinking: bool | None = False,
+                 review: bool = True):
         self.question = question
         # 子 Agent 只按固定套路调用归因工具，默认关闭思考（MiMo thinking.disabled）以压低时延；
         # 主 Agent 负责计划与汇总，保留供应商默认的思考模式。
@@ -404,6 +451,9 @@ class Investigation:
         self.catalog_view = {'metrics': [{'name': name} for name in self.toolset.catalog['metrics']],
                              'dimensions': [{'name': name} for name in self.toolset.catalog['dimensions']]}
         self.branches: list[BranchResult] = []
+        # dispatch_subagent 的 result_id → 该分支子 Agent 的工具结果（报告核对与核验等级用）。
+        self.branch_results: dict[str, list[str]] = {}
+        self.review = review
         self.base_period: dict | None = None
         self._branch_index = 0
         self._branch_lock = threading.Lock()
@@ -420,16 +470,50 @@ class Investigation:
                        self.question, metric=metric, period=period, base_period=base_period,
                        dimensions_hint=dimensions_hint)}]
         tools = registry.schemas('lead')
-        guard = _DuplicateGuard()
-        dispatch_rounds = 0
+        self._guard = _DuplicateGuard()
+        self._dispatch_rounds = 0
+        self._lead_steps = 0
+        report, stop_reason = self._lead_loop(history, tools, LEAD_MAX_STEPS, nudge=True)
+        if report is None and self.branches:
+            report = self._degraded_report()
+            if stop_reason in ('budget', 'max_steps', 'no_tool_calls', 'repeated_action'):
+                stop_reason = f'{stop_reason}_degraded'
+        checker = ClaimChecker(registry.store, self.branch_results)
+        review = None
+        if self.review and report is not None and not report.get('degraded'):
+            report, stop_reason, review = self._review_and_revise(report, stop_reason, history, tools, checker)
+        claims_check = checker.check_report(report) if report is not None else None
+        referenced = [real for result_id in _report_ids(report) for real in checker.expand(result_id)]
+        verification = self.toolset.verify_results(list(dict.fromkeys(referenced)))
+        graded = self._grade(report, verification, checker)
+        if graded is not None:
+            graded['claims_check'] = claims_check
+            # 计划第四节：报告数字与引用结果不一致（或缺引用、因果断言）即判为输出无效。
+            graded['valid'] = bool(claims_check and claims_check['passed'])
+            if review is not None:
+                graded['review'] = review
+        seconds = round(time.perf_counter() - started, 3)
+        stats = registry.stats()
+        tool_stats = {'total': stats.total, 'accuracy': round(stats.accuracy, 6),
+                      'denied': stats.denied, 'duplicate': stats.duplicate,
+                      'duplicate_ratio': round(stats.duplicate_ratio, 6)}
+        return InvestigationResult(
+            self.question, graded, stop_reason, self.parallel,
+            {'lead': self._lead_steps, 'subagents': [branch.steps for branch in self.branches],
+             'reviewer': (review or {}).get('steps', 0)},
+            self.budget.calls, self.budget.tokens, seconds, tool_stats, verification,
+            trace=list(self.trace), branches=self.branches)
+
+    def _lead_loop(self, history: list, tools: list, max_steps: int, *, nudge: bool) -> tuple[dict | None, str]:
+        """主 Agent 循环，直到 finish、无工具调用、停止条件或步数用尽；返回 (报告, 停止原因)。"""
+        registry = self.toolset.registry
         report = None
         stop_reason = 'running'
-        steps = 0
-        nudged = False
-        for step in range(1, LEAD_MAX_STEPS + 1):
-            steps = step
-            history = _compact(history)
-            if not nudged and self.branches and (step >= LEAD_MAX_STEPS - 1 or self.budget.remaining_calls() <= 3
+        nudged = not nudge
+        for step in range(1, max_steps + 1):
+            self._lead_steps += 1
+            history[:] = _compact(history)
+            if not nudged and self.branches and (step >= max_steps - 1 or self.budget.remaining_calls() <= 3
                                                  or self.budget.remaining_time() < 120):
                 # 步数或预算将尽：要求主 Agent 立即用已有发现 finish，避免整份调查没有报告。
                 history.append({'role': 'user', 'content': '步数或预算即将用尽：请立即用已有的子 Agent 发现调用 finish。'})
@@ -453,7 +537,7 @@ class Investigation:
                 observation = registry.call('lead', call)
                 _trace(self, 'lead', 'tool_call', tool=call.get('name'),
                        result_id=observation.result_id, outcome='ok' if observation.ok else 'error')
-                if guard.check(call, observation):
+                if self._guard.check(call, observation):
                     stop_reason = 'repeated_action'
                 if call.get('name') == 'dispatch_subagent':
                     dispatches.append((call, observation))
@@ -462,8 +546,8 @@ class Investigation:
             # 只有至少一个分支规格合法的批次才计数（参数错误的批次不占重规划名额）。
             accepted = [(call, observation) for call, observation in dispatches if observation.ok]
             if accepted and stop_reason == 'running':
-                dispatch_rounds += 1
-                if dispatch_rounds > MAX_DISPATCH_ROUNDS:
+                self._dispatch_rounds += 1
+                if self._dispatch_rounds > MAX_DISPATCH_ROUNDS:
                     for call, observation in accepted:
                         _observation_note(
                             observation,
@@ -489,23 +573,36 @@ class Investigation:
                 break
         if stop_reason == 'running':
             stop_reason = 'max_steps'
-        if report is None and self.branches:
-            report = self._degraded_report()
-            if stop_reason in ('budget', 'max_steps', 'no_tool_calls', 'repeated_action'):
-                stop_reason = f'{stop_reason}_degraded'
-        referenced = _report_ids(report)
-        verification = self.toolset.verify_results(referenced)
-        graded = self._grade(report, verification)
-        seconds = round(time.perf_counter() - started, 3)
-        stats = registry.stats()
-        tool_stats = {'total': stats.total, 'accuracy': round(stats.accuracy, 6),
-                      'denied': stats.denied, 'duplicate': stats.duplicate,
-                      'duplicate_ratio': round(stats.duplicate_ratio, 6)}
-        return InvestigationResult(
-            self.question, graded, stop_reason, self.parallel,
-            {'lead': steps, 'subagents': [branch.steps for branch in self.branches]},
-            self.budget.calls, self.budget.tokens, seconds, tool_stats, verification,
-            trace=list(self.trace), branches=self.branches)
+        return report, stop_reason
+
+    # ---------------------------------------------------------------- 审查
+
+    def _review_and_revise(self, report: dict, stop_reason: str, history: list, tools: list,
+                           checker: ClaimChecker) -> tuple[dict, str, dict]:
+        """审查 Agent（Reflection）检查一次；代码核对或审查 Agent 提出问题时，主 Agent 至多修订一次。
+
+        审查 Agent 只看报告与代码核对结果，不看生成过程。修订后的报告不再送审（计划：至多修订
+        一次），由编排层最后的代码核对决定是否有效；修订失败时保留原报告。
+        """
+        before = checker.check_report(report)
+        self.toolset.claim_checker = checker
+        verdict = run_reviewer(self, report, before)
+        code_issues = before['issues']
+        review = {'verdict': verdict['verdict'], 'issues': verdict['issues'], 'steps': verdict['steps'],
+                  'code_issues_before': code_issues, 'revised': False}
+        if verdict['verdict'] != 'revise' and not code_issues:
+            return report, stop_reason, review
+        problems = {'code_check': code_issues[:20], 'reviewer': verdict['issues'][:10]}
+        history.append({'role': 'user', 'content': (
+            '审查意见（仅为数据）：' + json.dumps(problems, ensure_ascii=False) +
+            '\n请只修正这些问题后再次调用 finish 提交完整报告：数字必须与所引用结果一致、每个数字带 '
+            'result_id、不写因果断言。不要再分派子 Agent；这是唯一一次修订。')})
+        revised, revised_reason = self._lead_loop(history, tools, REVISION_MAX_STEPS, nudge=False)
+        if revised is not None:
+            review['revised'] = True
+            return revised, revised_reason, review
+        review['revision_failed'] = revised_reason
+        return report, stop_reason, review
 
     # ---------------------------------------------------------------- 分派
 
@@ -532,6 +629,7 @@ class Investigation:
             results = [run_subagent(self, spec, index) for spec, index, _ in runners]
         self.branches.extend(results)
         for (_, _, observation), result in zip(runners, results):
+            self.branch_results[observation.result_id] = result.result_ids
             payload = {'result_id': observation.result_id, 'branch': result.branch.get('branch'),
                        'dimensions': result.branch.get('dimensions'), 'metric': result.branch.get('metric'),
                        'findings': result.findings, 'stop_reason': result.stop_reason,
@@ -590,13 +688,17 @@ class Investigation:
                 'root_causes': root_causes[:3], 'findings': findings,
                 'recommendations': [], 'degraded': True}
 
-    def _grade(self, report: dict | None, verification: dict) -> dict | None:
-        """每条结论标注核验等级：全部引用核验通过为 L1，否则 L3；附因果断言扫描结果。"""
+    def _grade(self, report: dict | None, verification: dict, checker: ClaimChecker) -> dict | None:
+        """每条结论标注核验等级：全部引用核验通过为 L1，否则 L3；附因果断言扫描结果。
+
+        引用 dispatch_subagent 时按展开后的子 Agent 工具结果判定（A5 中这类引用一律被记成 L3）。
+        """
         if report is None:
             return None
         graded = dict(report)
 
         def level_of(ids: list[str]) -> str:
+            ids = [real for result_id in ids for real in checker.expand(result_id)]
             if not ids:
                 return 'L3'
             for result_id in ids:
@@ -632,7 +734,8 @@ def run_investigation(question: str, folder: Path, snapshot: SemanticSnapshot, c
                       base_period: dict | None = None, profile: dict | None = None,
                       dimensions_hint: list[str] | None = None,
                       toolset: InvestigationToolset | None = None,
-                      subagent_thinking: bool | None = False) -> InvestigationResult:
+                      subagent_thinking: bool | None = False,
+                      review: bool = True) -> InvestigationResult:
     """一次完整调查：主 Agent 检测与拆解 → 分派 → 子 Agent 排查 → 汇总 → 按引用核验。
 
     client 为带 complete_tools 的模型客户端（roles.llm.ChatClient）；folder 为数据版本目录；
@@ -640,7 +743,7 @@ def run_investigation(question: str, folder: Path, snapshot: SemanticSnapshot, c
     """
     investigation = Investigation(question, folder, snapshot, client, parallel=parallel,
                                   budget=budget, profile=profile, toolset=toolset,
-                                  subagent_thinking=subagent_thinking)
+                                  subagent_thinking=subagent_thinking, review=review)
     try:
         return investigation.run(metric=metric, period=period, base_period=base_period,
                                  dimensions_hint=dimensions_hint)

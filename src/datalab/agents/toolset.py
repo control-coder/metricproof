@@ -135,6 +135,8 @@ class InvestigationToolset:
                    'dimensions': [item['name'] for item in describe_dimensions()]}
         self.catalog = catalog
         self._profile = profile
+        # 审查阶段由编排层设置（agents.claims.ClaimChecker），verify_claims 用它核对。
+        self.claim_checker = None
         self.registry = build_registry(catalog, self._handlers(), preview_rows=preview_rows,
                                        views={'query_metric': query_view, 'find_root_cause': root_cause_view})
 
@@ -153,7 +155,18 @@ class InvestigationToolset:
             'correlate': self._correlate,
             'dispatch_subagent': self._dispatch_subagent,
             'finish': self._finish,
+            'verify_claims': self._verify_claims,
         }
+
+    def _verify_claims(self, claims):
+        """审查 Agent 的核对工具：逐句跑 agents.claims 的代码核对（数字、引用、因果用词）。"""
+        if self.claim_checker is None:
+            raise ToolError('当前没有待审查的报告')
+        rows = []
+        for index, text in enumerate(claims):
+            issues = self.claim_checker.check_text(text, where=f'claims[{index}]')
+            rows.append({'claim': index, 'passed': not issues, 'issues': issues})
+        return {'rows': rows, 'passed': all(row['passed'] for row in rows)}
 
     def _list_metrics(self) -> tuple[dict, dict]:
         rows = list_metrics()

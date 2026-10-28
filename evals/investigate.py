@@ -166,6 +166,15 @@ def run_case(case: dict, folder: Path, snapshot, client, *, parallel: bool) -> d
                 "subagents": round(sum(item.get("seconds") or 0 for item in result.trace
                                        if item["kind"] == "model_call" and item["agent"] != "lead"), 1)},
             "causal_assertions": (result.report or {}).get("causal_assertions", []),
+            # A6：审查 Agent 裁决、修订前的代码核对问题数、修订与否、最终报告是否有效。
+            "review": {key: ((result.report or {}).get("review") or {}).get(key)
+                       for key in ("verdict", "revised", "steps")}
+                      | {"code_issues_before": len(((result.report or {}).get("review") or {})
+                                                   .get("code_issues_before") or []),
+                         "reviewer_issues": len(((result.report or {}).get("review") or {}).get("issues") or [])},
+            "valid": (result.report or {}).get("valid"),
+            "final_issues": [item["issue"] for item in
+                             ((result.report or {}).get("claims_check") or {}).get("issues") or []],
             "degraded": bool((result.report or {}).get("degraded"))}
 
 
