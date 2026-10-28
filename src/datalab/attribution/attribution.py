@@ -71,9 +71,12 @@ def contribution(source, metric: str, dimension: str, period, base_period,
     各组 share 均为 null，并给 status: "no_change"）。不变量：Σchange_i = 总变化精确成立
     （各组之Σ = 总计由语义层粒度规则保证）。
 
-    比率型（对称组间组内拆解）：w 为组分母份额，r 为组内比率；
-    structure_i = (w1−w0)·(r0+r1)/2，within_i = (w0+w1)/2·(r1−r0)，
-    Σ(structure_i+within_i) = R1−R0 精确成立（代数恒等）。一期缺席的组（该期没有分组行或
+    比率型（对称组间组内拆解）：w 为组分母份额，r 为组内比率，R̄ = (R0+R1)/2；
+    structure_i = (w1−w0)·((r0+r1)/2 − R̄)，within_i = (w0+w1)/2·(r1−r0)，
+    Σ(structure_i+within_i) = R1−R0 精确成立（Σ(w1−w0)=0，居中项合计为 0）。结构项居中后，
+    份额上升的低于均值组记负、份额下降的低于均值组记正，与价格-数量-结构（mix）分析的常用
+    写法一致；不居中时每个份额变化的组都会带上 (w1−w0)·r 的大额抵消项，排名失去意义。
+    两期之一没有分组行时不居中。一期缺席的组（该期没有分组行或
     分母为 0）：该期 w 按 0、r 取另一期的值——组整体进出，没有组内信息，全部变化计入
     结构项（此时 within_i 恰好为 0）；贡献度按对称拆解的变化额除以基期总比率。
     share_of_change_i = (structure_i+within_i)/(R1−R0)，总变化为 0 时为 null。
@@ -141,6 +144,10 @@ def _between_within_rows(groups, rows0, rows1, total0, total1) -> tuple[list, Fr
     # 总计行的分母只用于 R0/R1（由 _figures 直接从总计 value 解析），这里不依赖。
     den0 = sum((figures[2] or Fraction(0) for figures in rows0.values()), Fraction(0))
     den1 = sum((figures[2] or Fraction(0) for figures in rows1.values()), Fraction(0))
+    # 结构项以总比率的两期均值 R̄ 为中心：Σ(w1−w0)=0 时减去 R̄ 不改变合计，但每组的结构项
+    # 只反映「份额变化 × 该组相对总体的高低」，不再给所有份额变化的组都记上同号的大额抵消项。
+    # 某一期没有任何分组（份额和不为 1）时不居中，保持不变量精确成立。
+    center = (r0_total + r1_total) / 2 if den0 and den1 else Fraction(0)
     rows = []
     for group in groups:
         # 缺席期：分子、分母都按 0（份额 w = 0，组内比率 r 取另一期）。
@@ -154,7 +161,7 @@ def _between_within_rows(groups, rows0, rows1, total0, total1) -> tuple[list, Fr
         r1 = num1 / den_g1 if den_g1 else None
         r0e = r0 if r0 is not None else r1
         r1e = r1 if r1 is not None else r0
-        structure = (w1 - w0) * (r0e + r1e) / 2
+        structure = (w1 - w0) * ((r0e + r1e) / 2 - center)
         within = (w0 + w1) / 2 * (r1e - r0e)
         change = structure + within
         rows.append({"group": group, "base": _text(r0) if r0 is not None else None,
@@ -408,11 +415,12 @@ def find_root_cause(source, metric: str, dimensions: list[str], period, base_per
     Jensen–Shannon 散度项 D(p‖m)+D(q‖m)（m=(p+q)/2，自然对数）；份额取该元素值占全期总计
     的比例——加法型为指标值份额，比率型分别对分子份额与分母份额各算一次相加（两个成分
     的分布变化都算惊奇）。维度内元素按 S 降序（并列按取值升序），EP ≥ teep 的依次加入
-    候选集，累计 EP ≥ tep 即停止；维度按候选集惊奇度之和降序（并列按维度名升序）取前
-    top 个。
+    候选集，累计 EP ≥ tep 即停止；维度按候选集的平均惊奇度降序（并列按维度名升序）取前
+    top 个（原文按惊奇度之和，偏向取值多的维度，这里改为平均）。比率型元素另给 effect
+    （between：组间结构效应为主；within：组内效应为主）。
 
-    candidates 是扁平化的根因候选列表：先按所在维度的排名（惊奇度之和降序、维度名升序）、
-    再按维度内排名（S 降序、取值升序），保证确定性。总变化为 0 时返回空候选。
+    candidates 是扁平化的根因候选列表：先按所在维度的排名，再按维度内解释力降序（并列按
+    取值升序），保证确定性。总变化为 0 时返回空候选。
     """
     value0 = _exact(source.query(metric, base_period, filters=filters)["total"]["value"])
     value1 = _exact(source.query(metric, period, filters=filters)["total"]["value"])
@@ -432,8 +440,13 @@ def find_root_cause(source, metric: str, dimensions: list[str], period, base_per
             ep = _exact(row["share_of_change"]) or Fraction(0)
             surprise = _surprise(source, metric, kind, dimension, row["group"], period, base_period,
                                  filters)
-            elements.append({"value": row["group"], "explanatory_power": _text(ep),
-                             "surprise": round(float(surprise), 6), "_ep": ep, "_s": surprise})
+            element = {"value": row["group"], "explanatory_power": _text(ep),
+                       "surprise": round(float(surprise), 6), "_ep": ep, "_s": surprise}
+            if "structure" in row:
+                # 比率型：标出该元素以组间（结构）还是组内效应为主。
+                element["effect"] = ("between" if abs(_exact(row["structure"]) or 0)
+                                     >= abs(_exact(row["within"]) or 0) else "within")
+            elements.append(element)
         elements.sort(key=lambda item: (-item["_s"], item["value"]))
         chosen, explained = [], Fraction(0)
         for item in elements:
@@ -445,21 +458,32 @@ def find_root_cause(source, metric: str, dimensions: list[str], period, base_per
         entries.append({"dimension": dimension,
                         "elements": [_public_element(item) for item in elements],
                         "explained": _text(explained), "surprise": round(float(surprise_sum), 6),
-                        "_s": surprise_sum, "_chosen": chosen})
-    entries.sort(key=lambda item: (-item["_s"], item["dimension"]))
+                        "_s": surprise_sum, "_chosen": chosen,
+                        "_mean": surprise_sum / len(chosen) if chosen else Fraction(-1)})
+    # 维度排序：按候选集的平均惊奇度降序（并列按维度名升序）。原始 Adtributor 用惊奇度之和，
+    # 取值多的维度（品类、卖家、分期数）会因候选元素多而累积更大的和，压过真正集中的维度；
+    # 只按所需元素数（简洁性）排序则会被「最大的组按比例增长」的低基数维度（如 on_time）误导。
+    # 平均惊奇度同时惩罚这两种情形。没有候选元素的维度排最后。
+    entries.sort(key=lambda item: (-item["_mean"], item["dimension"]))
     result["dimensions"] = [{key: value for key, value in entry.items() if not key.startswith("_")}
                             for entry in entries]
     for entry in entries[:top]:
-        for item in entry["_chosen"]:
-            result["candidates"].append({"dimension": entry["dimension"], "value": item["value"],
-                                         "explanatory_power": item["explanatory_power"],
-                                         "surprise": item["surprise"]})
+        # 候选集按惊奇度选出后，输出时按解释力降序（并列按取值）：Top-1 是该维度贡献最大的元素。
+        for item in sorted(entry["_chosen"], key=lambda element: (-element["_ep"], element["value"])):
+            candidate = {"dimension": entry["dimension"], "value": item["value"],
+                         "explanatory_power": item["explanatory_power"], "surprise": item["surprise"]}
+            if "effect" in item:
+                candidate["effect"] = item["effect"]
+            result["candidates"].append(candidate)
     return result
 
 
 def _public_element(item: dict) -> dict:
-    return {"value": item["value"], "explanatory_power": item["explanatory_power"],
-            "surprise": item["surprise"]}
+    public = {"value": item["value"], "explanatory_power": item["explanatory_power"],
+              "surprise": item["surprise"]}
+    if "effect" in item:
+        public["effect"] = item["effect"]
+    return public
 
 
 def _surprise(source, metric: str, kind: str, dimension: str, group: str, period, base_period,

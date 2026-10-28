@@ -103,7 +103,9 @@ class ContributionHandTests(unittest.TestCase):
 
     def test_between_within_with_absent_group(self):
         # 手算：R0 = 900/3000 = 0.3，R1 = 1500/2500 = 0.6；C 本期缺席（w=0、r 取另一期）。
-        # A: structure 11/75≈0.146667、within 7/150≈0.046667；B: −0.04、0.18；C: −1/30、0。
+        # 结构项以 R̄ = 0.45 居中：Δw 为 A +4/15、B −0.1、C −1/6（合计 0）。
+        # A: structure 4/15·(0.55−0.45)=2/75、within 7/150；B: −0.1·(0.4−0.45)=0.005、0.18；
+        # C: −1/6·(0.2−0.45)=1/24、0（低比率组退出，总比率上升，记正）。
         source = FakeSource({
             ("bad_review_rate", BASE, "customer_state"): fake_run(
                 "bad_review_rate", BASE, (900, 3000),
@@ -120,17 +122,17 @@ class ContributionHandTests(unittest.TestCase):
         self.assertEqual(result["current_total"], "0.600000")
         self.assertEqual(result["total_change"], "0.300000")
         rows = {row["group"]: row for row in result["rows"]}
-        self.assertEqual(rows["A"]["structure"], f"{11/75:.6f}")
+        self.assertEqual(rows["A"]["structure"], f"{2/75:.6f}")
         self.assertEqual(rows["A"]["within"], f"{7/150:.6f}")
-        self.assertEqual(rows["B"]["structure"], "-0.040000")
+        self.assertEqual(rows["B"]["structure"], "0.005000")
         self.assertEqual(rows["B"]["within"], "0.180000")
         # 缺席组：全部变化计入结构项，within 为 0；缺席期比值为 null。
-        self.assertEqual(rows["C"]["structure"], f"{-1/30:.6f}")
+        self.assertEqual(rows["C"]["structure"], f"{1/24:.6f}")
         self.assertEqual(rows["C"]["within"], "0.000000")
         self.assertEqual(rows["C"]["current"], None)
         self.assertEqual(rows["C"]["base"], "0.200000")
-        # 排序：|structure+within| 降序（A 0.193333 > B 0.14 > C 0.033333）。
-        self.assertEqual([row["group"] for row in result["rows"]], ["A", "B", "C"])
+        # 排序：|structure+within| 降序（B 0.185 > A 0.073333 > C 0.041667）。
+        self.assertEqual([row["group"] for row in result["rows"]], ["B", "A", "C"])
         # 不变量：Σ(structure+within) = R1−R0 精确成立。
         self.assertTrue(result["invariant"]["passed"])
         total = sum(Fraction(row["change"]) for row in result["rows"])
