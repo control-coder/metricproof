@@ -80,7 +80,7 @@ def finish_report(result_id='r2-decompose_metric'):
 
 
 def lead_script_basic():
-    dispatch = {'branch': '新老客结构是否解释了订单量变化', 'dimension': 'customer_type',
+    dispatch = {'branch': '新老客结构是否解释了订单量变化', 'dimensions': ['customer_type'],
                 'metric': 'order_count', 'period': P, 'base_period': B}
     return [
         [tool_call('detect_anomaly', {'metric': 'order_count', 'period': P, 'history': HISTORY}),
@@ -135,9 +135,9 @@ class BasicInvestigationTests(unittest.TestCase):
         self.assertEqual(result.branches[0].stop_reason, 'finish')
         findings = result.branches[0].findings
         self.assertEqual(findings['dimension'], 'customer_type')
-        # 摘要回填：主 Agent 的第三次请求里应包含子 Agent 摘要。
+        # 发现回填：主 Agent 第三次请求的最后一条消息是 dispatch 的 tool 结果，内容即子 Agent 发现。
         lead_bodies = [body for role, body in model.requests if role == 'lead']
-        self.assertIn('subagent_summaries', json.dumps(lead_bodies[-1], ensure_ascii=False))
+        self.assertIn('top_contributors', json.dumps(lead_bodies[-1]['messages'][-1], ensure_ascii=False))
         # 报告结构与核验等级
         report = result.report
         self.assertEqual(report['root_causes'][0]['dimension'], 'customer_type')
@@ -172,7 +172,7 @@ class BasicInvestigationTests(unittest.TestCase):
 
 class ReplannAndLimitTests(unittest.TestCase):
     def test_replan_once_and_third_batch_rejected(self):
-        dispatch = {'branch': 'b', 'dimension': 'customer_type', 'metric': 'order_count',
+        dispatch = {'branch': 'b', 'dimensions': ['customer_type'], 'metric': 'order_count',
                     'period': P, 'base_period': B}
         lead_steps = [
             [tool_call('dispatch_subagent', dispatch)],   # 第一批
@@ -265,9 +265,9 @@ class BudgetDegradeTests(unittest.TestCase):
 
 class ParallelTimingTests(unittest.TestCase):
     def test_parallel_faster_than_serial(self):
-        dispatch2 = {'branch': '州维度', 'dimension': 'customer_state', 'metric': 'order_count',
+        dispatch2 = {'branch': '州维度', 'dimensions': ['customer_state'], 'metric': 'order_count',
                      'period': P, 'base_period': B}
-        dispatch1 = {'branch': '新老客', 'dimension': 'customer_type', 'metric': 'order_count',
+        dispatch1 = {'branch': '新老客', 'dimensions': ['customer_type'], 'metric': 'order_count',
                      'period': P, 'base_period': B}
 
         def lead_steps():

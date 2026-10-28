@@ -71,7 +71,10 @@ class ToolSchemaTests(unittest.TestCase):
         schemas = {item['function']['name']: item['function'] for item in registry.schemas('subagent')}
         query = schemas['query_metric']
         self.assertEqual(query['parameters']['properties']['metric']['enum'], ['gmv', 'order_count'])
-        period = query['parameters']['$defs']['Period']
+        # $defs/$ref 已按 MiMo 兼容内联：Period 直接嵌在 period 属性里。
+        self.assertNotIn('$defs', query['parameters'])
+        self.assertNotIn('$ref', json.dumps(query))
+        period = query['parameters']['properties']['period']
         self.assertEqual(list(period['properties']), ['start', 'end'])
         self.assertTrue(period['additionalProperties'] is False)
         contribution = schemas['contribution']['parameters']

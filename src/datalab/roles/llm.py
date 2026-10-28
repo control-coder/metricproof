@@ -74,10 +74,12 @@ class ChatClient:
         return content, self._record_usage(payload, messages, started)
 
     def complete_tools(self, messages: list[dict], tools: list[dict], *, timeout: float, max_tokens: int,
-                       tool_choice: str = 'auto') -> ToolReply:
+                       tool_choice: str = 'auto', thinking: bool | None = None) -> ToolReply:
         """Function Calling 请求（A4）；带 tools 时不加 response_format（与 JSON 模式互斥）。
 
         MiMo 的 tool_choice 只支持 "auto"（其他值会被后端删除，行为仍等价 auto），这里也只接受 auto。
+        thinking 为 None 时不发该字段（供应商默认，MiMo 默认开启思考）；False 时发
+        ``thinking: {"type": "disabled"}``（MiMo 文档的参数），用于只需机械调用工具的子 Agent。
         """
         if tool_choice != 'auto':
             raise ValueError("MiMo 的 tool_choice 只支持 'auto'")
@@ -85,6 +87,8 @@ class ChatClient:
             raise ModelCallError(f'{self.profile.provider} 尚未配置 API Key')
         body = {'model': self.profile.model, 'messages': messages, 'temperature': self.profile.temperature,
                 'max_tokens': max_tokens, 'stream': False, 'tools': tools, 'tool_choice': tool_choice}
+        if thinking is not None:
+            body['thinking'] = {'type': 'enabled' if thinking else 'disabled'}
         started = time.perf_counter()
         payload = self._request(body, timeout)
         try:

@@ -45,8 +45,8 @@ from datalab.semantic.snapshot import SemanticSnapshot
 
 MAX_BRANCHES = 3
 MAX_DISPATCH_ROUNDS = 2
-LEAD_MAX_STEPS = 20
-SUBAGENT_MAX_STEPS = 10
+LEAD_MAX_STEPS = 10
+SUBAGENT_MAX_STEPS = 6
 COMPACT_CHARS = 60_000
 KEEP_OBSERVATIONS = 6
 STOP_HINT_THRESHOLD = 0.8
@@ -65,7 +65,7 @@ class InvestigationBudget:
     默认值按一次调查的预计用量（计划第八节约 15 次调用）留出余量；墙钟默认 20 分钟。
     """
 
-    def __init__(self, max_calls: int = 40, max_tokens: int = 400_000, seconds: float = 1200.0):
+    def __init__(self, max_calls: int = 30, max_tokens: int = 300_000, seconds: float = 600.0):
         if max_calls < 1 or max_tokens < 1 or seconds <= 0:
             raise ValueError('预算必须是正数')
         self.max_calls, self.max_tokens, self.seconds = max_calls, max_tokens, seconds
@@ -121,17 +121,29 @@ class InvestigationResult:
 
 
 def _report_ids(report: dict | None) -> list[str]:
-    """报告中引用的 result_id 全集（结构字段与文字中的 rN-tool 形式都算）。"""
+    """报告中引用的 result_id 全集（结构字段与文字中的 rN-tool 形式都算）。
+
+    模型可能把 root_causes/findings 写成字符串列表（不合结构但可挽回）：
+    非 dict 项按文字扫描 result_id。
+    """
     if not report:
         return []
     ids: list[str] = []
     for item in (report.get('root_causes') or []):
-        ids.extend(item.get('result_ids') or [])
-    for item in (report.get('findings') or []):
-        ids.extend(item.get('result_ids') or [])
+        if isinstance(item, dict):
+            ids.extend(item.get('result_ids') or [])
+        else:
+            ids.extend(REPORT_ID.findall(str(item)))
+    findings = report.get('findings') or []
+    for item in findings:
+        if isinstance(item, dict):
+            ids.extend(item.get('result_ids') or [])
+        else:
+            ids.extend(REPORT_ID.findall(str(item)))
     ids.extend(REPORT_ID.findall(report.get('summary') or ''))
-    for item in (report.get('findings') or []):
-        ids.extend(REPORT_ID.findall(item.get('text') or ''))
+    for item in findings:
+        if isinstance(item, dict):
+            ids.extend(REPORT_ID.findall(item.get('text') or ''))
     return list(dict.fromkeys(ids))
 
 
@@ -178,13 +190,27 @@ def _explained_ratio(result: dict | None) -> float | None:
     return sum(shares) if shares else None
 
 
-def _request_model(investigation: 'Investigation', agent_id: str, history: list, tools: list):
+def _request_messages(history: list) -> list:
+    """发给模型的消息：只保留最近一条 assistant 消息的 reasoning_content。
+
+    MiMo 建议保留思考内容，但每轮思考有上万字符，全部回填会让提示随步数线性膨胀
+    （A5 实测单次请求提示达 3.6 万 token、单次调用十几秒）；只留最近一条兼顾两者。
+    """
+    last = max((index for index, item in enumerate(history) if item.get('role') == 'assistant'), default=-1)
+    return [item if index == last or 'reasoning_content' not in item
+            else {key: value for key, value in item.items() if key != 'reasoning_content'}
+            for index, item in enumerate(history)]
+
+
+def _request_model(investigation: 'Investigation', agent_id: str, history: list, tools: list, *,
+                   thinking: bool | None = None, max_tokens: int = 8192):
     """一次模型调用：预算检查、用量入账与 trace；失败抛回给调用方处理。"""
     timeout, token_limit = investigation.budget.begin_call()
     started = time.perf_counter()
     try:
         reply = investigation.client.complete_tools(
-            history, tools, timeout=max(1.0, min(timeout, 180)), max_tokens=min(token_limit, 8192))
+            _request_messages(history), tools, timeout=max(1.0, min(timeout, 180)),
+            max_tokens=min(token_limit, max_tokens), thinking=thinking)
     except Exception as error:
         investigation.budget.finish_call(0)
         _trace(investigation, agent_id, 'model_call',
@@ -203,9 +229,15 @@ def _trace(investigation: 'Investigation', agent: str, kind: str, **fields):
 
 
 def _assistant_message(reply) -> dict:
-    """assistant 历史消息：content 为 None 一律回填 ""（MiMo 约束），reasoning_content 原样保留。"""
-    message = {'role': 'assistant', 'content': reply.content or '',
-               'tool_calls': [dict(call) for call in reply.tool_calls]}
+    """assistant 历史消息：content 为 None 一律回填 ""（MiMo 约束），reasoning_content 原样保留。
+
+    tool_calls 回填为 OpenAI 嵌套结构 {id, type, function: {name, arguments}}：扁平结构
+    （llm.ToolReply 的内部表示）被 MiMo 拒绝（HTTP 400「`function` is not set」，A5 实测）。
+    """
+    calls = [{'id': call['id'], 'type': 'function',
+              'function': {'name': call['name'], 'arguments': call['arguments']}}
+             for call in reply.tool_calls]
+    message = {'role': 'assistant', 'content': reply.content or '', 'tool_calls': calls}
     if reply.reasoning_content:
         message['reasoning_content'] = reply.reasoning_content
     return message
@@ -254,10 +286,12 @@ def run_subagent(investigation: 'Investigation', branch: dict, index: int) -> Br
     report = None
     stop_reason = 'max_steps'
     steps = 0
+    last_results: list[str] = []
     for step in range(1, SUBAGENT_MAX_STEPS + 1):
         steps = step
         try:
-            reply = _request_model(investigation, agent_id, history, tools)
+            reply = _request_model(investigation, agent_id, history, tools,
+                                   thinking=investigation.subagent_thinking, max_tokens=4096)
         except BudgetExceeded:
             stop_reason = 'budget'
             break
@@ -275,6 +309,8 @@ def run_subagent(investigation: 'Investigation', branch: dict, index: int) -> Br
             _trace(investigation, agent_id, 'tool_call', tool=call.get('name'),
                    result_id=observation.result_id, outcome='ok' if observation.ok else 'error')
             stopped = guard.check(call, observation)
+            if observation.ok and call.get('name') in ('contribution', 'find_root_cause'):
+                last_results.append(observation.result_id)
             if not stopped and observation.ok and observation.result_id \
                     and call.get('name') == 'contribution':
                 entry = registry.store.get(observation.result_id)
@@ -300,7 +336,27 @@ def run_subagent(investigation: 'Investigation', branch: dict, index: int) -> Br
         if stop_reason == 'finish':
             break
     findings = _parse_findings(report)
+    if findings is None and last_results:
+        # 子 Agent 没有正常 finish（步数、预算、重复动作）：用它最后一次归因结果的前几项兜底，
+        # 标注 fallback，主 Agent 仍能拿到可引用 result_id 的发现。
+        findings = _fallback_findings(registry.store.get(last_results[-1]))
     return BranchResult(branch, findings, report, steps, stop_reason)
+
+
+def _fallback_findings(entry: dict | None) -> dict | None:
+    if not entry or not isinstance(entry.get('result'), dict):
+        return None
+    result, result_id = entry['result'], entry['result_id']
+    if entry['tool'] == 'find_root_cause':
+        top = [{'dimension': item['dimension'], 'value': item['value'],
+                'explanatory_power': item['explanatory_power'], 'result_id': result_id}
+               for item in (result.get('candidates') or [])[:3]]
+    else:
+        top = [{'dimension': result.get('dimension'), 'value': row['group'],
+                'contribution': row.get('share_of_change'), 'result_id': result_id}
+               for row in (result.get('rows') or [])[:3]]
+    return {'top_contributors': top, 'notes': '子 Agent 未正常收尾，取其最后一次归因结果的前几项',
+            'fallback': True}
 
 
 def _parse_findings(report: str | None) -> dict | None:
@@ -333,8 +389,11 @@ class Investigation:
 
     def __init__(self, question: str, folder: Path, snapshot: SemanticSnapshot, client, *,
                  parallel: bool, budget: InvestigationBudget | None, profile: dict | None,
-                 toolset: InvestigationToolset | None = None):
+                 toolset: InvestigationToolset | None = None, subagent_thinking: bool | None = False):
         self.question = question
+        # 子 Agent 只按固定套路调用归因工具，默认关闭思考（MiMo thinking.disabled）以压低时延；
+        # 主 Agent 负责计划与汇总，保留供应商默认的思考模式。
+        self.subagent_thinking = subagent_thinking
         self.toolset = toolset or InvestigationToolset(Path(folder), snapshot, profile=profile)
         self.owns_toolset = toolset is None
         self.client = client
@@ -345,6 +404,7 @@ class Investigation:
         self.catalog_view = {'metrics': [{'name': name} for name in self.toolset.catalog['metrics']],
                              'dimensions': [{'name': name} for name in self.toolset.catalog['dimensions']]}
         self.branches: list[BranchResult] = []
+        self.base_period: dict | None = None
         self._branch_index = 0
         self._branch_lock = threading.Lock()
 
@@ -353,6 +413,7 @@ class Investigation:
     def run(self, *, metric: str | None, period: dict | None, base_period: dict | None,
             dimensions_hint: list[str] | None) -> InvestigationResult:
         started = time.perf_counter()
+        self.base_period = base_period
         registry = self.toolset.registry
         history = [{'role': 'system', 'content': lead.SYSTEM + '\n' + BOUNDARY},
                    {'role': 'user', 'content': lead.opening_message(
@@ -364,9 +425,15 @@ class Investigation:
         report = None
         stop_reason = 'running'
         steps = 0
+        nudged = False
         for step in range(1, LEAD_MAX_STEPS + 1):
             steps = step
             history = _compact(history)
+            if not nudged and self.branches and (step >= LEAD_MAX_STEPS - 1 or self.budget.remaining_calls() <= 3
+                                                 or self.budget.remaining_time() < 120):
+                # 步数或预算将尽：要求主 Agent 立即用已有发现 finish，避免整份调查没有报告。
+                history.append({'role': 'user', 'content': '步数或预算即将用尽：请立即用已有的子 Agent 发现调用 finish。'})
+                nudged = True
             try:
                 reply = _request_model(self, 'lead', history, tools)
             except BudgetExceeded:
@@ -392,26 +459,25 @@ class Investigation:
                     dispatches.append((call, observation))
                 observations.append((call, observation))
             # 分派批次：同一批 dispatch 全部观察后统一执行；批次超过 MAX_DISPATCH_ROUNDS 拒绝。
-            summary_message = None
-            if dispatches and stop_reason == 'running':
+            # 只有至少一个分支规格合法的批次才计数（参数错误的批次不占重规划名额）。
+            accepted = [(call, observation) for call, observation in dispatches if observation.ok]
+            if accepted and stop_reason == 'running':
                 dispatch_rounds += 1
                 if dispatch_rounds > MAX_DISPATCH_ROUNDS:
-                    for call, observation in dispatches:
+                    for call, observation in accepted:
                         _observation_note(
                             observation,
                             f'已分派过 {MAX_DISPATCH_ROUNDS} 批分支；本批被拒绝。'
-                            '请汇总已有子 Agent 摘要并调用 finish。')
+                            '请汇总已有子 Agent 发现并调用 finish。')
                         _trace(self, 'lead', 'dispatch', tool='dispatch_subagent',
                                outcome='rejected')
                 else:
-                    branches = self._branch_specs(dispatches)
-                    if branches:
-                        summary_message = self._dispatch(branches)
+                    self._dispatch(accepted[:MAX_BRANCHES])
+                    for call, observation in accepted[MAX_BRANCHES:]:
+                        _observation_note(observation, f'每批至多 {MAX_BRANCHES} 个分支；本分支未执行。')
             for call, observation in observations:
                 history.append({'role': 'tool', 'tool_call_id': call['id'], 'name': call['name'],
                                 'content': json.dumps(observation.message(), ensure_ascii=False)})
-            if summary_message is not None:
-                history.append({'role': 'user', 'content': summary_message})
             if stop_reason == 'repeated_action':
                 break
             for call, observation in observations:
@@ -443,48 +509,34 @@ class Investigation:
 
     # ---------------------------------------------------------------- 分派
 
-    def _branch_specs(self, dispatches: list) -> list[dict]:
-        """从 dispatch 调用与观察中还原分支规格（观察的 result 即 handler 回显的规格）。"""
-        branches = []
-        for call, observation in dispatches:
-            if not observation.ok:
-                continue
-            try:
-                spec = json.loads(observation.content)['result']
-            except (ValueError, KeyError):
-                continue
-            branches.append(spec)
-            if len(branches) >= MAX_BRANCHES:
-                break
-        return branches
+    def _dispatch(self, accepted: list) -> None:
+        """运行一批子 Agent，并把每个 dispatch 观察的内容替换为对应分支的结构化发现。
 
-    def _dispatch(self, branches: list[dict]) -> str:
-        """启动一批子 Agent 并返回回填给主 Agent 的摘要消息。"""
+        A5 实测：发现以单独的 user 消息回填时，主 Agent 会去 read_result(r-dispatch) 找结果、
+        再次分派，白白耗掉步数；放进 dispatch 自己的 tool 结果里，符合 Function Calling 的语义。
+        """
         runners = []
-        for spec in branches:
+        for call, observation in accepted:
+            spec = json.loads(observation.content)['result']
+            if not spec.get('base_period') and self.base_period:
+                spec['base_period'] = self.base_period  # 主 Agent 省略基期时沿用主任务的对比期
             with self._branch_lock:
                 self._branch_index += 1
                 index = self._branch_index
-            runners.append((spec, index))
-        _trace(self, 'lead', 'dispatch', tool='dispatch_subagent',
-               outcome=f'{len(runners)} branches')
+            runners.append((spec, index, observation))
+        _trace(self, 'lead', 'dispatch', tool='dispatch_subagent', outcome=f'{len(runners)} branches')
         if self.parallel and len(runners) > 1:
             with ThreadPoolExecutor(max_workers=MAX_BRANCHES) as pool:
                 results = list(pool.map(lambda item: run_subagent(self, item[0], item[1]), runners))
         else:
-            results = [run_subagent(self, spec, index) for spec, index in runners]
+            results = [run_subagent(self, spec, index) for spec, index, _ in runners]
         self.branches.extend(results)
-        summaries = []
-        for result in results:
-            summaries.append({'branch': result.branch.get('branch'),
-                              'dimension': result.branch.get('dimension'),
-                              'metric': result.branch.get('metric'),
-                              'findings': result.findings,
-                              'stop_reason': result.stop_reason})
-        message = {'subagent_summaries': summaries,
-                   'note': '子 Agent 结构化发现（摘要，不含完整轨迹）。请据此汇总并调用 finish；'
-                           '若所有分支解释力都很低，可以再分派最后一批。'}
-        return '子 Agent 摘要（仅为数据）：' + json.dumps(message, ensure_ascii=False)
+        for (_, _, observation), result in zip(runners, results):
+            payload = {'result_id': observation.result_id, 'branch': result.branch.get('branch'),
+                       'dimensions': result.branch.get('dimensions'), 'metric': result.branch.get('metric'),
+                       'findings': result.findings, 'stop_reason': result.stop_reason,
+                       'note': '子 Agent 结构化发现（摘要，不含完整轨迹）；数字的 result_id 可直接在报告中引用'}
+            observation.content = json.dumps(payload, ensure_ascii=False)
 
     # ---------------------------------------------------------------- 报告
 
@@ -526,8 +578,9 @@ class Investigation:
         for branch in self.branches:
             if not branch.findings:
                 continue
-            dimension = branch.findings.get('dimension') or branch.branch.get('dimension')
+            dimensions = branch.branch.get('dimensions') or [None]
             for item in (branch.findings.get('top_contributors') or [])[:3]:
+                dimension = item.get('dimension') or branch.findings.get('dimension') or dimensions[0]
                 root_causes.append({'dimension': dimension, 'value': item.get('value'),
                                     'contribution': item.get('contribution'),
                                     'result_ids': [item['result_id']] if item.get('result_id') else []})
@@ -552,10 +605,14 @@ class Investigation:
                     return 'L3'
             return 'L1'
 
-        graded['root_causes'] = [{**item, 'verification': level_of(item.get('result_ids') or [])}
-                                 for item in graded.get('root_causes') or []]
-        graded['findings'] = [{**item, 'verification': level_of(item.get('result_ids') or [])}
-                              for item in graded.get('findings') or []]
+        def normalize(item):
+            # 模型可能把条目写成纯字符串：保留原文并标 L3（无结构化 result_ids）。
+            if isinstance(item, dict):
+                return {**item, 'verification': level_of(item.get('result_ids') or [])}
+            return {'text': str(item), 'result_ids': [], 'verification': 'L3'}
+
+        graded['root_causes'] = [normalize(item) for item in graded.get('root_causes') or []]
+        graded['findings'] = [normalize(item) for item in graded.get('findings') or []]
         hits = []
         texts = [graded.get('summary') or '']
         texts.extend(item.get('text') or '' for item in graded.get('findings') or [])
@@ -574,14 +631,16 @@ def run_investigation(question: str, folder: Path, snapshot: SemanticSnapshot, c
                       metric: str | None = None, period: dict | None = None,
                       base_period: dict | None = None, profile: dict | None = None,
                       dimensions_hint: list[str] | None = None,
-                      toolset: InvestigationToolset | None = None) -> InvestigationResult:
+                      toolset: InvestigationToolset | None = None,
+                      subagent_thinking: bool | None = False) -> InvestigationResult:
     """一次完整调查：主 Agent 检测与拆解 → 分派 → 子 Agent 排查 → 汇总 → 按引用核验。
 
     client 为带 complete_tools 的模型客户端（roles.llm.ChatClient）；folder 为数据版本目录；
     snapshot 为已确认口径快照。parallel=True 时子 Agent 至多 3 个并行，否则串行（A5 时延对照）。
     """
     investigation = Investigation(question, folder, snapshot, client, parallel=parallel,
-                                  budget=budget, profile=profile, toolset=toolset)
+                                  budget=budget, profile=profile, toolset=toolset,
+                                  subagent_thinking=subagent_thinking)
     try:
         return investigation.run(metric=metric, period=period, base_period=base_period,
                                  dimensions_hint=dimensions_hint)

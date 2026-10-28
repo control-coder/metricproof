@@ -108,12 +108,14 @@ def tool_params(catalog: dict) -> dict[str, type[BaseModel]]:
             'dimension': (..., Field(description='下钻维度，须在目录内')),
             'period': (Period, ...),
             'base_period': (Period, Field(description='基期')),
+            'filters': (filters | None, Field(default=None, description='下钻过滤条件，如只看 customer_state=SP')),
         }),
         'find_root_cause': _params('FindRootCauseParams', catalog, {
             'metric': (..., Field(description='指标名，须在目录内')),
             'dimensions': (..., Field(description='候选维度集合，须在目录内')),
             'period': (Period, ...),
             'base_period': (Period, Field(description='基期')),
+            'filters': (filters | None, Field(default=None, description='下钻过滤条件，如只看 customer_state=SP')),
         }),
         'correlate': _params('CorrelateParams', catalog, {
             'metric_a': (..., Field(description='指标 A，须在目录内')),
@@ -142,7 +144,7 @@ def tool_params(catalog: dict) -> dict[str, type[BaseModel]]:
         }),
         'dispatch_subagent': _params('DispatchSubagentParams', catalog, {
             'branch': (ShortText, Field(description='分支描述：要排查的假设')),
-            'dimension': (..., Field(description='分支维度，须在目录内')),
+            'dimensions': (..., Field(description='分支负责的一组维度（1–4 个），须在目录内')),
             'metric': (..., Field(description='分支指标，须在目录内')),
             'period': (Period, ...),
             'base_period': (Period | None, Field(default=None, description='基期；与主任务一致时可省略')),
@@ -158,7 +160,7 @@ def tool_params(catalog: dict) -> dict[str, type[BaseModel]]:
         'read_result': _params('ReadResultParams', catalog, {
             'result_id': (Annotated[str, StringConstraints(max_length=64)], Field(description='要分页读取的结果编号')),
             'offset': (Annotated[int, Field(ge=0, le=1_000_000)], Field(default=0, description='起始行')),
-            'limit': (Annotated[int, Field(ge=1, le=200)], Field(default=50, description='读取行数')),
+            'limit': (Annotated[int, Field(ge=1, le=50)], Field(default=20, description='读取行数（至多 50）')),
         }),
     }
 
@@ -170,15 +172,15 @@ DESCRIPTIONS = {
     'query_metric': '语义层查询：按已确认口径编译 SQL；粒度与维度不匹配时拒绝并说明原因',
     'detect_anomaly': '异动检测：同比、环比，以及基于中位数绝对偏差的稳健 z 分数',
     'decompose_metric': '按指标树拆解：乘法型用 LMDI，加法型直接相加',
-    'contribution': '维度贡献度：加法型用 Delta 法，比率型用组间组内拆解；各项之和等于总变化',
-    'find_root_cause': '多维根因定位：按解释力与惊奇度排序（参考 Adtributor）',
+    'contribution': '维度贡献度：加法型用 Delta 法，比率型用组间组内拆解；各项之和等于总变化；可加 filters 在某个维度值内下钻',
+    'find_root_cause': '多维根因定位：一次比较多个维度，返回按排名排序的候选（参考 Adtributor）；可加 filters 在某个维度值内下钻',
     'correlate': '两个指标按维度对齐的相关系数与样本量；报告中只能表述为相关',
     'run_sql': '自由查询：只允许只读 SELECT，表与列在白名单内，强制 LIMIT，沙箱内执行',
     'run_python': '在受限沙箱内执行 Python 代码；L2 核验（不变量与汇总比对）',
     'search_memory': '检索情景记忆中的历史归因案例',
     'ask_user': '向用户提问并等待确认（任务进入 WAITING_CONFIRMATION）',
     'propose_metric': '提议新的指标口径；只写入 pending，必须用户确认后才生效',
-    'dispatch_subagent': '分派子 Agent 排查一个维度分支；子 Agent 回传结构化发现',
+    'dispatch_subagent': '分派子 Agent 排查一组维度；本工具的返回值就是子 Agent 的结构化发现（同一条消息里的多个分派并行执行）',
     'finish': '结束分析并提交报告；每个数字须引用 result_id 并标注核验等级',
     'verify_claims': '核验报告结论与 result_id 的绑定是否一致、是否出现因果断言',
     'read_result': '按 result_id 分页读取此前工具结果的更多行',
@@ -207,6 +209,27 @@ class ToolError(ValueError):
     """handler 主动抛出的领域错误；消息作为观察返回给模型（不含堆栈）。"""
 
 
+def _inline_refs(schema: dict) -> dict:
+    """把 pydantic 生成的 $defs/$ref 递归内联：返回无 $defs 与 $ref 的 schema。"""
+    defs = schema.get('$defs') or {}
+
+    def expand(node):
+        if isinstance(node, dict):
+            if '$ref' in node:
+                name = node['$ref'].rsplit('/', 1)[-1]
+                target = defs.get(name)
+                if target is None:
+                    return {key: expand(value) for key, value in node.items()}
+                merged = {key: value for key, value in node.items() if key != '$ref'}
+                return expand({**target, **merged})
+            return {key: expand(value) for key, value in node.items() if key != '$defs'}
+        if isinstance(node, list):
+            return [expand(item) for item in node]
+        return node
+
+    return expand(schema)
+
+
 @dataclass
 class ToolSpec:
     name: str
@@ -215,11 +238,17 @@ class ToolSpec:
     handler: Callable[..., Any]
     level: str | None
     agents: frozenset[str]
+    # 只作用于发给模型的观察（排序、合并、精简）；ResultStore 保存与核验用的仍是完整原始结果。
+    view: Callable[[Any], Any] | None = None
 
     def schema(self) -> dict:
-        """OpenAI 兼容的 function 定义：模型只能看到本 Agent 授权工具的 schema。"""
+        """OpenAI 兼容的 function 定义：模型只能看到本 Agent 授权工具的 schema。
+
+        MiMo 对 ``{"$ref": ...}`` 嵌在数组 items 里的 schema 返回 HTTP 400（A5 实测：
+        detect_anomaly 的 history: list[Period]），这里把 $defs/$ref 递归内联展开。
+        """
         return {'type': 'function', 'function': {'name': self.name, 'description': self.description,
-                                                 'parameters': self.params.model_json_schema()}}
+                                                 'parameters': _inline_refs(self.params.model_json_schema())}}
 
 
 @dataclass
@@ -371,7 +400,14 @@ class ToolRegistry:
             try:
                 params = spec.params.model_validate(arguments)
             except ValidationError as error:
-                return Observation(False, None, '', error=_schema_summary(error))
+                # 原样校验失败时，再试一次把 JSON 字符串形式的对象/数组还原后校验；
+                # 先原样校验，避免把本来就是字符串的字段（如 finish 的 report）误解码。
+                decoded = _decode_nested(arguments)
+                try:
+                    params = spec.params.model_validate(decoded)
+                except ValidationError:
+                    return Observation(False, None, '', error=_schema_summary(error))
+                arguments = decoded
             record['schema_ok'] = True
             signature = hashlib.sha256((name + '\x00' + _canonical(arguments)).encode('utf-8')).hexdigest()
             record['signature'] = signature
@@ -411,6 +447,8 @@ class ToolRegistry:
             return Observation(False, None, '', error='工具内部错误')
         result, data = value if isinstance(value, tuple) and len(value) == 2 else (value, None)
         result_id = self.store.add(spec.name, arguments, spec.level, result)
+        if spec.view is not None:
+            result = spec.view(result)
         observation = {'result_id': result_id, 'level': spec.level, 'result': result}
         if isinstance(result, dict) and isinstance(result.get('rows'), list):
             rows = result['rows']
@@ -462,12 +500,35 @@ class ToolRegistry:
         return {'result_id': result_id, 'tool': entry['tool'], 'level': entry['level'], 'result': result}
 
 
+def _decode_nested(arguments, depth: int = 0):
+    """把参数里被写成 JSON 字符串的对象或数组还原（A5 实测：MiMo 常把 period、compare_period、
+    base_period 写成 '{"start": ...}' 字符串，Schema 校验失败后模型反复重试，浪费步数）。
+
+    只还原以 { 或 [ 开头且能解析为对象/数组的字符串；其余字符串原样保留，仍由 Schema 校验。
+    """
+    if depth > 4:
+        return arguments
+    if isinstance(arguments, dict):
+        return {key: _decode_nested(value, depth + 1) for key, value in arguments.items()}
+    if isinstance(arguments, list):
+        return [_decode_nested(value, depth + 1) for value in arguments]
+    if isinstance(arguments, str) and arguments.lstrip()[:1] in ('{', '['):
+        try:
+            decoded = json.loads(arguments, strict=False)
+        except ValueError:
+            return arguments
+        if isinstance(decoded, (dict, list)):
+            return _decode_nested(decoded, depth + 1)
+    return arguments
+
+
 class _UnknownTool(Exception):
     """工具名未知或 tool_call 结构无效；消息作为观察返回。"""
 
 
 def build_registry(catalog: dict, handlers: dict[str, Callable] | None = None, *,
-                   preview_rows: int = 20, store: ResultStore | None = None) -> ToolRegistry:
+                   preview_rows: int = 20, store: ResultStore | None = None,
+                   views: dict[str, Callable] | None = None) -> ToolRegistry:
     """按目录（可用指标名与维度名列表）构建注册表。
 
     handlers 为业务实现；缺省或显式给 None 的 handler 是占位实现，被调用时返回
@@ -489,7 +550,7 @@ def build_registry(catalog: dict, handlers: dict[str, Callable] | None = None, *
     for name, model in params.items():
         agents = frozenset(agent for agent in AGENTS if name in PERMISSIONS[agent])
         specs[name] = ToolSpec(name, DESCRIPTIONS[name], model, handlers.get(name) or missing(name),
-                               TOOL_LEVELS.get(name), agents)
+                               TOOL_LEVELS.get(name), agents, (views or {}).get(name))
     registry = ToolRegistry(specs, preview_rows=preview_rows, store=store)
     # read_result 是注册表内置能力：所有 Agent 都可用，对 ResultStore 分页，不允许覆盖。
     def read_page(result_id, offset=0, limit=50, **ignored):

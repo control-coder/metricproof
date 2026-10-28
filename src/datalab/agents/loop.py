@@ -52,8 +52,11 @@ class AgentLoop:
                 max_tokens=max(1, min(token_limit, self.max_tokens)))
             self.budget.finish_call(reply.tokens)
             # MiMo 对 content: null 且带 tool_calls 的 assistant 历史消息返回 400，回填一律写空字符串。
+            # tool_calls 回填为 OpenAI 嵌套结构（扁平结构被 MiMo 拒绝：「`function` is not set」）。
             message = {'role': 'assistant', 'content': reply.content or '',
-                       'tool_calls': [dict(call) for call in reply.tool_calls]}
+                       'tool_calls': [{'id': call['id'], 'type': 'function',
+                                       'function': {'name': call['name'], 'arguments': call['arguments']}}
+                                      for call in reply.tool_calls]}
             # 思考模式的 reasoning_content 是模型输出，官方建议后续请求原样保留；字段存在才带。
             if reply.reasoning_content:
                 message['reasoning_content'] = reply.reasoning_content

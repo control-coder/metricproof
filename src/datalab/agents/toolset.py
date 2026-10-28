@@ -26,8 +26,10 @@ attribution.detect_anomaly_explicit（A5 新增，与 A2 共用同一套环比/�
 from __future__ import annotations
 
 import threading
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from datalab.agents.subagent import allowed_dimensions
 from datalab.agents.tools import ToolError, build_registry
 from datalab.attribution import (contribution, correlate, decompose_metric, find_root_cause,
                                  verify_attribution)
@@ -60,6 +62,61 @@ def _filters_dict(filters: dict | None) -> dict | None:
     return merged or None
 
 
+def _number(value) -> Decimal:
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return Decimal(0)
+
+
+def query_view(result: dict) -> dict:
+    """query_metric 的模型视图：分组且带对比期时，把本期与对比期按组合并成一张表，按 |变化|
+    降序（不带对比期时按值降序），截断前由注册表只保留前若干行。
+
+    A5 实测：原始 rows 按组名排序，卖家 ID 这类高基数维度的前 20 行毫无信息，模型只好
+    反复 read_result 翻页，单次请求的提示长到 3 万多 token。存储与核验仍用原始结果。
+    """
+    if not isinstance(result, dict) or not isinstance(result.get('rows'), list) or not result['rows']:
+        return result
+    compare = result.get('compare') or {}
+    base = {row['group']: row for row in compare.get('rows') or []}
+    merged = []
+    for row in result['rows']:
+        item = {'group': row['group'], 'value': row['value'], 'numerator': row['numerator']}
+        if row.get('denominator') is not None:
+            item['denominator'] = row['denominator']
+        if compare:
+            old = base.pop(row['group'], None)
+            item['compare_value'] = old['value'] if old else None
+            item['change'] = str(_number(row['value']) - _number(old['value'] if old else 0))
+        merged.append(item)
+    for group, old in base.items():
+        merged.append({'group': group, 'value': None, 'numerator': 0, 'compare_value': old['value'],
+                       'change': str(-_number(old['value']))})
+    if compare:
+        merged.sort(key=lambda item: (-abs(_number(item['change'])), str(item['group'])))
+    else:
+        merged.sort(key=lambda item: (-_number(item['value']), str(item['group'])))
+    view = {key: value for key, value in result.items() if key not in ('rows', 'compare')}
+    if compare:
+        view['compare_total'] = compare.get('total')
+    view['rows'] = merged
+    view['order'] = '按 |change| 降序' if compare else '按 value 降序'
+    return view
+
+
+def root_cause_view(result: dict) -> dict:
+    """find_root_cause 的模型视图：候选列表完整保留，每个维度只给前 5 个元素（按解释力绝对值）。"""
+    if not isinstance(result, dict):
+        return result
+    dimensions = []
+    for entry in result.get('dimensions') or []:
+        elements = sorted(entry.get('elements') or [],
+                          key=lambda item: -abs(_number(item.get('explanatory_power'))))[:5]
+        dimensions.append({**entry, 'elements': elements})
+    return {**result, 'dimensions': dimensions}
+
+
 class InvestigationToolset:
     """一个调查任务的全部接线：注册表、引擎、按引用核验；catalog 与快照显式给出。
 
@@ -78,7 +135,8 @@ class InvestigationToolset:
                    'dimensions': [item['name'] for item in describe_dimensions()]}
         self.catalog = catalog
         self._profile = profile
-        self.registry = build_registry(catalog, self._handlers(), preview_rows=preview_rows)
+        self.registry = build_registry(catalog, self._handlers(), preview_rows=preview_rows,
+                                       views={'query_metric': query_view, 'find_root_cause': root_cause_view})
 
     # ---------------------------------------------------------------- handlers
 
@@ -137,18 +195,18 @@ class InvestigationToolset:
         with self._lock:
             return decompose_metric(self.engine, metric, _period_tuple(period), _period_tuple(base_period))
 
-    def _contribution(self, metric, dimension, period, base_period):
+    def _contribution(self, metric, dimension, period, base_period, filters=None):
         with self._lock:
             result = contribution(self.engine, metric, dimension, _period_tuple(period),
-                                  _period_tuple(base_period))
-        values = [row['group'] for row in result.get('rows', [])][:64]
+                                  _period_tuple(base_period), _filters_dict(filters))
+        values = [row['group'] for row in result.get('rows', [])][:20]
         return (result, {'note': '维度取值', 'values': values}) if values else result
 
-    def _find_root_cause(self, metric, dimensions, period, base_period):
+    def _find_root_cause(self, metric, dimensions, period, base_period, filters=None):
         with self._lock:
             result = find_root_cause(self.engine, metric, list(dimensions), _period_tuple(period),
-                                     _period_tuple(base_period))
-        values = [item['value'] for item in result.get('candidates', [])][:64]
+                                     _period_tuple(base_period), _filters_dict(filters))
+        values = [item['value'] for item in result.get('candidates', [])][:20]
         return (result, {'note': '候选维度取值', 'values': values}) if values else result
 
     def _correlate(self, metric_a, metric_b, by, period):
@@ -156,9 +214,18 @@ class InvestigationToolset:
             return correlate(self.engine, metric_a, metric_b, by, _period_tuple(period))
 
     @staticmethod
-    def _dispatch_subagent(branch, dimension, metric, period, base_period=None):
-        """编排工具：只回显分支规格；真正的分派由 investigation.py 消费观察后执行。"""
-        return {'dispatched': True, 'branch': branch, 'dimension': dimension, 'metric': metric,
+    def _dispatch_subagent(branch, dimensions, metric, period, base_period=None):
+        """编排工具：只校验并回显分支规格；investigation.py 随后运行子 Agent，并把观察内容
+        替换为子 Agent 的结构化发现（主 Agent 在同一条 tool 消息里拿到结果）。"""
+        dimensions = list(dict.fromkeys(dimensions))
+        if not 1 <= len(dimensions) <= 4:
+            raise ToolError('每个分支负责 1–4 个维度')
+        allowed = allowed_dimensions(metric)
+        rejected = [name for name in dimensions if name not in allowed]
+        if rejected:
+            # 在分派前拒绝，避免子 Agent 白跑一轮才发现语义层不支持（A5 实测）。
+            raise ToolError(f'指标 {metric} 不支持按 {"、".join(rejected)} 拆解；允许的维度：{"、".join(allowed)}')
+        return {'dispatched': True, 'branch': branch, 'dimensions': dimensions, 'metric': metric,
                 'period': period, 'base_period': base_period}
 
     @staticmethod
@@ -221,6 +288,8 @@ class InvestigationToolset:
             converted['history_periods'] = [_period_tuple(item) for item in history]
         if tool == 'find_root_cause':
             converted['dimensions'] = list(converted.get('dimensions') or [])
+        if tool in ('contribution', 'find_root_cause'):
+            converted['filters'] = _filters_dict(converted.get('filters'))
         return converted
 
     def close(self):

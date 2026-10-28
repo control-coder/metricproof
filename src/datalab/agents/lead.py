@@ -1,80 +1,105 @@
-"""主 Agent（Plan-and-Solve）：确认指标与对比期、异动检测、指标拆解、分派子 Agent、汇总报告。
+"""主 Agent（Plan-and-Solve）：异动检测与指标拆解、按维度组分派子 Agent、汇总报告。
 
-系统提示要求模型按四步走：
-1. 确认指标与对比期（问题含月份时直接给出，不含时用 list_metrics/get_profile 确认）；
-2. 调用 detect_anomaly 与 decompose_metric 判断是否异动、主要因子是什么；
-3. 写出分析计划并调用 dispatch_subagent 分派至多 3 个维度分支；
-4. 收到子 Agent 摘要后汇总，观察与预期不符（如分支解释力都很低）时允许再分派一次
-   （重规划一次，第三次分派由编排层拒绝并说明），最后调用 finish 提交报告。
+固定三步（A5 调优后的做法）：
+1. 同一条消息里并行调用 detect_anomaly 与 decompose_metric；
+2. 写一句分析计划，把该指标允许的维度分成至多 3 组，同一条消息里每组调用一次
+   dispatch_subagent（服务端在首条消息里给出建议分组）；dispatch_subagent 的返回值就是
+   子 Agent 的结构化发现；所有分支解释力都很低时允许再分派一次（重规划一次）；
+3. 调用 finish 提交报告。
 
-报告结构（finish 参数为 JSON 字符串，A6 将在此基础上做数字核对与审查 Agent，
-结构便于逐条核对）：
-{
-  "summary": "一段中文总结（不含未引用数字）",
-  "root_causes": [
-    {"dimension": "customer_state", "value": "SP",
-     "contribution": 或 "explanatory_power": "…", "result_ids": ["r5-…"]}
-  ]（按重要性排序，供 AC@k 评分）,
-  "findings": [{"text": "…", "result_ids": ["r2-…"]}],
-  "recommendations": ["…"]
-}
-
-硬性约束（提示词逐条写明）：
-- 文字中出现的每个数字都必须引用 result_id（如「上升 12.3%（r3-detect_anomaly）」）；
-- 只做描述性归因：不写「导致」「因为」「由于」这类因果断言，写「贡献」「相关」「集中在」；
-- root_causes 至少给出 1 条、至多 3 条，每条带 result_ids；
-- 分派至多 3 个分支，每个分支给 metric、dimension、period、base_period 与假设（focus）。
+报告结构（finish 参数为 JSON 字符串，A6 将在此基础上做数字核对与审查 Agent）：
+{"summary", "root_causes": [{dimension, value, explanatory_power, effect?, result_ids}]（按重要性排序，
+供 AC@k 评分）, "findings": [{text, result_ids}], "recommendations": [str]}。
 """
 from __future__ import annotations
 
 SYSTEM = """你是 MetricProof 的主 Agent，负责电商经营指标异动的归因分析（Plan-and-Solve）。
+服务端已在首条消息给出指标、本期与对比期，不要再花步骤确认。按三步走：
 
-工作步骤（严格按顺序）：
-1. 异动检测与指标拆解：调用 detect_anomaly（history 给紧邻的前 6 个自然月期间，由远及近，
-   起点不要早于数据最早日期）判断变化是否超出正常波动；再调用 decompose_metric 看主要因子
-   （如 GMV = 订单量 × 客单价）。服务端已在首条消息给出指标、本期与对比期，不要再花步骤确认。
-2. 制定分析计划并分派：用一句简短计划说明要排查哪些维度、为什么，然后对每个维度分支调用
-   一次 dispatch_subagent（至多 3 个分支；同一批分支可以在一条消息里并行发起多个调用）。
-   每个分支给出 metric、dimension、period、base_period 与一句假设（branch 参数）。
-   收到全部子 Agent 摘要后：如果所有分支解释力都很低（主要贡献项的 |contribution| 都 < 0.1）
-   或维度明显选错，可以再分派一次（重规划一次；第三批分派会被拒绝并说明）。
-3. 汇总并调用 finish：报告只写有 result_id 支撑的数字。
+第 1 步（一条消息里并行发起）：detect_anomaly（history 用首条消息给出的 6 个历史期间）与
+decompose_metric。
+第 2 步：用一句话写出分析计划，然后在同一条消息里按首条消息的建议分组，每组调用一次
+dispatch_subagent（至多 3 个；可按问题调整分组，但要覆盖全部允许的维度）。dispatch_subagent
+的返回值就是子 Agent 的结构化发现。只有所有分支的解释力都很低（< 0.1）时才再分派一次。
+第 3 步：调用 finish。
 
-报告为 JSON 字符串（finish 的 report 参数），结构如下（A6 会逐条核对数字与 result_id 的绑定）：
+root_causes 的写法：
+- 从子 Agent 发现里选出最能解释总变化的维度值，按解释力从大到小排列，至少 1 条、至多 3 条；
+  只写变化方向与总变化一致的项。
+- 子 Agent 报告了二维组合（如某州内的某品类）时，把这两个维度值都列出，外层在前。
+- 比率型指标写 effect：between（组间/结构效应为主）或 within（组内效应为主）。
+- 每条带 result_ids（来自子 Agent 发现里的 result_id）。
+
+报告为 JSON 字符串（finish 的 report 参数）：
 {
   "summary": "一段中文总结",
-  "root_causes": [
-    {"dimension": "维度名", "value": "维度取值",
-     "contribution": "贡献度（6 位小数字符串；也可用 explanatory_power）",
-     "result_ids": ["rX-contribution"]}
-  ],
+  "root_causes": [{"dimension": "维度名", "value": "维度取值", "explanatory_power": "6 位小数",
+                   "effect": "between|within（比率型才写）", "result_ids": ["rX-…"]}],
   "findings": [{"text": "一句发现，数字后括注 result_id", "result_ids": ["rX-…"]}],
   "recommendations": ["一条可执行建议"]
 }
 
 硬性约束：
-- root_causes 按重要性排序，至少 1 条、至多 3 条；每条必须有 result_ids。
-- 报告中出现的每个数字（含百分数、金额、比率）都必须在其后括注 result_id，例如
-  「环比上升 12.345678%（r3-detect_anomaly）」；没有 result_id 支撑的数字不要写。
-- 只做描述性归因：不写「导致」「因为」「由于」「使得」这类因果断言；写「贡献」「相关」
-  「集中在」「主要来自」。
-- 维度取值（州、品类、卖家 ID 等）只能来自工具观察或结果 rows，不要编造。
-- 每个分支的 period/base_period 与主任务一致，除非问题另有说明。"""
+- 期间参数写成 JSON 对象 {"start": ..., "end": ...}，不要写成字符串。
+- 报告中出现的每个数字都在其后括注 result_id，例如「环比上升 12.3%（r3-detect_anomaly）」；
+  没有 result_id 支撑的数字不要写。
+- 只做描述性归因：不写「导致」「因为」「由于」「使得」；写「贡献」「相关」「集中在」「主要来自」。
+- 维度取值只能来自工具观察，不要编造。"""
+
+# 建议分组：地域、商品与卖家、客户/支付/履约；只保留该指标允许的维度。
+DIMENSION_GROUPS = (
+    ('地域', ('customer_state', 'seller_state')),
+    ('商品与卖家', ('product_category', 'seller_id', 'price_band')),
+    ('客户、支付与履约', ('customer_type', 'payment_type', 'payment_installments', 'delivery_status')),
+)
+
+
+def suggested_groups(dimensions: list[str]) -> list[tuple[str, list[str]]]:
+    allowed = set(dimensions)
+    groups = [(label, [name for name in names if name in allowed]) for label, names in DIMENSION_GROUPS]
+    groups = [(label, names) for label, names in groups if names]
+    rest = sorted(allowed - {name for _, names in groups for name in names}
+                  - {'purchase_date', 'purchase_month'})
+    if rest:
+        groups.append(('其他', rest))
+    return groups[:3]
+
+
+def history_periods(period: dict, count: int = 6) -> list[dict]:
+    """本期为整月时给出紧邻的前 count 个自然月（由远及近）；否则返回空列表。"""
+    start, end = period['start'], period['end']
+    if not (start.endswith('-01T00:00:00') and end.endswith('-01T00:00:00')):
+        return []
+    year, month = int(start[:4]), int(start[5:7])
+    periods = []
+    for step in range(count, 0, -1):
+        index = year * 12 + month - 1 - step
+        begin = f'{index // 12:04d}-{index % 12 + 1:02d}-01T00:00:00'
+        index += 1
+        finish = f'{index // 12:04d}-{index % 12 + 1:02d}-01T00:00:00'
+        periods.append({'start': begin, 'end': finish})
+    return periods
 
 
 def opening_message(question: str, *, metric: str | None = None,
                     period: dict | None = None, base_period: dict | None = None,
                     dimensions_hint: list[str] | None = None) -> str:
-    """首条用户消息：问题原文 + 服务端已确认的指标、期间与候选维度（评测时由案例注入，
-    避免主 Agent 再花一步「确认指标」）。"""
+    """首条用户消息：问题原文 + 服务端已确认的指标、期间、历史期间与建议的维度分组。"""
+    import json
+
     parts = [f"问题：{question}"]
     if metric:
         parts.append(f"服务端已确认：指标 {metric}")
     if period:
-        parts.append(f"本期 period = {{'start': '{period['start']}', 'end': '{period['end']}'}}（左闭右开）")
+        parts.append(f"本期 period = {json.dumps(period)}（左闭右开）")
+        history = history_periods(period)
+        if history:
+            parts.append(f"detect_anomaly 的 history = {json.dumps(history)}")
     if base_period:
-        parts.append(f"对比期 base_period = {{'start': '{base_period['start']}', 'end': '{base_period['end']}'}}")
+        parts.append(f"对比期 base_period = {json.dumps(base_period)}")
     if dimensions_hint:
-        parts.append("可排查的维度（按粒度与问题选择）：" + "、".join(dimensions_hint))
-    parts.append("请按步骤开始：先异动检测与拆解，再分派维度分支。")
+        groups = suggested_groups(dimensions_hint)
+        parts.append("建议的维度分组（每组一个 dispatch_subagent）：" +
+                     "；".join(f"{label}：{json.dumps(names)}" for label, names in groups))
+    parts.append("请执行第 1 步。")
     return "\n".join(parts)

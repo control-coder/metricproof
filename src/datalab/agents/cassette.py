@@ -55,6 +55,9 @@ class CassetteTransport(httpx.BaseTransport):
             entry = self._entries[key]
             return httpx.Response(entry['status'], json=entry['json'], request=request)
         response = self._inner.handle_request(request)
+        # 自定义 transport 返回的响应默认是流式的：不 read() 时访问 content/json 会抛
+        # ResponseNotRead。录制前先把响应体读进内存，随后照常返回给调用方。
+        response.read()
         if response.status_code == 200:
             try:
                 self._entries[key] = {'status': response.status_code, 'json': response.json()}
