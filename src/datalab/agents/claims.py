@@ -37,9 +37,9 @@ from decimal import Decimal, InvalidOperation
 
 CAUSAL_WORDS = ("导致", "因为", "由于", "使得")
 # 末尾禁止紧跟字母数字，避免把「r5-r13」误读成 result_id「r5-r」
-RESULT_ID = re.compile(r"r\d+-[a-z_]+(?![A-Za-z0-9])")
+RESULT_ID = re.compile(r"r\d+(?:\.\d+)?-[a-z_]+(?![A-Za-z0-9])")
 # 缩写引用：r5、r5/r17、r5-r13；不跟「-工具名」，前面不能是字母数字（排除型号、单词内部）
-_SHORT_REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![A-Za-z0-9_])(?!-[a-z_]+(?![A-Za-z0-9_]))")
+_SHORT_REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![A-Za-z0-9_])(?!\.\d)(?!-[a-z_]+(?![A-Za-z0-9_]))")
 _SENTENCE = re.compile(r"[^。；;]+[。；;]?|[。；;]")
 EMPTY_SUMMARY = "（结论摘要中的数字均未通过核对，已剔除）"
 _DATE = re.compile(r"\d{4}-\d{1,2}(?:-\d{1,2})?(?:T[\d:]+)?|\d{4}\s*年(?:\s*\d{1,2}\s*月)?(?:\s*\d{1,2}\s*日)?"

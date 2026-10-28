@@ -92,12 +92,10 @@ def collect_results(store) -> tuple[dict, dict | None]:
     """
     results = {}
     metric_tree = None
-    # ResultStore 按 result_id 查询；编号形如 rN-tool，N 从 1 连续增长。
-    for index in range(1, len(store) + 1):
-        prefix = f'r{index}-'
-        entry = next((store.get(prefix + tool) for tool in RESULT_TOOLS
-                      if store.get(prefix + tool) is not None), None)
-        if entry is None:
+    # 编号形如 rN-tool（主流程）或 rN.M-tool（并行子 Agent 分支）；按编号顺序遍历，与插入顺序无关。
+    for result_id in store.ordered_ids():
+        entry = store.get(result_id)
+        if entry is None or entry['tool'] not in RESULT_TOOLS:
             continue
         if metric_tree is None and entry['tool'] == 'decompose_metric':
             metric_tree = {'tool': entry['tool'], 'arguments': entry['arguments'], 'result': entry['result']}

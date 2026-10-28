@@ -12,7 +12,8 @@
 - 所有失败都作为 Observation 返回给模型而不是抛出：未知工具、arguments 不是 JSON 对象、
   Schema 校验失败（只回字段路径与错误类型的简短摘要）、越权、handler 抛出的 ToolError/ValueError；
   其他异常只回「工具内部错误」。除「工具内部错误」外 handler 一定没有被执行。
-- 成功调用生成任务内唯一可读的 result_id（如 ``r3-query_metric``），完整结果存入 ResultStore。
+- 成功调用生成任务内唯一可读的 result_id（如 ``r3-query_metric``；并行子 Agent 分支内为
+  ``r4.2-contribution``），完整结果存入 ResultStore。
   返回给模型的 content 只含前 preview_rows 行加汇总（总行数、是否截断、数值列的合计/最小/最大），
   需要更多时用 read_result(result_id, offset, limit) 分页；单次观察与分页都有字节上限。
 - 来自数据的文本（维度取值、错误消息等）放在 observation 的 ``data`` 字段并标注
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
 from dataclasses import dataclass
 from typing import Annotated, Any, Callable, Literal
@@ -323,13 +325,33 @@ class ResultStore:
     def __init__(self):
         self._results: dict[str, dict] = {}
         self._counts: dict[str, int] = {}
+        self._scope_counts: dict[str, int] = {}
+        self._lock = threading.Lock()
 
-    def add(self, tool: str, arguments: dict, level: str | None, result) -> str:
-        self._counts[tool] = self._counts.get(tool, 0) + 1
-        result_id = f'r{len(self._results) + 1}-{tool}'
-        self._results[result_id] = {'tool': tool, 'arguments': arguments, 'level': level,
-                                    'result': result, 'result_id': result_id}
-        return result_id
+    def add(self, tool: str, arguments: dict, level: str | None, result, scope: str | None = None) -> str:
+        """登记一条结果。无 scope 时编号为 ``r<全局序号>-<工具>``；
+
+        并行子 Agent 传入 scope（派发它的 dispatch 结果序号，如 ``r4``），编号为
+        ``r4.<分支内序号>-<工具>``：只取决于派发序号与分支内调用次序，与线程完成顺序无关。
+        """
+        with self._lock:
+            self._counts[tool] = self._counts.get(tool, 0) + 1
+            if scope is None:
+                result_id = f'r{len(self._results) + 1}-{tool}'
+            else:
+                self._scope_counts[scope] = self._scope_counts.get(scope, 0) + 1
+                result_id = f'{scope}.{self._scope_counts[scope]}-{tool}'
+            self._results[result_id] = {'tool': tool, 'arguments': arguments, 'level': level,
+                                        'result': result, 'result_id': result_id}
+            return result_id
+
+    def ordered_ids(self) -> list[str]:
+        """按 (全局序号, 分支内序号) 排序的 result_id，不依赖插入顺序。"""
+        def key(result_id: str):
+            head = result_id.split('-', 1)[0][1:]
+            main, _, inner = head.partition('.')
+            return (int(main) if main.isdigit() else 0, int(inner) if inner.isdigit() else 0, result_id)
+        return sorted(self._results, key=key)
 
     def get(self, result_id: str) -> dict | None:
         return self._results.get(result_id)
@@ -407,7 +429,8 @@ class ToolRegistry:
     def has(self, agent: str, name: str) -> bool:
         return name in self._specs and agent in self._specs[name].agents
 
-    def call(self, agent: str, tool_call: dict) -> Observation:
+    def call(self, agent: str, tool_call: dict, scope: str | None = None) -> Observation:
+        """scope 见 ResultStore.add：并行子 Agent 用它让 result_id 与完成顺序无关。"""
         self._check_agent(agent)
         started = time.perf_counter()
         record = {'tool': None, 'schema_ok': False, 'denied': False, 'duplicate': False, 'ok': False,
@@ -439,7 +462,7 @@ class ToolRegistry:
             if signature in self._seen:
                 record['duplicate'] = True
             self._seen.add(signature)
-            observation = self._invoke(spec, params, arguments)
+            observation = self._invoke(spec, params, arguments, scope)
             record['ok'] = observation.ok
             return observation
         except _UnknownTool as error:
@@ -461,7 +484,8 @@ class ToolRegistry:
         entry = self.store.get(result_id)
         return entry['level'] if entry else None
 
-    def _invoke(self, spec: ToolSpec, params: BaseModel, arguments: dict) -> Observation:
+    def _invoke(self, spec: ToolSpec, params: BaseModel, arguments: dict,
+                scope: str | None = None) -> Observation:
         try:
             value = spec.handler(**params.model_dump())
         except (ToolError, ValueError) as error:
@@ -472,7 +496,7 @@ class ToolRegistry:
                                error=f'工具内部错误（{type(error).__name__}）；相同参数重试通常无效，'
                                      '请换用其他工具，或在报告中如实说明该数据无法取得')
         result, data = value if isinstance(value, tuple) and len(value) == 2 else (value, None)
-        result_id = self.store.add(spec.name, arguments, spec.level, result)
+        result_id = self.store.add(spec.name, arguments, spec.level, result, scope)
         if spec.view is not None:
             result = spec.view(result)
         observation = {'result_id': result_id, 'level': spec.level, 'result': result}

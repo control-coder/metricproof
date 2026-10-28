@@ -180,7 +180,7 @@ def make_number_mutants(report: dict, checker: ClaimChecker, rng: random.Random)
     return mutants
 
 
-INLINE_ID = re.compile(r"r\d+-[a-z_]+")
+INLINE_ID = re.compile(r"r\d+(?:\.\d+)?-[a-z_]+")
 
 
 def make_delete_id_mutants(report: dict, rng: random.Random) -> list[dict]:

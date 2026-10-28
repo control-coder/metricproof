@@ -7,6 +7,7 @@
 import json
 import random
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -436,6 +437,67 @@ class ParallelTimingTests(unittest.TestCase):
         self.assertLess(parallel_seconds, serial_seconds)
         self.assertGreaterEqual(serial_seconds - parallel_seconds, 0.3)
         self.assertGreaterEqual(serial_seconds, 0.9)
+
+
+class BranchModel:
+    """按分支维度分流的假模型：每个子 Agent 先调 contribution，再引用其 result_id 完成 finish。
+
+    delays 给各维度首次请求的延迟，用来控制子 Agent 的完成顺序；返回内容与延迟无关。
+    """
+
+    def __init__(self, delays):
+        self.delays = delays
+        self.requests = []
+        self._lock = threading.Lock()
+
+    def __call__(self, request):
+        body = json.loads(request.content)
+        messages = body['messages']
+        system = messages[0]['content']
+        if '你是 MetricProof 的审查 Agent' in system:
+            with self._lock:
+                self.requests.append(('reviewer', body))
+            return _response([], content=json.dumps({'verdict': 'pass', 'issues': []}))
+        if '你是 MetricProof 的主 Agent' in system:
+            with self._lock:
+                self.requests.append(('lead', body))
+            lead_round = sum(1 for item in messages if item['role'] == 'assistant')
+            if lead_round == 0:
+                return _response([tool_call('dispatch_subagent', {
+                    'branch': f'{dimension} 维度', 'dimensions': [dimension], 'metric': 'order_count',
+                    'period': P, 'base_period': B}, call_id=f'call_{dimension}') for dimension in self.delays])
+            return _response([tool_call('finish', {'report': finish_report()})])
+        dimension = next(name for name in self.delays if f'分支维度：{name}' in messages[1]['content'])
+        with self._lock:
+            self.requests.append((dimension, body))
+        tools = [item for item in messages if item['role'] == 'tool']
+        if not tools:
+            time.sleep(self.delays[dimension])
+            return _response([tool_call('contribution', {'metric': 'order_count', 'dimension': dimension,
+                                                         'period': P, 'base_period': B})])
+        result_id = json.loads(tools[-1]['content'])['result_id']
+        return _response([tool_call('finish', {'report': json.dumps({
+            'dimension': dimension, 'top_contributors': [{'value': 'x', 'result_id': result_id}],
+            'explained_ratio': '0.9', 'notes': ''}, ensure_ascii=False)})])
+
+
+class ParallelDeterminismTests(unittest.TestCase):
+    def test_result_ids_and_requests_independent_of_completion_order(self):
+        folder = make_folder(self)
+        runs = []
+        # 两次运行的子 Agent 完成顺序相反；总睡眠 < 1 秒（分支并行，实际约 0.3 秒一次）。
+        for delays in ({'customer_type': 0.0, 'customer_state': 0.15, 'payment_type': 0.3},
+                       {'customer_type': 0.3, 'customer_state': 0.15, 'payment_type': 0.0}):
+            model = BranchModel(delays)
+            result = run('x', folder, model, parallel=True)
+            self.assertEqual(len(result.branches), 3)
+            by_role = {}
+            for role, body in model.requests:
+                by_role.setdefault(role, []).append(json.dumps(body, ensure_ascii=False, sort_keys=True))
+            runs.append((json.dumps(result.report, ensure_ascii=False, sort_keys=True), by_role,
+                         [branch.result_ids for branch in result.branches]))
+        self.assertEqual(runs[0][2], [['r1.1-contribution'], ['r2.1-contribution'], ['r3.1-contribution']])
+        self.assertEqual(runs[0], runs[1])
 
 
 class TraceTests(unittest.TestCase):

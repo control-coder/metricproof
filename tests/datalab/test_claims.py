@@ -72,6 +72,17 @@ class ShortRefTests(unittest.TestCase):
     def setUp(self):
         self.checker = ClaimChecker(store_with_results())
 
+    def test_branch_scoped_result_id(self):
+        # 并行子 Agent 的编号 r3.1-contribution：整体按完整 result_id 解析，前缀 r3 不被当作缩写。
+        store = store_with_results()
+        branch_id = store.add('contribution', {}, 'L1', {'rows': [{'change': '-680.95'}]}, scope='r3')
+        self.assertEqual(branch_id, 'r3.1-contribution')
+        checker = ClaimChecker(store)
+        self.assertEqual(checker.short_refs(f'见 {branch_id}'), [])
+        self.assertEqual(checker.check_text(f'变化 -680.95（{branch_id}）'), [])
+        self.assertEqual(store.ordered_ids(), ['r1-detect_anomaly', 'r2-contribution', 'r3-dispatch_subagent',
+                                               'r3.1-contribution'])
+
     def test_unique_short_refs_resolve(self):
         self.assertEqual(self.checker.short_refs('见 r1、r2/r3，或 r1-r2'), ['r1-detect_anomaly', 'r2-contribution',
                                                                          'r3-dispatch_subagent', 'r1-detect_anomaly',

@@ -57,7 +57,7 @@ REVISION_MAX_STEPS = 2
 REVIEWER_MAX_STEPS = 3
 SUPPLEMENT = 3  # 根因排序时，算法前 3 个候选中 Agent 漏报的组间效应项并入报告
 
-REPORT_ID = re.compile(r"r\d+-[a-z_]+")
+REPORT_ID = re.compile(r"r\d+(?:\.\d+)?-[a-z_]+")
 
 
 class BudgetExceeded(Exception):
@@ -299,8 +299,13 @@ class _DuplicateGuard:
         return count >= 3
 
 
-def run_subagent(investigation: 'Investigation', branch: dict, index: int) -> BranchResult:
-    """子 Agent（ReAct）：独立上下文，只收到分支规格与目录；只回传结构化发现。"""
+def run_subagent(investigation: 'Investigation', branch: dict, index: int,
+                 scope: str | None = None) -> BranchResult:
+    """子 Agent（ReAct）：独立上下文，只收到分支规格与目录；只回传结构化发现。
+
+    scope 非空时（并行分派），本分支的结果编号带该前缀，见 ResultStore.add。
+    """
+    extra = {} if scope is None else {'scope': scope}
     agent_id = f'subagent-{index}'
     registry = investigation.toolset.registry
     history = [{'role': 'system', 'content': subagent.SYSTEM + '\n' + BOUNDARY},
@@ -330,7 +335,7 @@ def run_subagent(investigation: 'Investigation', branch: dict, index: int) -> Br
             break
         observations = []
         for call in reply.tool_calls:
-            observation = registry.call('subagent', call)
+            observation = registry.call('subagent', call, **extra)
             _trace(investigation, agent_id, 'tool_call', tool=call.get('name'),
                    result_id=observation.result_id, outcome='ok' if observation.ok else 'error')
             stopped = guard.check(call, observation)
@@ -689,8 +694,12 @@ class Investigation:
             runners.append((spec, index, observation))
         _trace(self, 'lead', 'dispatch', tool='dispatch_subagent', outcome=f'{len(runners)} branches')
         if self.parallel and len(runners) > 1:
+            # 分支结果编号以 dispatch 结果序号为前缀（如 r4.1-contribution），与线程完成顺序无关，
+            # 这样后续请求消息可复现，cassette 才能回放。
             with ThreadPoolExecutor(max_workers=MAX_BRANCHES) as pool:
-                results = list(pool.map(lambda item: run_subagent(self, item[0], item[1]), runners))
+                results = list(pool.map(
+                    lambda item: run_subagent(self, item[0], item[1], item[2].result_id.split('-', 1)[0]),
+                    runners))
         else:
             results = [run_subagent(self, spec, index) for spec, index, _ in runners]
         self.branches.extend(results)
