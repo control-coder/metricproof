@@ -235,7 +235,10 @@ def _lmdi(source, declaration, period, base_period) -> dict:
                         "contribution": -term if inverted else term,
                         "share": (-term if inverted else term) / (f1 - f0)})
     residual = sum(row["contribution"] for row in factors) - (f1 - f0)
-    tolerance = max(1e-6, 1e-6 * abs(f1 - f0))
+    # 比率型父指标的取值是 6 位小数（两期各有至多 5e-7 的舍入误差），父值与子因子之积并不精确
+    # 相等，绝对残差可略超 1e-6（holdout 中 ho-delivery_delay-02 为 1.03e-6，被误判不通过）；
+    # 绝对容差取 2e-6 覆盖两期舍入之和与浮点误差。
+    tolerance = max(2e-6, 1e-6 * abs(f1 - f0))
     result = {"metric": declaration.parent, "kind": MULTIPLICATIVE, "method": "lmdi",
               "period": _period_dict(period), "base_period": _period_dict(base_period),
               "factors": factors, "total_change": f1 - f0,
