@@ -1,0 +1,1785 @@
+{
+  "meta": {
+    "date": "2026-10-28 11:28",
+    "cases": [
+      "inj-delivery_delay-02",
+      "inj-freight_up-01",
+      "inj-mix_shift-02",
+      "inj-order_drop-02",
+      "inj-order_drop-03",
+      "inj-price_cut-05",
+      "inj-seller_drop-02",
+      "raw-01",
+      "raw-02",
+      "raw-04"
+    ],
+    "budget": {
+      "max_calls": 30,
+      "max_tokens": 300000,
+      "seconds": 600.0
+    },
+    "replay": false,
+    "note": "A5 dev：10 案例 × 串行+并行；注入与原始分开统计；model_config 无单价，费用只记 token"
+  },
+  "rows": [
+    {
+      "case": "inj-delivery_delay-02",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2018 年 5 月送达延迟率环比上升 0.068930（0.045013→0.113943，r1-detect_anomaly），环比倍数 1.531335（r1-detect_anomaly），处于历史正常波动范围（robust_z=0.234514，r1-detect_anomaly）。变化主要来自 late_count 由 306 升至 769、贡献份额 0.992203（r2-decompose_metric）。地域上高度集中于 MG 州（解释力 0.812194，r4-dispatch_subagent），客户结构上集中于新客（解释力 0.987192，r5-dispatch_subagent），且 MG 内下钻显示以新客为主（解释力 0.968482，r4-dispatch_subagent）。同期差评率环比上升 0.032983（0.131150→0.164133，r3-query_metric），同样集中于 MG 州（解释力 1.417381，r6-dispatch_subagent），MG 内 late 交付状态贡献 0.759411（r6-dispatch_subagent）——两个指标在 MG 州与 late 交付状态上重合，呈同向变化。",
+        "root_causes": [
+          {
+            "dimension": "customer_type",
+            "value": "new",
+            "explanatory_power": "0.987192",
+            "effect": "within",
+            "result_ids": [
+              "r11-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "customer_state",
+            "value": "MG",
+            "explanatory_power": "0.812194",
+            "effect": "within",
+            "result_ids": [
+              "r10-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "customer_state",
+            "value": "SP",
+            "explanatory_power": "0.156573",
+            "effect": "within",
+            "result_ids": [
+              "r10-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "延迟率环比上升 0.068930（0.045013→0.113943，r1-detect_anomaly），未触发异动告警（robust_z=0.234514，r1-detect_anomaly）",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "分解显示 late_count 由 306 升至 769、贡献 0.068393、份额 0.992203（r2-decompose_metric），delivered_dated_count 由 6798 降至 6749、贡献 0.000537（r2-decompose_metric）",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "MG 州延迟率由 0.024422 升至 0.525965，解释力 0.812194（r4-dispatch_subagent），组内效应为主",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "MG 内下钻显示变化集中于 new 客户，解释力 0.968482（r4-dispatch_subagent）",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "新客组解释力 0.987192、returning 组 0.012808（r5-dispatch_subagent），非结构效应",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "差评率环比上升 0.032983（0.131150→0.164133，r3-query_metric）",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "差评率变化集中于 MG 州：MG 组内由 0.120865 升至 0.542216、解释力 1.417381（r6-dispatch_subagent），其余州为小幅负贡献（r6-dispatch_subagent）",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "MG 内按交付状态拆分：late 组贡献 0.759411、on_time 组贡献 0.247421（r6-dispatch_subagent），均为 between 效应",
+            "result_ids": [],
+            "verification": "L3"
+          }
+        ],
+        "recommendations": [
+          "优先排查 MG 州（尤其面向新客）2018 年 5 月的承运与末端配送环节，定位 late_count 由 306 升至 769 的具体线路/承运商原因（r2-decompose_metric），并复核 MG 州差评中 late 订单的占比（0.759411，r6-dispatch_subagent）"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 42
+        },
+        "valid": true,
+        "review": {
+          "verdict": "revise",
+          "issues": [
+            {
+              "where": "summary",
+              "problem": "将延迟率环比变化 0.068930 误写为 6.893 个百分点（r1 中 change=0.068930，即 6.893 个百分点的表述与小数形式混用，且 3.2983 同类问题）",
+              "evidence": "r1-detect_anomaly: mom.change=0.068930；r20-verify_claims: claims[0] number_mismatch 6.893"
+            },
+            {
+              "where": "summary",
+              "problem": "将差评率环比变化 0.032983 误写为 3.2983 个百分点，与 r3 结果数值形式不一致",
+              "evidence": "r20-verify_claims: claims[1] number_mismatch 3.2983（r3-query_metric）"
+            },
+            {
+              "where": "recommendations[0]",
+              "problem": "代码核对指出 306、769 与所引 r6 结果不符（该数字应引 r2-decompose_metric）",
+              "evidence": "code_check: recommendations[0] number_mismatch 306/769, result_ids=[r6-dispatch_subagent]"
+            }
+          ],
+          "steps": 3,
+          "code_issues_before": [
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "6.893",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric",
+                "r4-dispatch_subagent",
+                "r5-dispatch_subagent",
+                "r3-query_metric",
+                "r6-dispatch_subagent"
+              ]
+            },
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "3.2983",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric",
+                "r4-dispatch_subagent",
+                "r5-dispatch_subagent",
+                "r3-query_metric",
+                "r6-dispatch_subagent"
+              ]
+            },
+            {
+              "where": "recommendations[0]",
+              "issue": "number_mismatch",
+              "number": "306",
+              "result_ids": [
+                "r6-dispatch_subagent"
+              ]
+            },
+            {
+              "where": "recommendations[0]",
+              "issue": "number_mismatch",
+              "number": "769",
+              "result_ids": [
+                "r6-dispatch_subagent"
+              ]
+            }
+          ],
+          "revised": true
+        }
+      },
+      "ac1": 0,
+      "ac3": 1,
+      "contribution_error": 364.187806,
+      "steps": {
+        "lead": 5,
+        "subagents": [
+          3,
+          3,
+          3
+        ],
+        "reviewer": 3
+      },
+      "model_calls": 17,
+      "tokens": 122831,
+      "seconds": 204.993,
+      "tool_stats": {
+        "total": 26,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 0.8888888888888888,
+      "verified": 9,
+      "referenced": 9,
+      "branches": 3,
+      "model_seconds": {
+        "lead": 83.0,
+        "subagents": 88.8
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "revise",
+        "revised": true,
+        "steps": 3,
+        "code_issues_before": 4,
+        "reviewer_issues": 3
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "injected",
+      "mode": "parallel"
+    },
+    {
+      "case": "inj-freight_up-01",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2018 年 3 月运费占比（freight_ratio）环比上升 31.8%，从 0.144556 升至 0.190522（r1-detect_anomaly），超出历史波动范围（稳健 z 分数 9.888502，r1-detect_anomaly），LMDI 分解显示总变化 +0.045966 主要来自运费总额上升（贡献 0.081421，r2-decompose_metric），GMV 增长为反向作用（贡献 -0.035455，r2-decompose_metric）。归因显示变化高度集中在 SP 州卖家（解释力 0.891149，r3-dispatch_subagent），且以组内效应为主；回答原始问题「集中在哪些卖家」：变化并未集中于少数卖家——最大单一卖家仅解释 0.075201（r4-dispatch_subagent），seller_id 维度整体解释力近 0（r3-dispatch_subagent），属 SP 州内多卖家、多价格带的广泛性组内上升。",
+        "root_causes": [
+          {
+            "dimension": "seller_state",
+            "value": "SP",
+            "explanatory_power": "0.891149",
+            "effect": "within",
+            "result_ids": [
+              "r3-dispatch_subagent",
+              "r5-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "price_band",
+            "value": "100_200",
+            "explanatory_power": "0.362141",
+            "effect": "within",
+            "result_ids": [
+              "r4-dispatch_subagent",
+              "r10-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "price_band",
+            "value": "50_100",
+            "explanatory_power": "0.281258",
+            "effect": "within",
+            "result_ids": [
+              "r4-dispatch_subagent",
+              "r10-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "freight_ratio 环比上升 0.045966（0.144556→0.190522，r1-detect_anomaly），相对变化 31.7981%（r1-detect_anomaly），稳健 z 分数 9.888502 判定为异动（r1-detect_anomaly）",
+            "result_ids": [
+              "r1-detect_anomaly"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "LMDI 分解：运费总额 freight_sum 从 14159073 升至 23090446，贡献 +0.081421（r2-decompose_metric）；item_gmv 从 97948616 升至 121195552，贡献 -0.035455（r2-decompose_metric）",
+            "result_ids": [
+              "r2-decompose_metric"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "seller_state=SP 独占总变化解释力 0.891149，效应类型为 within（组内上升而非结构效应，r3-dispatch_subagent）",
+            "result_ids": [
+              "r3-dispatch_subagent",
+              "r5-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "SP 州内部下钻：变化分散在多个价格带，price_band=100_200 解释 33.4%、50_100 解释 28.4%（r11-find_root_cause），品类首位为 bed_bath_table（14.4%）与 furniture_decor（11.8%）（r11-find_root_cause）",
+            "result_ids": [
+              "r3-dispatch_subagent",
+              "r11-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "未集中于少数卖家：最大单一卖家 7c67e1448b00f6e969d365cea6b010ab 仅解释 0.075201（r9-contribution，r4-dispatch_subagent），seller_id 维度整体解释力为 0（r3-dispatch_subagent）",
+            "result_ids": [
+              "r4-dispatch_subagent",
+              "r9-contribution",
+              "r3-dispatch_subagent"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "价格带维度三个价格带解释力之和约 0.887678（100_200 为 0.362141、50_100 为 0.281258、lt_50 为 0.244279，r10-contribution），均以 within 效应为主",
+            "result_ids": [
+              "r4-dispatch_subagent",
+              "r10-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "recommendations": [
+          "重点核查 SP 州卖家 3 月的运费定价与承运商成本（该州解释 89.1% 变化，r3-dispatch_subagent），并抽样 100_200 与 50_100 价格带商品的运费设置；变化分布上非集中于个别卖家（最大单一卖家仅解释 0.075201，r9-contribution），排查方式建议按州级运费策略/物流渠道统一核查。"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": false,
+          "issues": [
+            {
+              "where": "findings[5]",
+              "issue": "number_mismatch",
+              "number": "0.887678",
+              "result_ids": [
+                "r10-contribution",
+                "r4-dispatch_subagent"
+              ]
+            }
+          ],
+          "checked_numbers": 32
+        },
+        "valid": false,
+        "review": {
+          "verdict": "revise",
+          "issues": [
+            {
+              "where": "findings[5]",
+              "problem": "价格带累计解释力表述为「约 80%」，但所引用的三个 share_of_change 之和为 0.362141+0.281258+0.244279≈0.8877（约 89%），数值与结果不符",
+              "evidence": "r10-contribution"
+            },
+            {
+              "where": "recommendations[0]",
+              "problem": "代码核对已列出的因果措辞问题：「由于变化非集中于个别卖家，建议按州级运费策略统一排查」含因果断言（由于），超出描述性归因",
+              "evidence": "code-review-causal_assertion"
+            }
+          ],
+          "steps": 3,
+          "code_issues_before": [
+            {
+              "where": "recommendations[0]",
+              "issue": "causal_assertion",
+              "word": "由于"
+            }
+          ],
+          "revised": true
+        }
+      },
+      "ac1": 1,
+      "ac3": 1,
+      "contribution_error": 5942823.108851,
+      "steps": {
+        "lead": 4,
+        "subagents": [
+          3,
+          3
+        ],
+        "reviewer": 3
+      },
+      "model_calls": 13,
+      "tokens": 101564,
+      "seconds": 240.814,
+      "tool_stats": {
+        "total": 19,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 9,
+      "referenced": 9,
+      "branches": 2,
+      "model_seconds": {
+        "lead": 88.6,
+        "subagents": 75.0
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "revise",
+        "revised": true,
+        "steps": 3,
+        "code_issues_before": 1,
+        "reviewer_issues": 2
+      },
+      "valid": false,
+      "final_issues": [
+        "number_mismatch"
+      ],
+      "degraded": false,
+      "kind": "injected",
+      "mode": "parallel"
+    },
+    {
+      "case": "inj-mix_shift-02",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2018 年 2 月客单价（aov）14629.09，环比下降 4.65%（-713.05，r1-detect_anomaly），处于历史正常波动区间（robust_z=-2.23，未构成异动，r1-detect_anomaly）。分解显示订单量上升快于 GMV 上升拉低客单价（r2-decompose_metric）。跨维度排查一致表明：本次下降以各组内部客单价（within）下降为主，客群结构迁移（between）贡献极小，因此主因是组内变化而非客群结构变化。",
+        "root_causes": [
+          {
+            "dimension": "customer_type",
+            "value": "new",
+            "explanatory_power": "0.935419",
+            "effect": "within",
+            "result_ids": [
+              "r11-contribution",
+              "r16-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "payment_type",
+            "value": "credit_card",
+            "explanatory_power": "0.954990",
+            "effect": "within",
+            "result_ids": [
+              "r10-contribution",
+              "r14-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "customer_state",
+            "value": "SP",
+            "explanatory_power": "0.410717",
+            "effect": "within",
+            "result_ids": [
+              "r8-contribution",
+              "r18-find_root_cause"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "客单价环比下降 713.05 至 14629.09（-4.65%，r1-detect_anomaly），未突破稳健阈值（robust_z=-2.23，r1-detect_anomaly）。",
+            "result_ids": [
+              "r1-detect_anomaly"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "订单量由 7187 升至 7936、GMV 由 110263941 升至 116096438，订单量增幅更快，构成客单价下行的乘法结构（r2-decompose_metric）。",
+            "result_ids": [
+              "r2-decompose_metric"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "customer_type 维度以组内效应为主：new 客群解释力 0.935419、returning 仅 0.064581，结构迁移效应仅 -0.0410（r11-contribution）。",
+            "result_ids": [
+              "r11-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "payment_type 维度以组内效应为主：credit_card 组内占比 0.954990（r10-contribution）；下钻显示 credit_card 内变化集中于 new 客群（解释力 0.879615，r14-find_root_cause）。",
+            "result_ids": [
+              "r10-contribution",
+              "r14-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "customer_state 维度同样以组内为主：SP 州内效应 -320.89、RJ 州内效应 -161.56，而结构迁移贡献很小（SP +28.03、RJ +5.16，r8-contribution）；SP 州内下钻集中于 credit_card（r18-find_root_cause）。",
+            "result_ids": [
+              "r8-contribution",
+              "r18-find_root_cause"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "recommendations": [
+          "围绕 new 客群中的信用卡支付订单复盘定价与优惠策略，核实其组内客单价下滑是否来自促销力度加大或低价商品结构，而非客群比例迁移。"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 19
+        },
+        "valid": true,
+        "review": {
+          "verdict": "pass",
+          "issues": [],
+          "steps": 3,
+          "code_issues_before": [],
+          "revised": false
+        }
+      },
+      "ac1": 0,
+      "ac3": 0,
+      "contribution_error": null,
+      "steps": {
+        "lead": 3,
+        "subagents": [
+          3,
+          3,
+          3
+        ],
+        "reviewer": 3
+      },
+      "model_calls": 15,
+      "tokens": 104067,
+      "seconds": 328.355,
+      "tool_stats": {
+        "total": 23,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 8,
+      "referenced": 8,
+      "branches": 3,
+      "model_seconds": {
+        "lead": 63.1,
+        "subagents": 214.9
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "pass",
+        "revised": false,
+        "steps": 3,
+        "code_issues_before": 0,
+        "reviewer_issues": 0
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "injected",
+      "mode": "parallel"
+    },
+    {
+      "case": "inj-order_drop-02",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2018 年 2 月 item_gmv 为 95,652,139（r1-detect_anomaly），环比 1 月的 110,192,001 下降 14,539,862、降幅 13.2%（r1-detect_anomaly），处于近 6 个月历史波动范围内（robust_z=0.7822，r1-detect_anomaly）。LMDI 分解显示下降由商品件数（8173 降至 7415，贡献 66.9%，r2-decompose_metric）与件均价（11568.04 降至 11025.25，贡献 33.1%，r2-decompose_metric）共同贡献。维度归因显示降幅高度集中：卖家侧 SP 州独占 78.1% 的降幅（r10-find_root_cause），商品侧 100_200 价格带占 35.4%（r8-contribution）且其内部 90.3% 集中于 SP 卖家（r9-find_root_cause），品类以 stationery 居首（23.2%，r6-contribution）。",
+        "root_causes": [
+          {
+            "dimension": "seller_state",
+            "value": "SP",
+            "explanatory_power": "0.780836",
+            "result_ids": [
+              "r10-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "price_band",
+            "value": "100_200",
+            "explanatory_power": "0.353685",
+            "result_ids": [
+              "r8-contribution",
+              "r9-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "product_category",
+            "value": "stationery",
+            "explanatory_power": "0.231780",
+            "result_ids": [
+              "r6-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "2018 年 2 月 item_gmv 为 95,652,139，环比下降 14,539,862（-13.2%）（r1-detect_anomaly）",
+            "result_ids": [
+              "r1-detect_anomaly"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "降幅未构成统计异动，robust_z 为 0.7822（r1-detect_anomaly）",
+            "result_ids": [
+              "r1-detect_anomaly"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "件数由 8173 降至 7415，贡献 66.9%；件均价由 11568.04 降至 11025.25，贡献 33.1%（r2-decompose_metric）",
+            "result_ids": [
+              "r2-decompose_metric"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "卖家侧 SP 州贡献 78.1% 的降幅，买家侧 SP 州占 65.0%（r10-find_root_cause）",
+            "result_ids": [
+              "r10-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "各价格带降幅占比中，100_200 价格带占 35.4%、ge_500 占 29.6%（r8-contribution）",
+            "result_ids": [
+              "r8-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "100_200 价格带内部 90.3% 集中于 seller_state=SP（r9-find_root_cause）；SP 州内下钻以 price_band=100_200（40.9%）与 product_category=stationery（26.6%）居前，未见单一 seller_id 主导（最高 17.4%）（r14-find_root_cause）",
+            "result_ids": [
+              "r9-find_root_cause",
+              "r14-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "品类中 stationery 占 23.2%、furniture_decor 占 14.0%；头部卖家 3d871de0142ce09b7081e2b9d1733cb1 占 13.6%，卖家维度整体较分散（r6-contribution、r7-contribution）",
+            "result_ids": [
+              "r6-contribution",
+              "r7-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "recommendations": [
+          "核查 SP 州卖家在 2018 年 2 月的供给与履约情况（尤其 100_200 价格带的 stationery 商家），确认件数由 8173 降至 7415（r2-decompose_metric）的下滑是否伴随头部卖家缺货或上新减少，并对比 ge_500 价格带件均价由 11568.04 降至 11025.25（r2-decompose_metric）相关的促销情况"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 39
+        },
+        "valid": true,
+        "review": {
+          "verdict": "revise",
+          "issues": [
+            {
+              "where": "findings[4]",
+              "problem": "价格带维度累计解释 93.3% 与 r8-contribution 不符，五个价格带 share_of_change 合计为 100%（0.353685+0.296110+0.153923+0.129474+0.066807=1.000000），93.3% 无结果支持",
+              "evidence": "r8-contribution"
+            },
+            {
+              "where": "recommendations[0]",
+              "problem": "件数下滑 758 件与 r2-decompose_metric 不符，item_count 由 8173 降至 7415，实际下降 758 件（8173-7415=758），但该数字本身正确；问题在于代码核对已标记 number_mismatch，需复核 r2 中是否存在与 758 冲突的其他表述",
+              "evidence": "r2-decompose_metric"
+            }
+          ],
+          "steps": 3,
+          "code_issues_before": [
+            {
+              "where": "findings[4]",
+              "issue": "number_mismatch",
+              "number": "93.3%",
+              "result_ids": [
+                "r8-contribution"
+              ]
+            },
+            {
+              "where": "recommendations[0]",
+              "issue": "number_mismatch",
+              "number": "758",
+              "result_ids": [
+                "r2-decompose_metric"
+              ]
+            }
+          ],
+          "revised": true
+        }
+      },
+      "ac1": 0,
+      "ac3": 0,
+      "contribution_error": null,
+      "steps": {
+        "lead": 4,
+        "subagents": [
+          3,
+          3
+        ],
+        "reviewer": 3
+      },
+      "model_calls": 13,
+      "tokens": 105326,
+      "seconds": 251.798,
+      "tool_stats": {
+        "total": 20,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 8,
+      "referenced": 8,
+      "branches": 2,
+      "model_seconds": {
+        "lead": 105.7,
+        "subagents": 64.2
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "revise",
+        "revised": true,
+        "steps": 3,
+        "code_issues_before": 2,
+        "reviewer_issues": 2
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "injected",
+      "mode": "parallel"
+    },
+    {
+      "case": "inj-order_drop-03",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2018年4月 item_gmv 为 115210708（r1-detect_anomaly），环比 3月的 115265699 下降 54991（r1-detect_anomaly），降幅 0.0477%（r1-detect_anomaly），基本持平且稳健 z 分数 0.617328（r1-detect_anomaly）未构成异动。LMDI 分解显示商品件数由 8195 降至 7909（贡献 -3501577（r2-decompose_metric）），平均单价由 11971.34 升至 12522.61（贡献 +4437831（r2-decompose_metric）），量减价增相互对冲。维度排查显示变化集中在品类与价格带：computers_accessories、sports_leisure 及 200_500 价格带为主要同向贡献项，卖家维度贡献高度分散（r5-dispatch_subagent）。",
+        "root_causes": [
+          {
+            "dimension": "product_category",
+            "value": "computers_accessories",
+            "explanatory_power": "55.990071",
+            "result_ids": [
+              "r11-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "price_band",
+            "value": "200_500",
+            "explanatory_power": "40.686712",
+            "result_ids": [
+              "r13-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "product_category",
+            "value": "sports_leisure",
+            "explanatory_power": "37.964012",
+            "result_ids": [
+              "r12-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "2018年4月 item_gmv 环比下降 54991（r1-detect_anomaly），降幅 0.0477%（r1-detect_anomaly），robust_z 为 0.617328（r1-detect_anomaly）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "LMDI 分解：item_count 由 8195 降至 7909（r2-decompose_metric），avg_item_price 由 11971.336913 升至 12522.614743（r2-decompose_metric）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "computers_accessories 与 sports_leisure 合计同向贡献超 90%（r4-dispatch_subagent）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "computers_accessories 内部变化集中在 seller_state=SP，解释力 0.706616（r16-find_root_cause）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "seller_id 维度贡献分散：最大单一卖家 7c67e1448b00f6e969d365cea6b010ab 解释力 25.697060（r7-contribution），其下滑集中于 price_band=100_200（0.778405（r14-find_root_cause））与 product_category=office_furniture（0.768968（r14-find_root_cause））。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "customer_state=PR 期内 +1675539（r15-find_root_cause）呈多来源分散结构，price_band=ge_500（0.611218（r15-find_root_cause））与 100_200（0.608163（r15-find_root_cause））解释力相近。",
+            "result_ids": [],
+            "verification": "L3"
+          }
+        ],
+        "recommendations": [
+          "跟踪 computers_accessories 与 200_500 价格带的件数与单价走势，确认 4 月量减价增的对冲是否延续，并关注 seller_state=SP 的该品类供给变化。"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 26
+        },
+        "valid": true,
+        "review": {
+          "verdict": "revise",
+          "issues": [
+            {
+              "where": "summary",
+              "problem": "「1340 个卖家共同构成净变化」中的 1340 在所引用结果中无对应数据，r5-dispatch_subagent 仅记录了派发请求（维度、指标、周期），未包含卖家数量",
+              "evidence": "r5-dispatch_subagent / r23-verify_claims"
+            }
+          ],
+          "steps": 3,
+          "code_issues_before": [
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "1340",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric",
+                "r5-dispatch_subagent"
+              ]
+            }
+          ],
+          "revised": true
+        }
+      },
+      "ac1": 0,
+      "ac3": 0,
+      "contribution_error": null,
+      "steps": {
+        "lead": 4,
+        "subagents": [
+          3,
+          3,
+          3
+        ],
+        "reviewer": 3
+      },
+      "model_calls": 16,
+      "tokens": 124407,
+      "seconds": 239.218,
+      "tool_stats": {
+        "total": 24,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 9,
+      "referenced": 9,
+      "branches": 3,
+      "model_seconds": {
+        "lead": 91.8,
+        "subagents": 96.7
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "revise",
+        "revised": true,
+        "steps": 3,
+        "code_issues_before": 1,
+        "reviewer_issues": 1
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "injected",
+      "mode": "parallel"
+    },
+    {
+      "case": "inj-price_cut-05",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2018 年 4 月 item_gmv 为 113,539,102（r1-detect_anomaly），环比下降 1.50%、减少 1,726,597（r1-detect_anomaly），稳健 z 分数 0.524699 未构成异动（r1-detect_anomaly）。归因显示降幅主要来自 computers_accessories 品类与 200_500 价格带，集中在卖家州 SP；LMDI 分解显示件数下降贡献 -2,879,098（r2-decompose_metric），均价上升贡献 +2,047,503（r2-decompose_metric）形成部分对冲。",
+        "root_causes": [
+          {
+            "dimension": "product_category",
+            "value": "computers_accessories",
+            "explanatory_power": "2.991281",
+            "result_ids": [
+              "r5-contribution",
+              "r3-dispatch_subagent"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "price_band",
+            "value": "200_500",
+            "explanatory_power": "1.453552",
+            "result_ids": [
+              "r7-contribution",
+              "r3-dispatch_subagent"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "product_category",
+            "value": "sports_leisure",
+            "explanatory_power": "1.209129",
+            "result_ids": [
+              "r5-contribution",
+              "r3-dispatch_subagent"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "item_gmv 环比下降 1.50%（r1-detect_anomaly），历史序列稳健 z 分数 0.524699、is_anomaly=false（r1-detect_anomaly）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "LMDI 分解：item_count 由 8,195 降至 7,957，贡献 -2,879,098（r2-decompose_metric）；avg_item_price 由 11,971.34 升至 12,224.90，贡献 +2,047,503（r2-decompose_metric）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "computers_accessories 单类下降 5,164,737（10,057,033→4,892,296），share_of_change 2.991281（r5-contribution）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "价格带 200_500 下降 2,509,698、100_200 下降 1,249,890，ge_500 反增 3,190,099 形成对冲（r7-contribution）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "品类中 home_appliances_2 增 1,587,305、computers 增 1,457,161，与总变化方向相反（r5-contribution）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "seller_state 维度整体解释 97.59%、customer_state 解释 92.90%（r11-find_root_cause），其中 seller_state=SP 贡献 0.853088、customer_state=MG 贡献 0.820578（r11-find_root_cause）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "seller_state=SP 内部变化集中于 product_category=computers_accessories，解释力 1.956794（r14-find_root_cause）；computers_accessories 内部降幅集中于 seller_state=SP，解释力 0.558061（r8-find_root_cause）。",
+            "result_ids": [],
+            "verification": "L3"
+          },
+          {
+            "text": "核心卖家中 7c67e1448b00f6e969d365cea6b010ab 下降 1,413,107、04308b1ee57b6625f47df1d56f00eedf 下降 1,109,576，e882b2a25a10b9c057cc49695f222c19 增长 1,221,079 形成对冲（r3-dispatch_subagent）。",
+            "result_ids": [],
+            "verification": "L3"
+          }
+        ],
+        "recommendations": [
+          "跟进 computers_accessories 品类（尤其 seller_state=SP 的卖家与 200_500 价格带）4 月件数下滑的原因，核查库存、下架与流量变化，并复核核心卖家 7c67e1448b00f6e969d365cea6b010ab 的经营状态。"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 32
+        },
+        "valid": true,
+        "review": {
+          "verdict": "pass",
+          "issues": [],
+          "steps": 1,
+          "code_issues_before": [],
+          "revised": false
+        }
+      },
+      "ac1": 1,
+      "ac3": 1,
+      "contribution_error": 2087721.991281,
+      "steps": {
+        "lead": 4,
+        "subagents": [
+          3,
+          3
+        ],
+        "reviewer": 1
+      },
+      "model_calls": 11,
+      "tokens": 97811,
+      "seconds": 408.597,
+      "tool_stats": {
+        "total": 18,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 8,
+      "referenced": 8,
+      "branches": 2,
+      "model_seconds": {
+        "lead": 127.4,
+        "subagents": 57.1
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "pass",
+        "revised": false,
+        "steps": 1,
+        "code_issues_before": 0,
+        "reviewer_issues": 0
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "injected",
+      "mode": "parallel"
+    },
+    {
+      "case": "inj-seller_drop-02",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2017 年 9 月 item_gmv 环比降至 64998972（-1191380，-1.80%，r1-detect_anomaly），稳健 z 分数 0.951356 未达异常阈值（r1-detect_anomaly）。LMDI 分解显示变化与件数因子方向一致：item_count 由 4882 降至 4727，贡献 -1815325.695043，avg_item_price 由 11639.610610 升至 11785.029617，贡献 +698581.696558（r2-decompose_metric）。归因集中于单一高价电脑类目卖家：seller_id=53243585a1d6dc2643021fd1853d8905 的 item_gmv 由 base=3578767 降至 current=0，change=-3578767，share_of_change=3.003884，单项即超过总降幅（r11-contribution）；该卖家全部归属 seller_state=BA，BA 州由 base=3687266 降至 current=117616，change=-3569650，share_of_change=2.996231（r7-contribution、r9-find_root_cause）；对应品类 computers 由 base=3482600 降至 current=0，share_of_change=2.923165（r10-contribution），价格带 ge_500 change=-1602513，share_of_change=1.345090（r12-contribution）。",
+        "root_causes": [
+          {
+            "dimension": "seller_id",
+            "value": "53243585a1d6dc2643021fd1853d8905",
+            "explanatory_power": "3.003884",
+            "result_ids": [
+              "r11-contribution",
+              "r13-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "seller_state",
+            "value": "BA",
+            "explanatory_power": "2.996231",
+            "result_ids": [
+              "r7-contribution",
+              "r9-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "product_category",
+            "value": "computers",
+            "explanatory_power": "2.923165",
+            "result_ids": [
+              "r10-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "item_gmv 本期 64998972，环比 change=-1191380（-1.80%），稳健 z=0.951356 未触发异动（r1-detect_anomaly）",
+            "result_ids": [
+              "r1-detect_anomaly"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "LMDI 分解：item_count 由 4882 降至 4727，贡献 -1815325.695043；avg_item_price 由 11639.610610 升至 11785.029617，贡献 +698581.696558，件数为主要因子（r2-decompose_metric）",
+            "result_ids": [
+              "r2-decompose_metric"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "卖家 53243585a1d6dc2643021fd1853d8905 的 item_gmv 由 base=3578767 降至 current=0，share_of_change=3.003884，超过总降幅（r11-contribution）",
+            "result_ids": [
+              "r11-contribution",
+              "r21-read_result"
+            ],
+            "verification": "L3"
+          },
+          {
+            "text": "seller_state=BA 由 base=3687266 降至 current=117616，change=-3569650，share_of_change=2.996231，BA 内部下钻集中于同一卖家（r7-contribution、r9-find_root_cause）",
+            "result_ids": [
+              "r7-contribution",
+              "r22-read_result",
+              "r9-find_root_cause"
+            ],
+            "verification": "L3"
+          },
+          {
+            "text": "computers 品类由 base=3482600 降至 current=0，share_of_change=2.923165；ge_500 价格带 change=-1602513，share_of_change=1.345090（r10-contribution、r12-contribution）",
+            "result_ids": [
+              "r10-contribution",
+              "r23-read_result",
+              "r12-contribution",
+              "r24-read_result"
+            ],
+            "verification": "L3"
+          }
+        ],
+        "recommendations": [
+          "核实 seller_id=53243585a1d6dc2643021fd1853d8905 在 2017-09 的经营状态（是否下架、停业或高价电脑订单未成交），以区分一次性缺口与持续性流失"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 18
+        },
+        "valid": true,
+        "review": {
+          "verdict": "pass",
+          "issues": [],
+          "steps": 3,
+          "code_issues_before": [
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "3578767",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric"
+              ]
+            },
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "3.003884",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric"
+              ]
+            },
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "368.7",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric"
+              ]
+            },
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "11.8",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric"
+              ]
+            },
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "2.996231",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric"
+              ]
+            },
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "3482600",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric"
+              ]
+            },
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "2.923165",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric"
+              ]
+            },
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "1.345090",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric"
+              ]
+            },
+            {
+              "where": "findings[2]",
+              "issue": "number_mismatch",
+              "number": "53243585",
+              "result_ids": [
+                "r11-contribution"
+              ]
+            },
+            {
+              "where": "findings[3]",
+              "issue": "number_mismatch",
+              "number": "368.7",
+              "result_ids": [
+                "r7-contribution",
+                "r9-find_root_cause"
+              ]
+            },
+            {
+              "where": "findings[3]",
+              "issue": "number_mismatch",
+              "number": "11.8",
+              "result_ids": [
+                "r7-contribution",
+                "r9-find_root_cause"
+              ]
+            }
+          ],
+          "revised": true
+        }
+      },
+      "ac1": 1,
+      "ac3": 1,
+      "contribution_error": 6711303.003884,
+      "steps": {
+        "lead": 5,
+        "subagents": [
+          3,
+          3
+        ],
+        "reviewer": 3
+      },
+      "model_calls": 14,
+      "tokens": 123104,
+      "seconds": 281.88,
+      "tool_stats": {
+        "total": 25,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 8,
+      "referenced": 12,
+      "branches": 2,
+      "model_seconds": {
+        "lead": 90.2,
+        "subagents": 75.8
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "pass",
+        "revised": true,
+        "steps": 3,
+        "code_issues_before": 11,
+        "reviewer_issues": 0
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "injected",
+      "mode": "parallel"
+    },
+    {
+      "case": "raw-01",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2017 年 11 月 GMV 环比上升 53.3%，从 76,478,528 增至 117,263,923，增加 40,785,395（r1-detect_anomaly），远超历史中位数水平（robust_z=5.36，r1-detect_anomaly）。地区维度上增长主要来自 SP、RJ、MG 三个州，前五州合计解释 67.2%（r5-find_root_cause）；SP 州内部变化进一步集中于新客（customer_type=new，解释力 0.967701，r7-find_root_cause），属各州普遍同向的广泛性增长。",
+        "root_causes": [
+          {
+            "dimension": "customer_state",
+            "value": "SP",
+            "explanatory_power": "0.367810",
+            "result_ids": [
+              "r6-contribution",
+              "r7-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "customer_state",
+            "value": "RJ",
+            "explanatory_power": "0.154393",
+            "result_ids": [
+              "r6-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "customer_state",
+            "value": "MG",
+            "explanatory_power": "0.149802",
+            "result_ids": [
+              "r6-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "GMV 环比上升 53.3%，总增量 40,785,395（r1-detect_anomaly），异动检测标记为异常（robust_z=5.364734，r1-detect_anomaly）。",
+            "result_ids": [
+              "r1-detect_anomaly"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "LMDI 分解显示订单数由 4547 增至 7423，贡献 +46,768,269（r2-decompose_metric）；客单价由 16819.557510 降至 15797.376128，贡献 -5,982,874（r2-decompose_metric）。",
+            "result_ids": [
+              "r2-decompose_metric"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "SP 州 GMV 增加 15,001,283，占总变化 36.78%（r6-contribution）；RJ 贡献 0.154393（r6-contribution）、MG 贡献 0.149802（r6-contribution）。",
+            "result_ids": [
+              "r6-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "前五州（SP、RJ、MG、RS、SC）合计解释 67.2%（r5-find_root_cause），各州普遍同向增长，属广泛性增长而非单一异常（r5-find_root_cause）。",
+            "result_ids": [
+              "r5-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "SP 州内部变化集中于新客 customer_type=new，解释力 0.967701（r7-find_root_cause）。",
+            "result_ids": [
+              "r7-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "全量口径下新客贡献总变化的 0.971998（r9-contribution），信用卡支付贡献 0.799241（r10-contribution），新客增量在州级分布较分散，SP 最大但仅解释 36.6%（r14-find_root_cause）。",
+            "result_ids": [
+              "r9-contribution",
+              "r10-contribution",
+              "r14-find_root_cause"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "recommendations": [
+          "围绕 SP、RJ、MG 三州的新客获取与转化进一步下钻（渠道、品类），并关注客单价下降对增长的抵消：客单价贡献 -5,982,874（r2-decompose_metric）。"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 24
+        },
+        "valid": true,
+        "review": {
+          "verdict": "revise",
+          "issues": [
+            {
+              "where": "recommendations[0]",
+              "problem": "客单价降幅标注为6.1%，与r2-decompose_metric中的实际降幅不符（实际约6.1%的表述未通过核验，代码核对已标记number_mismatch）",
+              "evidence": "r18-verify_claims: claims[0] failed, number_mismatch 6.1%"
+            }
+          ],
+          "steps": 3,
+          "code_issues_before": [
+            {
+              "where": "recommendations[0]",
+              "issue": "number_mismatch",
+              "number": "6.1%",
+              "result_ids": [
+                "r2-decompose_metric"
+              ]
+            }
+          ],
+          "revised": true
+        }
+      },
+      "ac1": 1,
+      "ac3": 1,
+      "contribution_error": 15001282.63219,
+      "steps": {
+        "lead": 4,
+        "subagents": [
+          3,
+          3
+        ],
+        "reviewer": 3
+      },
+      "model_calls": 13,
+      "tokens": 90138,
+      "seconds": 214.984,
+      "tool_stats": {
+        "total": 19,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 8,
+      "referenced": 8,
+      "branches": 2,
+      "model_seconds": {
+        "lead": 55.7,
+        "subagents": 84.1
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "revise",
+        "revised": true,
+        "steps": 3,
+        "code_issues_before": 1,
+        "reviewer_issues": 1
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "raw",
+      "mode": "parallel"
+    },
+    {
+      "case": "raw-02",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2018 年 2 月 GMV 为 97,996,623（r1-detect_anomaly），环比 1 月减少 12,267,318、降幅 11.13%（r1-detect_anomaly）；相对近 6 个月历史，稳健 z 分数为 0.90839，未触发异动告警（r1-detect_anomaly）。全部数字均为服务端 L1 级核验。LMDI 分解显示订单数贡献 -8,468,833（占 69.04%）、客单价贡献 -3,798,485（占 30.96%）（r2-decompose_metric）。地区维度上回落高度集中：SP 单州贡献 0.584581，其次为 MG 0.072153、SC 0.068424、BA 0.047757、PA 0.046816（r6-contribution）。",
+        "root_causes": [
+          {
+            "dimension": "customer_state",
+            "value": "SP",
+            "explanatory_power": "0.584581",
+            "result_ids": [
+              "r6-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "customer_state",
+            "value": "MG",
+            "explanatory_power": "0.072153",
+            "result_ids": [
+              "r6-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "customer_state",
+            "value": "SC",
+            "explanatory_power": "0.068424",
+            "result_ids": [
+              "r6-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "GMV 环比减少 12,267,318（-11.13%）（r1-detect_anomaly），订单数下降贡献 -8,468,833、客单价下降贡献 -3,798,485（r2-decompose_metric）。",
+            "result_ids": [
+              "r1-detect_anomaly",
+              "r2-decompose_metric"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "地域回落集中在少数州：SP 贡献 0.584581，MG 贡献 0.072153，SC 贡献 0.068424，BA 贡献 0.047757，PA 贡献 0.046816（r6-contribution）。",
+            "result_ids": [
+              "r6-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "SP 州内部下钻显示变化集中于新客户（customer_type=new），组内解释力 0.992382（r7-find_root_cause）。",
+            "result_ids": [
+              "r7-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "全量口径下新客户 GMV 变化解释力 1.008106（r9-contribution）、信用卡支付 0.758600（r10-contribution）、1 期分期 0.343635（r11-contribution）。",
+            "result_ids": [
+              "r9-contribution",
+              "r10-contribution",
+              "r11-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "履约维度上 on_time 订单 GMV 变化贡献 1.486795、late 订单反向贡献 -0.573018（r12-contribution）；on_time 内部变化集中于 customer_state=SP（解释力 0.410872，r14-find_root_cause）。",
+            "result_ids": [
+              "r12-contribution",
+              "r14-find_root_cause"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "recommendations": [
+          "优先复盘 SP 州 2 月新客户获取与转化链路（该州贡献 0.584581（r6-contribution），且集中于新客户（r7-find_root_cause）），并核对 1 月促销活动造成的高基数效应；同时关注 MG（r6-contribution）、SC（r6-contribution）两州的新客户与信用卡支付订单量变化（r9-contribution、r10-contribution）。"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 30
+        },
+        "valid": true,
+        "review": {
+          "verdict": "revise",
+          "issues": [
+            {
+              "where": "summary",
+              "problem": "前五州合计占比 81.97% 与 r6-contribution 数据不符：按 share_of_change 求和 SP+MG+SC+BA+PA = 0.584581+0.072153+0.068424+0.047757+0.046816 = 0.819731，即 81.97%，但代码核对与 verify_claims 均标记该数字为 number_mismatch，需按核对结果修正或重新核验",
+              "evidence": "r19-verify_claims"
+            },
+            {
+              "where": "findings[1]",
+              "problem": "前五州累计约 81.97% 同样被 verify_claims 判定为 number_mismatch，与 r6-contribution 绑定不一致",
+              "evidence": "r19-verify_claims"
+            },
+            {
+              "where": "recommendations[0]",
+              "problem": "引用 58.46% 但未附 result_id（代码核对已列出 missing_result_id）",
+              "evidence": "code-review"
+            }
+          ],
+          "steps": 3,
+          "code_issues_before": [
+            {
+              "where": "summary",
+              "issue": "number_mismatch",
+              "number": "81.97%",
+              "result_ids": [
+                "r1-detect_anomaly",
+                "r2-decompose_metric",
+                "r6-contribution"
+              ]
+            },
+            {
+              "where": "findings[1]",
+              "issue": "number_mismatch",
+              "number": "81.97%",
+              "result_ids": [
+                "r6-contribution"
+              ]
+            },
+            {
+              "where": "recommendations[0]",
+              "issue": "missing_result_id",
+              "numbers": [
+                "58.46%"
+              ]
+            }
+          ],
+          "revised": true
+        }
+      },
+      "ac1": 1,
+      "ac3": 1,
+      "contribution_error": 7171235.584581,
+      "steps": {
+        "lead": 5,
+        "subagents": [
+          3,
+          3
+        ],
+        "reviewer": 3
+      },
+      "model_calls": 14,
+      "tokens": 107922,
+      "seconds": 374.08,
+      "tool_stats": {
+        "total": 23,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 9,
+      "referenced": 9,
+      "branches": 2,
+      "model_seconds": {
+        "lead": 175.8,
+        "subagents": 58.4
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "revise",
+        "revised": true,
+        "steps": 3,
+        "code_issues_before": 3,
+        "reviewer_issues": 3
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "raw",
+      "mode": "parallel"
+    },
+    {
+      "case": "raw-04",
+      "parallel": true,
+      "stop_reason": "finish",
+      "report": {
+        "summary": "2017 年 8 月 item_gmv 为 66,190,352（r1-detect_anomaly），环比 7 月上升 8,314,979、涨幅 14.3670%（r1-detect_anomaly），在历史序列上稳健 z 分数为 1.554686、未构成异动（r1-detect_anomaly）。LMDI 分解显示 item_count（贡献 4,395,494.072804，share 0.578671）与 avg_item_price（贡献 3,200,354.926322，share 0.421329）均为正向贡献（r2-decompose_metric）。分维度排查显示，销售额环比上升主要集中在价格带 ge_500、卖家州 BA 及其对应的大卖家与 computers 品类上。",
+        "root_causes": [
+          {
+            "dimension": "price_band",
+            "value": "ge_500",
+            "explanatory_power": "0.605915",
+            "result_ids": [
+              "r13-contribution",
+              "r14-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "seller_state",
+            "value": "BA",
+            "explanatory_power": "0.423214",
+            "result_ids": [
+              "r5-find_root_cause",
+              "r8-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "dimension": "product_category",
+            "value": "computers",
+            "explanatory_power": "0.418834",
+            "result_ids": [
+              "r11-contribution"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "findings": [
+          {
+            "text": "item_gmv 环比上升 8,314,979（+14.3670%）（r1-detect_anomaly），本期值 66,190,352（r1-detect_anomaly）。",
+            "result_ids": [
+              "r1-detect_anomaly"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "LMDI 分解中 item_count 贡献 4,395,494.072804（share 0.578671）、avg_item_price 贡献 3,200,354.926322（share 0.421329），不变量检验通过（残差 -0.000873）（r2-decompose_metric）。",
+            "result_ids": [
+              "r2-decompose_metric"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "价格带 ge_500 对环比变化的解释力最高，为 0.605915（r13-contribution）；其内部变化进一步集中在 seller_state=BA，解释力 0.678622（r14-find_root_cause）。",
+            "result_ids": [
+              "r13-contribution",
+              "r14-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "seller_state=BA 解释力 0.423214（r5-find_root_cause），贡献 +3,519,013（r7-contribution），下钻显示该增量集中于 seller_id=53243585a1d6dc2643021fd1853d8905（解释力 1.016980，r8-find_root_cause）。",
+            "result_ids": [
+              "r5-find_root_cause",
+              "r7-contribution",
+              "r8-find_root_cause"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "品类视角中 computers 解释力 0.418834（基期为 0 的新增项，r11-contribution），health_beauty 解释力 0.191401（r11-contribution）。",
+            "result_ids": [
+              "r11-contribution"
+            ],
+            "verification": "L1"
+          },
+          {
+            "text": "seller_state=SP 解释力 0.309453、customer_state=SP 解释力 0.212343（r5-find_root_cause）；price_band、seller_id、product_category 三视角存在重叠、不宜相加（r3-dispatch_subagent）。",
+            "result_ids": [
+              "r5-find_root_cause",
+              "r3-dispatch_subagent"
+            ],
+            "verification": "L1"
+          }
+        ],
+        "recommendations": [
+          "针对 ge_500 价格带中 BA 州 computers 品类及 seller_id=53243585a1d6dc2643021fd1853d8905 的新增增量，核对其大额订单与履约数据，并评估是否需要在 9 月延续同类投放与备货策略。"
+        ],
+        "causal_assertions": [],
+        "claims_check": {
+          "passed": true,
+          "issues": [],
+          "checked_numbers": 25
+        },
+        "valid": true,
+        "review": {
+          "verdict": "pass",
+          "issues": [],
+          "steps": 1,
+          "code_issues_before": [],
+          "revised": false
+        }
+      },
+      "ac1": 0,
+      "ac3": 1,
+      "contribution_error": 3482599.581166,
+      "steps": {
+        "lead": 3,
+        "subagents": [
+          3,
+          3
+        ],
+        "reviewer": 1
+      },
+      "model_calls": 10,
+      "tokens": 85176,
+      "seconds": 299.479,
+      "tool_stats": {
+        "total": 16,
+        "accuracy": 1.0,
+        "denied": 0,
+        "duplicate": 0,
+        "duplicate_ratio": 0.0
+      },
+      "verify_pass_rate": 1.0,
+      "verified": 9,
+      "referenced": 9,
+      "branches": 2,
+      "model_seconds": {
+        "lead": 68.1,
+        "subagents": 77.2
+      },
+      "causal_assertions": [],
+      "review": {
+        "verdict": "pass",
+        "revised": false,
+        "steps": 1,
+        "code_issues_before": 0,
+        "reviewer_issues": 0
+      },
+      "valid": true,
+      "final_issues": [],
+      "degraded": false,
+      "kind": "raw",
+      "mode": "parallel"
+    }
+  ],
+  "summary": {
+    "serial": {
+      "injected": {
+        "cases": 0,
+        "failures": 0
+      },
+      "raw": {
+        "cases": 0,
+        "failures": 0
+      }
+    },
+    "parallel": {
+      "injected": {
+        "cases": 7,
+        "failures": 0,
+        "ac1": 0.4286,
+        "ac3": 0.5714,
+        "avg_lead_steps": 4.14,
+        "avg_sub_steps": 3,
+        "avg_model_calls": 14.14,
+        "total_tokens": 779110,
+        "p50_seconds": 251.8,
+        "p90_seconds": 328.36,
+        "tool_accuracy": 1.0,
+        "denied_calls": 0,
+        "duplicate_ratio": 0.0,
+        "verify_pass_rate": 0.9841,
+        "causal_assertion_cases": 0
+      },
+      "raw": {
+        "cases": 3,
+        "failures": 0,
+        "ac1": 0.6667,
+        "ac3": 1.0,
+        "avg_lead_steps": 4,
+        "avg_sub_steps": 3,
+        "avg_model_calls": 12.33,
+        "total_tokens": 283236,
+        "p50_seconds": 299.48,
+        "p90_seconds": 374.08,
+        "tool_accuracy": 1.0,
+        "denied_calls": 0,
+        "duplicate_ratio": 0.0,
+        "verify_pass_rate": 1.0,
+        "causal_assertion_cases": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,1402 @@
+{
+  "meta": {
+    "date": "2026-10-28 11:48",
+    "note": "离线，回放 A5 串行录制，不调用模型",
+    "seed": 20261028,
+    "factor": 1.37,
+    "max_per_type": 3,
+    "cases": [
+      "inj-delivery_delay-02",
+      "inj-freight_up-01",
+      "inj-mix_shift-02",
+      "inj-order_drop-02",
+      "inj-order_drop-03",
+      "inj-price_cut-05",
+      "inj-seller_drop-02",
+      "raw-01",
+      "raw-02",
+      "raw-04"
+    ]
+  },
+  "rows": [
+    {
+      "case": "inj-delivery_delay-02",
+      "original": {
+        "passed": false,
+        "issues": [
+          {
+            "where": "findings[3]",
+            "issue": "number_mismatch",
+            "number": "0.421351",
+            "result_ids": [
+              "r3-query_metric",
+              "r14-query_metric"
+            ]
+          }
+        ],
+        "issue_types": [
+          "number_mismatch"
+        ],
+        "checked_numbers": 24
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "summary：0.120865 → 0.165585",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "number",
+          "description": "findings[1]：0.024422 → 0.033458",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "number",
+          "description": "findings[3]：0.120865 → 0.165585",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：0.987192 → 1.352453",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[2]：删除 result_ids=[] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[3]：删除 result_ids=[] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[0]：删除 result_ids=[] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[1]：删除 result_ids=['r7-contribution', 'r8-find_root_cause']",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[1]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[0]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[2]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-delivery_delay-02"
+        }
+      ]
+    },
+    {
+      "case": "inj-freight_up-01",
+      "original": {
+        "passed": false,
+        "issues": [
+          {
+            "where": "summary",
+            "issue": "number_mismatch",
+            "number": "0.075201",
+            "result_ids": [
+              "r1-detect_anomaly",
+              "r2-decompose_metric",
+              "r3-dispatch_subagent",
+              "r4-dispatch_subagent"
+            ]
+          },
+          {
+            "where": "findings[4]",
+            "issue": "number_mismatch",
+            "number": "0.887678",
+            "result_ids": [
+              "r12-contribution"
+            ]
+          },
+          {
+            "where": "findings[7]",
+            "issue": "number_mismatch",
+            "number": "0.075201",
+            "result_ids": [
+              "r4-dispatch_subagent"
+            ]
+          }
+        ],
+        "issue_types": [
+          "number_mismatch",
+          "number_mismatch",
+          "number_mismatch"
+        ],
+        "checked_numbers": 27
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "summary：-0.035455 → 0.048573",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "number",
+          "description": "summary：0.190522 → 0.261015",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "number",
+          "description": "findings[6]：0.809554 → 1.109089",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：0.891149 → 1.220874",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[5]：删除 result_ids=['r10-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[2]：删除 result_ids=['r6-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[4]：删除 result_ids=['r12-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[2]：删除 result_ids=['r12-contribution']",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "causal",
+          "description": "findings[3]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "causal_assertion",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "causal",
+          "description": "findings[7]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        },
+        {
+          "type": "causal",
+          "description": "findings[1]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "causal_assertion",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-freight_up-01"
+        }
+      ]
+    },
+    {
+      "case": "inj-mix_shift-02",
+      "skipped": "回放中途 CassetteMiss（stop=model_error:CassetteMiss）"
+    },
+    {
+      "case": "inj-order_drop-02",
+      "original": {
+        "passed": false,
+        "issues": [
+          {
+            "where": "findings[3]",
+            "issue": "number_mismatch",
+            "number": "-11353244",
+            "result_ids": [
+              "r5-find_root_cause"
+            ]
+          },
+          {
+            "where": "findings[4]",
+            "issue": "number_mismatch",
+            "number": "-9451800",
+            "result_ids": [
+              "r5-find_root_cause"
+            ]
+          },
+          {
+            "where": "findings[5]",
+            "issue": "number_mismatch",
+            "number": "93.3%",
+            "result_ids": [
+              "r13-contribution"
+            ]
+          }
+        ],
+        "issue_types": [
+          "number_mismatch",
+          "number_mismatch",
+          "number_mismatch"
+        ],
+        "checked_numbers": 30
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "findings[7]：13.6% → 18.6%",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "number",
+          "description": "findings[0]：-13.1950% → 18.0772%",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "number",
+          "description": "findings[1]：-8564548.10 → 11733430.90",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：0.780836 → 1.069745",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[6]：删除 result_ids=['r14-find_root_cause'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[2]：删除 result_ids=['r2-decompose_metric'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[5]：删除 result_ids=['r13-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[2]：删除 result_ids=['r13-contribution']",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[3]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "causal_assertion",
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[6]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[7]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch",
+            "number_mismatch",
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-02"
+        }
+      ]
+    },
+    {
+      "case": "inj-order_drop-03",
+      "original": {
+        "passed": false,
+        "issues": [
+          {
+            "where": "recommendations[0]",
+            "issue": "number_mismatch",
+            "number": "286",
+            "result_ids": [
+              "r2-decompose_metric",
+              "r12-contribution",
+              "r11-contribution"
+            ]
+          }
+        ],
+        "issue_types": [
+          "number_mismatch"
+        ],
+        "checked_numbers": 30
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "findings[1]：0.000331 → 0.000453",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "number",
+          "description": "findings[0]：0.617328 → 0.845739",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "number",
+          "description": "findings[1]：-3,501,577 → 4797160",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：-64.798512 → -88.773961",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[5]：删除 result_ids=['r8-find_root_cause', 'r14-find_root_cause'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[4]：删除 result_ids=['r11-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[2]：删除 result_ids=['r13-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[1]：删除 result_ids=['r6-contribution']",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "causal",
+          "description": "findings[5]：「集中在」→「由于集中在」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "causal",
+          "description": "findings[4]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        },
+        {
+          "type": "causal",
+          "description": "findings[3]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-order_drop-03"
+        }
+      ]
+    },
+    {
+      "case": "inj-price_cut-05",
+      "original": {
+        "passed": true,
+        "issues": [],
+        "issue_types": [],
+        "checked_numbers": 31
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "findings[2]：2.991281 → 4.098055",
+          "passed": false,
+          "issues": [
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "number",
+          "description": "summary：8195 → 11227",
+          "passed": false,
+          "issues": [
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "number",
+          "description": "findings[4]：0.818435 → 1.121256",
+          "passed": false,
+          "issues": [
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：2.991281 → 4.098055",
+          "passed": false,
+          "issues": [
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[3]：删除 result_ids=['r16-find_root_cause', 'r19-find_root_cause'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[2]：删除 result_ids=['r10-contribution', 'r12-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[4]：删除 result_ids=['r16-find_root_cause', 'r11-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[2]：删除 result_ids=['r16-find_root_cause']",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "causal",
+          "description": "findings[0]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "causal",
+          "description": "findings[2]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        },
+        {
+          "type": "causal",
+          "description": "findings[4]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "inj-price_cut-05"
+        }
+      ]
+    },
+    {
+      "case": "inj-seller_drop-02",
+      "original": {
+        "passed": false,
+        "issues": [
+          {
+            "where": "findings[3]",
+            "issue": "unknown_result_id",
+            "result_id": "r7-dispatch_subagent"
+          },
+          {
+            "where": "findings[5]",
+            "issue": "unknown_result_id",
+            "result_id": "r6-dispatch_subagent"
+          }
+        ],
+        "issue_types": [
+          "unknown_result_id",
+          "unknown_result_id"
+        ],
+        "checked_numbers": 25
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "summary：4,727 → 6476",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "unknown_result_id",
+            "unknown_result_id"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "number",
+          "description": "summary：1.80% → 2.47%",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "unknown_result_id",
+            "unknown_result_id"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "number",
+          "description": "findings[5]：-0.981566 → 1.344745",
+          "passed": false,
+          "issues": [
+            "unknown_result_id",
+            "unknown_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：3.003884 → 4.115321",
+          "passed": false,
+          "issues": [
+            "unknown_result_id",
+            "unknown_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[2]：删除 result_ids=[] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "unknown_result_id",
+            "unknown_result_id"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[0]：删除 result_ids=[] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "unknown_result_id",
+            "unknown_result_id"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[3]：删除 result_ids=[] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "unknown_result_id"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[1]：删除 result_ids=['r5-find_root_cause', 'r8-find_root_cause']",
+          "passed": false,
+          "issues": [
+            "unknown_result_id",
+            "unknown_result_id",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[1]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "unknown_result_id",
+            "unknown_result_id"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[3]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "unknown_result_id",
+            "causal_assertion",
+            "unknown_result_id"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[5]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "unknown_result_id",
+            "unknown_result_id",
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "inj-seller_drop-02"
+        }
+      ]
+    },
+    {
+      "case": "raw-01",
+      "original": {
+        "passed": false,
+        "issues": [
+          {
+            "where": "findings[4]",
+            "issue": "number_mismatch",
+            "number": "0.367810",
+            "result_ids": [
+              "r8-find_root_cause"
+            ]
+          }
+        ],
+        "issue_types": [
+          "number_mismatch"
+        ],
+        "checked_numbers": 22
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "findings[2]：-5,982,873.56 → 8196536.78",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "number",
+          "description": "findings[4]：0.967701 → 1.325750",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "number",
+          "description": "findings[1]：62,249,896.5 → 85282358.2",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：0.367810 → 0.5039",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[5]：删除 result_ids=['r11-contribution', 'r17-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[0]：删除 result_ids=['r1-detect_anomaly'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[6]：删除 result_ids=['r12-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[1]：删除 result_ids=['r6-find_root_cause']",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "causal",
+          "description": "findings[1]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "causal",
+          "description": "findings[3]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        },
+        {
+          "type": "causal",
+          "description": "findings[5]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "raw-01"
+        }
+      ]
+    },
+    {
+      "case": "raw-02",
+      "original": {
+        "passed": false,
+        "issues": [
+          {
+            "where": "findings[2]",
+            "issue": "number_mismatch",
+            "number": "0.820",
+            "result_ids": [
+              "r6-contribution"
+            ]
+          }
+        ],
+        "issue_types": [
+          "number_mismatch"
+        ],
+        "checked_numbers": 25
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "summary：0.068424 → 0.093741",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "number",
+          "description": "summary：0.90839 → 1.24449",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "number",
+          "description": "findings[5]：0.410872 → 0.562895",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：0.584581 → 0.800876",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[2]：删除 result_ids=['r6-contribution'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[0]：删除 result_ids=['r1-detect_anomaly'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[3]：删除 result_ids=['r7-find_root_cause'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[1]：删除 result_ids=['r6-contribution']",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[1]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion",
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[3]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        },
+        {
+          "type": "causal",
+          "description": "findings[2]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "number_mismatch",
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "raw-02"
+        }
+      ]
+    },
+    {
+      "case": "raw-04",
+      "original": {
+        "passed": true,
+        "issues": [],
+        "issue_types": [],
+        "checked_numbers": 19
+      },
+      "mutants": [
+        {
+          "type": "number",
+          "description": "findings[4]：43.040% → 58.965%",
+          "passed": false,
+          "issues": [
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "number",
+          "description": "findings[5]：0.309453 → 0.423951",
+          "passed": false,
+          "issues": [
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "number",
+          "description": "findings[3]：77.08% → 105.60%",
+          "passed": false,
+          "issues": [
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "number",
+          "description": "root_causes[0].explanatory_power：0.605915 → 0.830104",
+          "passed": false,
+          "issues": [
+            "number_mismatch"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[7]：删除 result_ids=['r14-find_root_cause'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[0]：删除 result_ids=['r1-detect_anomaly'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "delete_id",
+          "description": "findings[3]：删除 result_ids=['r10-dispatch_subagent', 'r11-find_root_cause'] 及行内引用",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "delete_id",
+          "description": "root_causes[1]：删除 result_ids=['r4-find_root_cause', 'r7-contribution']",
+          "passed": false,
+          "issues": [
+            "missing_result_id"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "causal",
+          "description": "findings[5]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "causal",
+          "description": "findings[4]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        },
+        {
+          "type": "causal",
+          "description": "findings[3]：末尾追加「这导致了指标下降。」",
+          "passed": false,
+          "issues": [
+            "causal_assertion"
+          ],
+          "detected": true,
+          "case": "raw-04"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "cases_replayed": 9,
+    "cases_skipped": 1,
+    "detection": {
+      "overall": {
+        "total": 99,
+        "detected": 99,
+        "rate": 1.0
+      },
+      "by_type": {
+        "number": {
+          "total": 36,
+          "detected": 36,
+          "rate": 1.0
+        },
+        "delete_id": {
+          "total": 36,
+          "detected": 36,
+          "rate": 1.0
+        },
+        "causal": {
+          "total": 27,
+          "detected": 27,
+          "rate": 1.0
+        }
+      }
+    },
+    "original_reports": {
+      "flagged": 7,
+      "total": 9,
+      "flagged_rate": 0.7778,
+      "issue_type_counts": {
+        "number_mismatch": 10,
+        "unknown_result_id": 2
+      }
+    }
+  }
+}

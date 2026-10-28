@@ -19,8 +19,9 @@ def store_with_results():
 class NumberExtractionTests(unittest.TestCase):
     def test_skips_dates_ids_identifiers_and_small_counts(self):
         text = ('2018 年 2 月 aov 为 14629.09（r1-detect_anomaly），payment_installments=10、价格带 100_200、'
-                '卖家 3d871de0142c，3 个维度，2018-03-01，下降 4.65%')
-        self.assertEqual([item['text'] for item in numbers_in(text)], ['14629.09', '4.65%'])
+                '卖家 3d871de0142c、53243585…，3 个维度，2018-03-01，下降 4.65%，上升 6.893 个百分点')
+        self.assertEqual([item['text'] for item in numbers_in(text)], ['14629.09', '4.65%', '6.893 个百分点'])
+        self.assertTrue(numbers_in('6.893 个百分点')[0]['percent'])
 
 
 class ClaimCheckerTests(unittest.TestCase):

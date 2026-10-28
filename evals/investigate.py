@@ -50,6 +50,7 @@ OUTPUT = ROOT / "artifacts" / "evals" / "a5-dev.json"
 
 # 每个调查的预算（调用数、token、墙钟秒）：按计划第八节约 15 次调用留余量。
 BUDGET = {"max_calls": 30, "max_tokens": 300_000, "seconds": 600.0}
+REVIEW = True  # A6 起默认开启审查 Agent；--no-review 关闭
 # 主 Agent 可排查的候选维度提示（由案例指标允许的维度给出，注入到首条消息）。
 RAW_KIND = "raw"
 
@@ -142,7 +143,7 @@ def run_case(case: dict, folder: Path, snapshot, client, *, parallel: bool) -> d
             case["question"], folder, snapshot, client, parallel=parallel,
             budget=InvestigationBudget(**BUDGET), metric=case["metric"],
             period=case["period"], base_period=case["base_period"],
-            profile=profile_of(folder), dimensions_hint=dimensions_hint(case))
+            profile=profile_of(folder), dimensions_hint=dimensions_hint(case), review=REVIEW)
     except Exception as error:
         return {"case": case["id"], "parallel": parallel, "error": type(error).__name__ + ": " + str(error)[:200],
                 "seconds": round(time.perf_counter() - started, 3)}
@@ -224,7 +225,11 @@ def main():
     parser.add_argument("--serial-only", action="store_true", help="只跑串行")
     parser.add_argument("--workers", type=int, default=4, help="同时运行的调查数（案例间并发）")
     parser.add_argument("--output", type=Path, default=OUTPUT, help="结果文件")
+    parser.add_argument("--cassette-dir", type=Path, default=CASSETTE_DIR, help="cassette 目录（各轮分开）")
+    parser.add_argument("--no-review", action="store_true", help="关闭审查 Agent（回放 A5 录制时用）")
     args = parser.parse_args()
+    global REVIEW
+    REVIEW = not args.no_review
     started = time.time()
 
     data = load_cases()
@@ -244,7 +249,7 @@ def main():
 
     def task(case, parallel):
         mode = "parallel" if parallel else "serial"
-        cassette_path = CASSETTE_DIR / f"{case['id']}-{mode}.json"
+        cassette_path = args.cassette_dir / f"{case['id']}-{mode}.json"
         client, recorder = make_client(args.replay, cassette_path)
         outcome = run_case(case, folders[case["id"]], snapshot, client, parallel=parallel)
         if recorder is not None:
