@@ -225,7 +225,7 @@ def summarize(rows: list[dict], kind: str) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--split", choices=("dev", "test"), default="dev",
+    parser.add_argument("--split", choices=("dev", "test", "holdout"), default="dev",
                         help="题集划分；test 只在 A10 用最终配置跑一次")
     parser.add_argument("--cases", nargs="*", default=None, help="只跑指定案例 ID（调提示词用）")
     parser.add_argument("--replay", action="store_true", help="用 cassette 离线回放，不发网络请求")

@@ -3,8 +3,10 @@
 冻结文件为同目录 ``anomaly_cases.json``：规格 + gold + dev/test 划分，含基础数据原始文件的 SHA-256
 （取自数据版本 profile 的 source_sha256）。冻结日期见文件中的 frozen_at 字段：题集先于 Agent 开发冻结，
 冻结后不再按 Agent 表现修改；任何修改都会改变文件指纹并需要重新走质量检查。
+revision 4 起新增留出集 split="holdout"：dev 与 test 在开发中已被使用，改作开发集，最终结果只在 holdout 上报告。
 
-加载时校验：案例计数（40 = 30 注入 + 10 原始）、划分（dev 10 / test 30，注入案例约 7/23、原始 3/7）、
+加载时校验：案例计数（70 = 54 注入 + 16 原始）、划分（dev 10 / test 30，注入案例 7/23、原始 3/7；
+holdout 30，注入 24 = 6 类各 4、原始 6）、
 每条案例的字段完整性（id、split、kind、injection_type、question、metric、period、base_period、gold 等）。
 """
 from __future__ import annotations
@@ -51,13 +53,17 @@ def validate(data: dict) -> None:
         raise CasesError("缺少 cases 列表")
     injected = [case for case in cases if case["kind"] == "injected"]
     raw = [case for case in cases if case["kind"] == "raw"]
-    if len(cases) != 40 or len(injected) != 30 or len(raw) != 10:
-        raise CasesError(f"案例计数不符：总数 {len(cases)}、注入 {len(injected)}、原始 {len(raw)}（应为 40/30/10）")
-    for split, want_total, want_injected in (("dev", 10, 7), ("test", 30, 23)):
+    if len(cases) != 70 or len(injected) != 54 or len(raw) != 16:
+        raise CasesError(f"案例计数不符：总数 {len(cases)}、注入 {len(injected)}、原始 {len(raw)}（应为 70/54/16）")
+    for split, want_total, want_injected in (("dev", 10, 7), ("test", 30, 23), ("holdout", 30, 24)):
         picked = [case for case in cases if case["split"] == split]
         if len(picked) != want_total or sum(case["kind"] == "injected" for case in picked) != want_injected:
             raise CasesError(f"{split} 划分不符：{len(picked)} 个、其中注入 "
                              f"{sum(case['kind'] == 'injected' for case in picked)} 个")
+    held = [case for case in injected if case["split"] == "holdout"]
+    for kind in INJECTION_TYPES:
+        if sum(case["injection_type"] == kind for case in held) != 4:
+            raise CasesError(f"holdout 中 {kind} 案例数不是 4")
     ids = set()
     for case in cases:
         missing = [field for field in REQUIRED_FIELDS if field not in case]

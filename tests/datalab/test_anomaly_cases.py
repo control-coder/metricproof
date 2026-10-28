@@ -225,6 +225,24 @@ class MixShiftTests(Fixture):
         self.assertEqual(len(new_customers), len(clones))
 
 
+    def test_mix_shift_copies_multiplies_group(self):
+        """copies=3 时目标组订单数变为 4 倍，新 order_id 互不重复。"""
+        month = self.target_month()
+        value = next((row["payment_type"] for row in self.tables["order_payments"]
+                      if self.month_of(row["order_id"]) == month), None)
+        if value is None:
+            self.skipTest("合成数据目标月没有支付")
+        base = injector.inject(self.tables, {"type": "mix_shift", "month": month, "dimension": "payment_type",
+                                             "value": value}, injector.rng_for("ms"))
+        triple = injector.inject(self.tables, {"type": "mix_shift", "month": month, "dimension": "payment_type",
+                                               "value": value, "copies": 3}, injector.rng_for("ms"))
+        original = len(self.tables["orders"])
+        added_one = len(base["orders"]) - original
+        self.assertGreater(added_one, 0)
+        self.assertEqual(len(triple["orders"]) - original, added_one * 3)
+        self.assertEqual(len({row["order_id"] for row in triple["orders"]}), len(triple["orders"]))
+
+
 class PriceCutTests(Fixture):
     def test_price_cut_only_target_category_month(self):
         month = self.target_month()
@@ -308,10 +326,16 @@ class FrozenCasesTests(unittest.TestCase):
 
     def test_load_and_validate(self):
         data = cases_module.load()
-        self.assertEqual(len(data["cases"]), 40)
+        self.assertEqual(len(data["cases"]), 70)
         dev = cases_module.by_split(data, "dev")
         test = cases_module.by_split(data, "test")
-        self.assertEqual((len(dev), len(test)), (10, 30))
+        holdout = cases_module.by_split(data, "holdout")
+        self.assertEqual((len(dev), len(test), len(holdout)), (10, 30, 30))
+        # 留出集：6 类注入各 4 个 + 6 个原始问题，id 以 ho- 开头，且与开发集 id 不重叠。
+        self.assertEqual(sum(case["kind"] == "injected" for case in holdout), 24)
+        self.assertEqual(sum(case["kind"] == "raw" for case in holdout), 6)
+        self.assertTrue(all(case["id"].startswith("ho-") for case in holdout))
+        self.assertFalse(any(case["id"].startswith("ho-") for case in dev + test))
         self.assertEqual(sum(case["kind"] == "injected" for case in dev), 7)
         self.assertEqual(sum(case["kind"] == "raw" for case in dev), 3)
         # dev 覆盖全部六类注入类型。
@@ -341,8 +365,9 @@ class FrozenQualityTests(unittest.TestCase):
 
     def test_revision_recorded(self):
         self.assertEqual(self.data["meta"]["frozen_at"], "2026-10-27")
-        self.assertEqual(self.data["meta"]["revision"], 3)
-        self.assertEqual(len(self.data["meta"]["revision_history"]), 3)
+        self.assertEqual(self.data["meta"]["revision"], 4)
+        self.assertEqual(len(self.data["meta"]["revision_history"]), 4)
+        self.assertEqual(self.data["meta"]["revision_history"][-1]["date"], "2026-10-28")
 
     def test_question_direction_matches_gold(self):
         for case in self.data["cases"]:
@@ -381,6 +406,61 @@ class FrozenQualityTests(unittest.TestCase):
         for case in self.data["cases"]:
             with self.subTest(case=case["id"]):
                 self.assertEqual(case["gold"]["unit"], get_metric(case["metric"]).unit)
+
+    def test_holdout_disjoint_from_development_combos(self):
+        """留出集的（类型, 月份, 维度值）与开发集不重复；原始问题的（指标, 月份）也不重复。"""
+        def key(case):
+            spec = case["injection"]
+            values = tuple(sorted((k, str(v)) for k, v in spec.items()
+                                  if k not in ("type", "month", "share", "factor", "copies", "suffix")))
+            return spec["type"], spec["month"], values
+
+        injected = [case for case in self.data["cases"] if case["kind"] == "injected"]
+        dev_keys = {key(case) for case in injected if case["split"] != "holdout"}
+        for case in injected:
+            if case["split"] == "holdout":
+                self.assertNotIn(key(case), dev_keys, case["id"])
+        raw_dev = {(case["metric"], case["gold"]["month"]) for case in self.data["cases"]
+                   if case["kind"] == "raw" and case["split"] != "holdout"}
+        for case in self.data["cases"]:
+            if case["kind"] == "raw" and case["split"] == "holdout":
+                self.assertNotIn((case["metric"], case["gold"]["month"]), raw_dev, case["id"])
+
+    def test_mix_shift_structure_dominates(self):
+        """revision 4 约束：mix_shift 案例 gold 值 |structure| ≥ 2×|within|，方向与总变化一致，
+        payment_type 维 |Σstructure| ≥ 0.5×|总变化|（冻结时的检查数值记在 quality 里）。"""
+        constraints = self.data["meta"]["mix_shift_constraints"]
+        checked = 0
+        for case in self.data["cases"]:
+            if case["injection_type"] != "mix_shift":
+                continue
+            checked += 1
+            quality = case["quality"]["payment_type"]
+            with self.subTest(case=case["id"]):
+                self.assertGreaterEqual(abs(quality["structure"]),
+                                        constraints["structure_within_ratio"] * abs(quality["within"]))
+                self.assertTrue(quality["same_direction"])
+                self.assertGreaterEqual(abs(quality["sum_structure"]),
+                                        constraints["sum_structure_share"] * abs(quality["total_change"]))
+                self.assertAlmostEqual(quality["total_change"], float(case["total_change"]), places=3)
+        self.assertEqual(checked, 5 + 4)
+
+    def test_order_drop_dominates_unfiltered_dimension(self):
+        """revision 4 约束：order_drop 案例至少一个不过滤的单维切片（品类或州）满足方向一致、
+        |Δ| 第一且 ≥ 次大×阈值、注入删除额 ≥ 该值 |Δ| 的 0.5 倍。"""
+        constraints = self.data["meta"]["order_drop_constraints"]
+        checked = 0
+        for case in self.data["cases"]:
+            if case["injection_type"] != "order_drop":
+                continue
+            checked += 1
+            with self.subTest(case=case["id"]):
+                passing = [info for info in case["quality"].values()
+                           if info["same_direction"] and info["rank"] == 1
+                           and info["ratio"] >= constraints["ratio_threshold"]
+                           and info["injected_share"] >= constraints["injection_share"]]
+                self.assertTrue(passing, f"{case['id']} 没有任何单维切片满足主导约束")
+        self.assertEqual(checked, 5 + 4)
 
     def test_injected_total_change_direction_matches_gold(self):
         for case in self.data["cases"]:

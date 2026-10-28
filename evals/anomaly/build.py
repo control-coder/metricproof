@@ -14,7 +14,24 @@
 4. 原始数据问题（10 个）的 gold 由 A2 的 ReferenceSource + find_root_cause / contribution 在原始数据上计算；
    A2 未提交时跳过该步（题集不冻结）。
 5. 划分与冻结：固定种子分层抽样 dev 10（7 注入 + 3 原始）/ test 30（23 注入 + 7 原始），
+   另有留出集 holdout 30（6 类注入各 4 个 + 6 个原始问题，id 为 ho-*），
    写入 evals/anomaly/anomaly_cases.json（含基础数据原始文件的 SHA-256 与冻结日期）。
+
+revision 4 的质量约束（2026-10-28）。revision 3 之前的检查有两处不足：
+- mix_shift 只检查 gold 支付方式在 gmv 切片上规模变化最大，没有检查 aov 变化是否由结构效应主导。
+  注入只保证当月组内客单价与复制前相同，与基期比较时自然的组内波动常盖过结构效应（例如
+  inj-mix_shift-05 的 payment_type 维 Σwithin 占总变化 86%），按 contribution 的口径 gold 应判为 within。
+  现在直接用 contribution(engine, 'aov', 'payment_type', 本期, 基期) 检查注入后数据：
+  gold 值 |structure| ≥ MIX_STRUCTURE_WITHIN_RATIO × |within|、structure 方向与 aov 总变化一致、
+  payment_type 维 |Σstructure| ≥ MIX_STRUCTURE_TOTAL_SHARE × |总变化|；不满足的候选跳过。
+- order_drop 的两个检查切片都带另一个 gold 维度的过滤（品类过滤后按州拆、州过滤后按品类拆），
+  切片里只剩目标组合一个受影响的组，次大值只是组合内别的州或品类的自然波动，主导性是必然成立的，
+  没有与全体品类、全体州的自然波动比较（例如 inj-order_drop-03 总变化只有 -55k，品类维上其他品类
+  的自然变化远大于 gold 品类）。现在改为不加过滤的单维切片：product_category 维看 gold 品类、
+  customer_state 维看 gold 州，至少一个维度满足「变化方向与总变化一致、|Δ| 为该维第一且
+  ≥ 次大值 × RATIO_THRESHOLD」（与评分的「任一维度命中」规则对应）；不满足的候选跳过，
+  候选池通过提高 share 或换月份、组合给出。
+其余四类注入的约束不变。
 
 物化目录默认在 artifacts/anomaly/（被忽略），可随时重建；加 --materialize-only 只物化不写题集。
 """
@@ -46,6 +63,17 @@ SNAPSHOT = SemanticSnapshot("anomaly-v1", STATUSES, "payments")
 # 质量检查阈值：gold 值物化后的 |变化| ≥ 该切片其他值最大 |变化| × 1.3（次大者显著小于 gold）。
 RATIO_THRESHOLD = 1.3
 SEED = 20261027
+
+# revision 4 新增的质量约束（理由见模块文档字符串「revision 4」一节）。
+# mix_shift：gold 值在 payment_type 维的 |structure| 不小于 |within| 的该倍数；
+MIX_STRUCTURE_WITHIN_RATIO = 2.0
+# mix_shift：payment_type 维全部组 Σstructure 的绝对值不小于 aov 总变化绝对值的该比例；
+MIX_STRUCTURE_TOTAL_SHARE = 0.5
+# order_drop：gold 品类（product_category 维）与 gold 州（customer_state 维）至少一个，
+# 在不加过滤的单维切片上方向与总变化一致且 |Δ| 为该维第一、≥ 次大值 × RATIO_THRESHOLD，
+# 并且注入删除的金额不小于该值 |Δ| 的 ORDER_DROP_INJECTION_SHARE 倍（排除「gold 值靠自然下跌排第一」）。
+ORDER_DROP_DIMENSIONS = ("product_category", "customer_state")
+ORDER_DROP_INJECTION_SHARE = 0.5
 
 PROJECT_ID = "anomaly-eval"
 BASE_ROOT = ROOT / ".tmp" / "a3" / "datasets"
@@ -136,17 +164,22 @@ def _total_change(engine: SemanticEngine, metric: str, month: str) -> dict:
 
 
 def check_dominance(engine: SemanticEngine, metric: str, dimension: str, value: str,
-                    month: str, filters: dict | None = None) -> tuple[bool, dict]:
-    """质量检查：gold 值的 |Δ| 为切片内最大，且 ≥ 次大 × RATIO_THRESHOLD；返回 (通过, 详情)。"""
+                    month: str, filters: dict | None = None, all_groups: bool = False) -> tuple[bool, dict]:
+    """质量检查：gold 值的 |Δ| 为切片内最大，且 ≥ 次大 × RATIO_THRESHOLD；返回 (通过, 详情)。
+
+    默认只拿规模不小于 gold 组 20% 的组做比较（对加法型也生效）；all_groups=True 时全部组参与，
+    order_drop 的不过滤单维切片用它，避免规模小但变化大的组被排除出比较。
+    """
     period, base = period_of(month), period_of(month_prev(month))
     deltas = _delta_map(engine, metric, dimension, period, base, filters)
     if value not in deltas:
         return False, {"reason": f"gold 值 {value} 在切片 {dimension} 中不存在或比值缺失",
                        "deltas": {key: str(item["delta"]) for key, item in deltas.items()}}
     gold = deltas[value]
-    # 参与比较的组：与 gold 组规模可比（≥ 20%）；加法型切片全部纳入（整数变化不受小样本噪声影响）。
+    # 参与比较的组：与 gold 组规模可比（≥ 20%）；all_groups 时全部纳入。
     comparable = {group: item for group, item in deltas.items()
-                  if item["size"] >= gold["size"] * MIN_REL_SIZE} if gold["size"] > 0 else deltas
+                  if item["size"] >= gold["size"] * MIN_REL_SIZE} \
+        if gold["size"] > 0 and not all_groups else deltas
     ranked = sorted(comparable.items(), key=lambda pair: -abs(pair[1]["delta"]))
     others = [abs(item["delta"]) for group, item in ranked if group != value]
     runner = others[0] if others else Decimal(0)
@@ -156,6 +189,46 @@ def check_dominance(engine: SemanticEngine, metric: str, dimension: str, value: 
     return gold_abs > 0 and ratio >= RATIO_THRESHOLD, {
         "gold_delta": str(gold["delta"]), "runner_up": str(runner), "ratio": round(ratio, 3), "rank": rank,
         "top": [(group, str(item["delta"])) for group, item in ranked[:4]]}
+
+
+def check_mix_shift(engine: SemanticEngine, value: str, month: str) -> tuple[bool, dict]:
+    """mix_shift 质量检查：用 contribution 的 aov 组间组内拆解核对结构效应主导（见模块文档字符串）。"""
+    from datalab.attribution import contribution
+
+    period, base = period_of(month), period_of(month_prev(month))
+    result = contribution(engine, "aov", "payment_type", (period["start"], period["end"]),
+                          (base["start"], base["end"]))
+    total = float(result["total_change"])
+    rows = {row["group"]: row for row in result["rows"]}
+    if value not in rows:
+        return False, {"reason": f"gold 值 {value} 不在 payment_type 切片中", "total_change": total}
+    structure, within = float(rows[value]["structure"]), float(rows[value]["within"])
+    sum_structure = sum(float(row["structure"]) for row in rows.values())
+    same_direction = total != 0 and structure != 0 and (structure < 0) == (total < 0)
+    passed = (same_direction
+              and abs(structure) >= MIX_STRUCTURE_WITHIN_RATIO * abs(within)
+              and abs(sum_structure) >= MIX_STRUCTURE_TOTAL_SHARE * abs(total))
+    return passed, {"structure": round(structure, 4), "within": round(within, 4),
+                    "sum_structure": round(sum_structure, 4), "total_change": round(total, 4),
+                    "structure_within_ratio": round(abs(structure) / abs(within), 3) if within else None,
+                    "sum_structure_share": round(abs(sum_structure) / abs(total), 3) if total else None,
+                    "same_direction": same_direction}
+
+
+def check_order_drop(engine: SemanticEngine, category: str, state: str, month: str,
+                     removed: int) -> tuple[bool, dict]:
+    """order_drop 质量检查：不过滤的 product_category、customer_state 单维切片至少一个满足主导条件。\n\n    removed 为注入删除的目标组合金额（order_drop_gold 的 magnitude，负数）。\n    """
+    total = _total_change(engine, "item_gmv", month)
+    detail, passed = {}, False
+    for dimension, value in zip(ORDER_DROP_DIMENSIONS, (category, state)):
+        ok, info = check_dominance(engine, "item_gmv", dimension, value, month, None, all_groups=True)
+        gold_delta = Decimal(info["gold_delta"]) if "gold_delta" in info else Decimal(0)
+        info["same_direction"] = total["change"] != 0 and gold_delta != 0 and (gold_delta < 0) == (total["change"] < 0)
+        info["injected_share"] = round(abs(removed) / abs(float(gold_delta)), 3) if gold_delta else 0.0
+        info["passed"] = bool(ok and info["same_direction"] and info["injected_share"] >= ORDER_DROP_INJECTION_SHARE)
+        passed = passed or info["passed"]
+        detail[dimension] = info
+    return passed, detail
 
 
 # ---------------------------------------------------------------- 候选与 gold
@@ -233,11 +306,12 @@ def delivery_delay_gold(before: dict, after: dict, spec: dict) -> dict:
 def mix_shift_gold(before: dict, after: dict, spec: dict) -> dict:
     month = spec["month"]
     start, end = injector.month_range(month)
+    original = {order["order_id"] for order in before["orders"]}
     added = sum(1 for order in after["orders"]
-                if order["order_id"].endswith(spec.get("suffix", "zz")) and start <= order["order_purchase_timestamp"] < end)
+                if order["order_id"] not in original and start <= order["order_purchase_timestamp"] < end)
     return {"dimensions": [{"dimension": spec["dimension"], "value": spec["value"]}],
             "direction": "down", "effect": "between", "magnitude": added, "unit": get_metric("aov").unit,
-            "note": f"复制的订单数（magnitude 为订单数 {added} 个；目标指标为 aov，unit 取指标单位）；"
+            "note": f"复制新增的订单数（magnitude 为订单数 {added} 个，copies 份复制；目标指标为 aov，unit 取指标单位）；"
                     f"aov 变化全部来自结构（between）效应，组内客单价不变"}
 
 
@@ -271,111 +345,175 @@ GOLDERS = {"order_drop": order_drop_gold, "freight_up": freight_up_gold,
 
 # ---------------------------------------------------------------- 候选池
 
+def make_candidate(spec: dict) -> dict:
+    """由注入参数生成候选：问题模板、目标指标与质量检查切片（模板文本自 revision 1 起不变）。"""
+    kind, month = spec["type"], spec["month"]
+    when = f"{month[:4]} 年 {int(month[5:7])} 月"
+    if kind == "order_drop":
+        # 目标组合（品类×州×月）；revision 4 起检查改用 check_order_drop（不过滤的单维切片）。
+        return {"type": kind, "injection": spec, "metric": "item_gmv",
+                "question": f"{when}销售额环比变化，主要是什么原因？", "checks": []}
+    if kind == "freight_up":
+        return {"type": kind, "injection": spec, "metric": "freight_ratio",
+                "question": f"{when}运费占比环比变化，主要集中在哪些卖家？",
+                "checks": [("seller_state", spec["seller_state"], None)]}
+    if kind == "delivery_delay":
+        return {"type": kind, "injection": spec, "metric": "late_delivery_rate",
+                "question": f"{when}送达延迟率环比变化，主要集中在哪些地区？同期差评率也有变化，是否相关？",
+                "checks": [("customer_state", spec["customer_state"], None)]}
+    if kind == "mix_shift":
+        # revision 4 起检查改用 check_mix_shift（aov 的 structure/within 拆解）。
+        return {"type": kind, "injection": spec, "metric": "aov",
+                "question": f"{when}客单价环比变化，主要原因是客群结构变化还是各组内部变化？", "checks": []}
+    if kind == "price_cut":
+        return {"type": kind, "injection": spec, "metric": "item_gmv",
+                "question": f"{when}销售额环比变化，主要是什么原因？",
+                "checks": [("product_category", spec["product_category"], None)]}
+    if kind == "seller_drop":
+        return {"type": kind, "injection": spec, "metric": "item_gmv",
+                "question": f"{when}销售额环比变化，主要是什么原因？",
+                "checks": [("seller_id", spec["seller_id"], None)]}
+    raise ValueError(kind)
+
+
+def _od(month, category, state, share):
+    return {"type": "order_drop", "month": month, "product_category": category, "customer_state": state,
+            "share": share}
+
+
+def _fu(month, state, factor):
+    return {"type": "freight_up", "month": month, "seller_state": state, "factor": factor}
+
+
+def _dd(month, state, share):
+    return {"type": "delivery_delay", "month": month, "customer_state": state, "share": share}
+
+
+def _ms(month, value, copies=None):
+    spec = {"type": "mix_shift", "month": month, "dimension": "payment_type", "value": value}
+    if copies:
+        spec["copies"] = copies
+    return spec
+
+
+def _pc(month, category, factor=0.65):
+    return {"type": "price_cut", "month": month, "product_category": category, "factor": factor}
+
+
+def _sd(month, seller):
+    return {"type": "seller_drop", "month": month, "seller_id": seller}
+
+
+S_7D13, S_5324, S_955F = ("7d13fca15225358621be4086e1eb0964", "53243585a1d6dc2643021fd1853d8905",
+                          "955fee9216a65b617aa5c0531780ce60")
+S_4869, S_1025 = "4869f7a5dfa277a7dca6462dcf3b52b2", "1025f0e2d44d7041d6cf58b6550e0bfa"
+
+
 def candidates() -> list[dict]:
-    """每类注入类型的候选组合（月份避开 2016 与 2018-09 之后的尾部）。每项含问题模板与检查切片。"""
-    pool = []
-    # order_drop：品类×州×月，按 customer_state 拆（过滤品类）检查；share 0.35–0.5。
-    for category, state, month, share in [
-            ("health_beauty", "SP", "2018-04", 0.45), ("bed_bath_table", "SP", "2018-01", 0.45),
-            ("watches_gifts", "SP", "2018-07", 0.45), ("computers_accessories", "SP", "2018-02", 0.45),
-            ("health_beauty", "RJ", "2018-06", 0.5), ("bed_bath_table", "RJ", "2018-04", 0.5),
-            ("sports_leisure", "MG", "2018-05", 0.5), ("watches_gifts", "RJ", "2018-03", 0.5),
-            ("health_beauty", "MG", "2018-02", 0.5), ("computers_accessories", "RJ", "2018-06", 0.5),
-            ("sports_leisure", "SP", "2018-08", 0.45), ("bed_bath_table", "MG", "2018-07", 0.5)]:
-        pool.append({"type": "order_drop",
-                     "injection": {"type": "order_drop", "month": month, "product_category": category,
-                                   "customer_state": state, "share": share},
-                     "metric": "item_gmv",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比变化，主要是什么原因？",
-                     "checks": [("customer_state", state, {"product_category": category}),
-                                ("product_category", category, {"customer_state": state})]})
-    # freight_up：卖家州×月，按 seller_state 拆 freight_ratio 的分子 freight_sum 检查。
-    for state, month, factor in [("SP", "2018-03", 1.5), ("SP", "2018-05", 1.45), ("SP", "2018-07", 1.4),
-                                 ("RJ", "2018-04", 1.6), ("MG", "2018-06", 1.6), ("SP", "2017-11", 1.5),
-                                 ("PR", "2018-05", 1.6), ("SP", "2018-01", 1.45)]:
-        pool.append({"type": "freight_up",
-                     "injection": {"type": "freight_up", "month": month, "seller_state": state, "factor": factor},
-                     "metric": "freight_ratio",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月运费占比环比变化，主要集中在哪些卖家？",
-                     "checks": [("seller_state", state, None)]})
-    # delivery_delay：客户州×月，按 customer_state 拆 late_count 检查。
-    for state, month, share in [("SP", "2018-03", 0.4), ("RJ", "2018-04", 0.5), ("MG", "2018-05", 0.5),
-                                ("SP", "2018-06", 0.4), ("RS", "2018-04", 0.55), ("PR", "2018-05", 0.55),
-                                ("MG", "2018-03", 0.45), ("RJ", "2018-07", 0.5), ("SP", "2017-11", 0.4)]:
-        pool.append({"type": "delivery_delay",
-                     "injection": {"type": "delivery_delay", "month": month, "customer_state": state, "share": share},
-                     "metric": "late_delivery_rate",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月送达延迟率环比变化，主要集中在哪些地区？"
-                                 f"同期差评率也有变化，是否相关？",
-                     "checks": [("customer_state", state, None)]})
-    # mix_shift：payment_type=boleto ×月（份额大、aov 低于全部），按 payment_type 拆 gmv 检查结构主导。
-    for value, month in [("boleto", "2018-03"), ("boleto", "2018-05"), ("boleto", "2018-01"),
-                         ("boleto", "2018-06"), ("boleto", "2018-04"), ("boleto", "2017-11"),
-                         ("boleto", "2018-02"), ("boleto", "2018-07"), ("boleto", "2017-10"),
-                         ("boleto", "2018-08"), ("boleto", "2017-09")]:
-        pool.append({"type": "mix_shift",
-                     "injection": {"type": "mix_shift", "month": month, "dimension": "payment_type", "value": value},
-                     "metric": "aov",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月客单价环比变化，主要原因是客群结构变化"
-                                 f"还是各组内部变化？",
-                     "checks": [("payment_type", value, None)]})
-    # price_cut：品类×月，按 product_category 拆 item_gmv 检查（候选按探查过的平稳月份挑选）。
-    for category, month, factor in [
-            ("health_beauty", "2018-07", 0.65), ("watches_gifts", "2018-06", 0.65),
-            ("watches_gifts", "2018-08", 0.65), ("bed_bath_table", "2018-07", 0.65),
-            ("sports_leisure", "2018-04", 0.65), ("computers_accessories", "2018-04", 0.65),
-            ("health_beauty", "2017-06", 0.65), ("health_beauty", "2017-10", 0.65),
-            ("computers_accessories", "2017-06", 0.65), ("bed_bath_table", "2017-12", 0.65),
-            ("computers_accessories", "2017-04", 0.65), ("watches_gifts", "2018-04", 0.65)]:
-        pool.append({"type": "price_cut",
-                     "injection": {"type": "price_cut", "month": month, "product_category": category,
-                                   "factor": factor},
-                     "metric": "item_gmv",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比变化，主要是什么原因？",
-                     "checks": [("product_category", category, None)]})
-    # seller_drop：大卖家×月，按 seller_id 拆 item_gmv 检查（候选按探查过的金额与平稳度挑选）。
-    for seller, month in [("7d13fca15225358621be4086e1eb0964", "2018-05"),
-                          ("53243585a1d6dc2643021fd1853d8905", "2017-09"),
-                          ("53243585a1d6dc2643021fd1853d8905", "2017-10"),
-                          ("53243585a1d6dc2643021fd1853d8905", "2017-08"),
-                          ("955fee9216a65b617aa5c0531780ce60", "2018-05"),
-                          ("955fee9216a65b617aa5c0531780ce60", "2018-04"),
-                          ("7d13fca15225358621be4086e1eb0964", "2018-03"),
-                          ("955fee9216a65b617aa5c0531780ce60", "2018-01"),
-                          ("4869f7a5dfa277a7dca6462dcf3b52b2", "2018-01"),
-                          ("53243585a1d6dc2643021fd1853d8905", "2017-11"),
-                          ("53243585a1d6dc2643021fd1853d8905", "2018-08"),
-                          ("4869f7a5dfa277a7dca6462dcf3b52b2", "2018-04"),
-                          ("1025f0e2d44d7041d6cf58b6550e0bfa", "2018-08"),
-                          ("37be5a7c751166fbc5f8ccba4119e043", "2017-07"),
-                          ("2eb70248d66e0e3ef83659f71b244378", "2018-05"),
-                          ("b1b3948701c5c72445495bd161b83a4c", "2017-06"),
-                          ("4869f7a5dfa277a7dca6462dcf3b52b2", "2018-08"),
-                          ("7c67e1448b00f6e969d365cea6b010ab", "2018-04"),
-                          ("7d13fca15225358621be4086e1eb0964", "2018-04"),
-                          ("59417c56835dd8e2e72f91f809cd4092", "2017-04")]:
-        pool.append({"type": "seller_drop",
-                     "injection": {"type": "seller_drop", "month": month, "seller_id": seller},
-                     "metric": "item_gmv",
-                     "question": f"{month[:4]} 年 {int(month[5:7])} 月销售额环比变化，主要是什么原因？",
-                     "checks": [("seller_id", seller, None)]})
-    return pool
+    """开发集（dev/test）每类注入类型的候选组合（月份避开 2016 与 2018-09 之后的尾部），按顺序取前 5 个通过者。
+
+    freight_up、delivery_delay、price_cut、seller_drop 的候选池与 revision 3 完全一致。
+    mix_shift、order_drop 在 revision 4 重建：
+    - mix_shift：复制 8 份（copies=8，该支付方式当月订单变为 9 倍）才能压过自然的组内波动；
+      2017-10 在 1 份时已满足约束，保持原参数。
+    - order_drop：删除比例提高到 0.7–0.9，月份与组合按预筛选（品类与州的自然变化、组合金额）挑选。
+    """
+    specs = [
+        # order_drop（revision 4 重建；后面的备选仅在前面的未通过检查时递补）
+        _od("2018-04", "sports_leisure", "SP", 0.9), _od("2018-02", "sports_leisure", "SP", 0.9),
+        _od("2018-07", "bed_bath_table", "SP", 0.7), _od("2018-08", "watches_gifts", "SP", 0.9),
+        _od("2017-06", "computers_accessories", "SP", 0.9),
+        _od("2018-04", "health_beauty", "SP", 0.9), _od("2018-02", "bed_bath_table", "SP", 0.9),
+        # freight_up：卖家州×月，按 seller_state 拆 freight_ratio 的分子 freight_sum 检查。
+        _fu("2018-03", "SP", 1.5), _fu("2018-05", "SP", 1.45), _fu("2018-07", "SP", 1.4),
+        _fu("2018-04", "RJ", 1.6), _fu("2018-06", "MG", 1.6), _fu("2017-11", "SP", 1.5),
+        _fu("2018-05", "PR", 1.6), _fu("2018-01", "SP", 1.45),
+        # delivery_delay：客户州×月，按 customer_state 拆 late_count 检查。
+        _dd("2018-03", "SP", 0.4), _dd("2018-04", "RJ", 0.5), _dd("2018-05", "MG", 0.5),
+        _dd("2018-06", "SP", 0.4), _dd("2018-04", "RS", 0.55), _dd("2018-05", "PR", 0.55),
+        _dd("2018-03", "MG", 0.45), _dd("2018-07", "RJ", 0.5), _dd("2017-11", "SP", 0.4),
+        # mix_shift（revision 4 重建）
+        _ms("2018-05", "boleto", 8), _ms("2018-02", "boleto", 8), _ms("2017-09", "boleto", 8),
+        _ms("2017-10", "boleto"), _ms("2017-11", "boleto", 8),
+        # price_cut：品类×月，按 product_category 拆 item_gmv 检查（候选按探查过的平稳月份挑选）。
+        _pc("2018-07", "health_beauty"), _pc("2018-06", "watches_gifts"), _pc("2018-08", "watches_gifts"),
+        _pc("2018-07", "bed_bath_table"), _pc("2018-04", "sports_leisure"),
+        _pc("2018-04", "computers_accessories"), _pc("2017-06", "health_beauty"),
+        _pc("2017-10", "health_beauty"), _pc("2017-06", "computers_accessories"),
+        _pc("2017-12", "bed_bath_table"), _pc("2017-04", "computers_accessories"),
+        _pc("2018-04", "watches_gifts"),
+        # seller_drop：大卖家×月，按 seller_id 拆 item_gmv 检查（候选按探查过的金额与平稳度挑选）。
+        _sd("2018-05", S_7D13), _sd("2017-09", S_5324), _sd("2017-10", S_5324), _sd("2017-08", S_5324),
+        _sd("2018-05", S_955F), _sd("2018-04", S_955F), _sd("2018-03", S_7D13), _sd("2018-01", S_955F),
+        _sd("2018-01", S_4869), _sd("2017-11", S_5324), _sd("2018-08", S_5324), _sd("2018-04", S_4869),
+        _sd("2018-08", S_1025), _sd("2017-07", "37be5a7c751166fbc5f8ccba4119e043"),
+        _sd("2018-05", "2eb70248d66e0e3ef83659f71b244378"), _sd("2017-06", "b1b3948701c5c72445495bd161b83a4c"),
+        _sd("2018-08", S_4869), _sd("2018-04", "7c67e1448b00f6e969d365cea6b010ab"), _sd("2018-04", S_7D13),
+        _sd("2017-04", "59417c56835dd8e2e72f91f809cd4092")]
+    return [make_candidate(spec) for spec in specs]
+
+
+def holdout_candidates() -> list[dict]:
+    """留出集（holdout）候选：与开发集不重复的（类型, 月份, 维度值）组合，每类取前 4 个通过者。
+
+    从未在开发中使用；生成后由 build_injected 的 exclude 再核对一次不与开发集重复。
+    mix_shift 用 voucher（开发集用 boleto），order_drop 与 revision 4 的开发集组合不同。
+    """
+    specs = [
+        _od("2018-07", "health_beauty", "SP", 0.7), _od("2017-04", "bed_bath_table", "SP", 0.9),
+        _od("2018-02", "bed_bath_table", "SP", 0.9), _od("2018-08", "health_beauty", "SP", 0.9),
+        _od("2018-05", "bed_bath_table", "SP", 0.9), _od("2017-06", "watches_gifts", "SP", 0.9),
+        _fu("2018-05", "PR", 1.6), _fu("2018-01", "SP", 1.45), _fu("2018-04", "SP", 1.5),
+        _fu("2018-08", "SP", 1.5), _fu("2017-12", "SP", 1.5), _fu("2018-06", "RJ", 1.6),
+        _fu("2018-03", "MG", 1.6), _fu("2018-02", "SP", 1.5),
+        _dd("2018-04", "RS", 0.55), _dd("2018-04", "RJ", 0.5), _dd("2018-07", "RJ", 0.5),
+        _dd("2017-11", "SP", 0.4), _dd("2018-06", "MG", 0.5), _dd("2018-03", "RJ", 0.5),
+        _dd("2018-04", "SP", 0.4), _dd("2018-07", "PR", 0.55),
+        _ms("2018-07", "voucher", 8), _ms("2018-01", "voucher", 8), _ms("2017-08", "voucher", 8),
+        _ms("2018-04", "voucher", 8), _ms("2018-06", "voucher", 8), _ms("2017-12", "voucher", 8),
+        _pc("2018-07", "bed_bath_table"), _pc("2017-06", "health_beauty"), _pc("2017-10", "health_beauty"),
+        _pc("2017-06", "computers_accessories"), _pc("2017-12", "bed_bath_table"),
+        _pc("2017-04", "computers_accessories"), _pc("2018-04", "watches_gifts"),
+        _pc("2018-05", "health_beauty"), _pc("2018-03", "sports_leisure"),
+        _sd("2018-04", "7c67e1448b00f6e969d365cea6b010ab"), _sd("2018-04", S_7D13), _sd("2018-06", S_7D13),
+        _sd("2018-05", S_4869), _sd("2018-04", "5dceca129747e92ff8ef7a997dc4f8ca"),
+        _sd("2017-06", "7e93a43ef30c4f03f38b393420bc753a"), _sd("2018-05", "7c67e1448b00f6e969d365cea6b010ab"),
+        _sd("2017-10", S_5324), _sd("2017-08", S_5324), _sd("2018-04", S_955F), _sd("2018-03", S_7D13),
+        _sd("2018-01", S_955F), _sd("2018-01", S_4869), _sd("2017-11", S_5324), _sd("2018-08", S_5324),
+_sd("2017-07", "37be5a7c751166fbc5f8ccba4119e043"),
+        _sd("2018-05", "2eb70248d66e0e3ef83659f71b244378"), _sd("2017-06", "b1b3948701c5c72445495bd161b83a4c"),
+        _sd("2018-08", S_4869), _sd("2018-04", "7c67e1448b00f6e969d365cea6b010ab"),
+        _sd("2017-04", "59417c56835dd8e2e72f91f809cd4092")]
+    return [make_candidate(spec) for spec in specs]
+
+
+def combo_key(spec: dict) -> tuple:
+    """（类型, 月份, 维度值）：判断留出集与开发集是否重复的键；维度值取除 type、month 与强度参数外的全部取值。"""
+    values = tuple(sorted((key, str(value)) for key, value in spec.items()
+                          if key not in ("type", "month", "share", "factor", "copies", "suffix")))
+    return spec["type"], spec["month"], values
 
 
 # ---------------------------------------------------------------- 主流程
 
-def build_injected(folder: Path, log) -> list[dict]:
-    """扫描候选池：注入 → 质量检查 → gold，返回通过的注入案例（每类前 5 个）。"""
-    tables = olist.read_tables(folder)
+def build_injected(folder: Path, log, pool: list[dict] | None = None, prefix: str = "inj",
+                   per_kind: int = 5, exclude: set | None = None, tables: dict | None = None) -> list[dict]:
+    """扫描候选池：注入 → 质量检查 → gold，返回通过的注入案例（每类前 per_kind 个）。"""
+    tables = tables or olist.read_tables(folder)
+    pool = candidates() if pool is None else pool
     picked: dict[str, list[dict]] = {}
-    for candidate in candidates():
+    for candidate in pool:
         kind = candidate["type"]
-        if len(picked.get(kind, [])) >= 5:
+        if len(picked.get(kind, [])) >= per_kind:
             continue
-        case_id = f"inj-{kind}-{len(picked.get(kind, [])) + 1:02d}"
         spec = candidate["injection"]
+        if exclude and combo_key(spec) in exclude:
+            log(f"  跳过 {kind} {spec}: 与开发集（类型, 月份, 维度值）重复")
+            continue
+        case_id = f"{prefix}-{kind}-{len(picked.get(kind, [])) + 1:02d}"
         rng = injector.rng_for(case_id)
         after = injector.inject(tables, spec, rng)
+        removed = order_drop_gold(tables, after, spec)["magnitude"] if kind == "order_drop" else None
         # 用临时目录 + 语义层引擎做质量检查（物化到内存 SQLite，不写盘）。
         with tempfile.TemporaryDirectory(prefix="a3-check-", dir=ROOT / ".tmp") as scratch:
             scratch_path = Path(scratch)
@@ -384,21 +522,21 @@ def build_injected(folder: Path, log) -> list[dict]:
             try:
                 month = spec["month"]
                 detail = {}
-                for dimension, value, filters in candidate["checks"]:
-                    _, info = check_dominance(engine, _check_metric(candidate), dimension, value, month, filters)
-                    detail[dimension] = info
-                if len(candidate["checks"]) > 1:
-                    # 二维根因（order_drop）：至少一个切片主导（ratio ≥ 阈值），其余切片 gold 值进入前三。
-                    passed_all = any(info.get("ratio", 0) >= RATIO_THRESHOLD for info in detail.values()) \
-                        and all(info.get("rank", 99) <= 3 for info in detail.values())
+                if kind == "mix_shift":
+                    passed_all, detail["payment_type"] = check_mix_shift(engine, spec["value"], month)
+                elif kind == "order_drop":
+                    passed_all, detail = check_order_drop(engine, spec["product_category"],
+                                                          spec["customer_state"], month, removed)
                 else:
+                    for dimension, value, filters in candidate["checks"]:
+                        _, info = check_dominance(engine, candidate["metric"], dimension, value, month, filters)
+                        detail[dimension] = info
                     passed_all = all(info.get("ratio", 0) >= RATIO_THRESHOLD for info in detail.values())
                 # 方向一致性核对：目标指标在 period vs base_period 的实际总变化方向必须与
                 # gold.direction 一致（自然增长抵消注入下降时，该组合的题目是病态的，拒绝）。
                 total_info = _total_change(engine, candidate["metric"], spec["month"])
             finally:
                 engine.close()
-        gold_direction = None
         if passed_all:
             gold_direction = GOLDERS[kind](tables, after, spec)["direction"]
             direction_ok = total_info["change"] != 0 and total_info["direction"] == gold_direction
@@ -407,36 +545,37 @@ def build_injected(folder: Path, log) -> list[dict]:
                     f"而注入方向 {gold_direction}；拒绝该组合")
                 passed_all = False
         if not passed_all:
-            log(f"  未通过 {kind} {spec}: " + "; ".join(
-                f"{dim}: gold={info.get('gold_delta')} runner={info.get('runner_up')} ratio={info.get('ratio')}"
-                for dim, info in detail.items()))
+            log(f"  未通过 {kind} {spec}: " + _describe(kind, detail))
             continue
         gold = GOLDERS[kind](tables, after, spec)
+        if kind in ("mix_shift", "order_drop"):
+            quality = detail
+        else:
+            quality = {dim: {"gold_delta": info["gold_delta"], "runner_up": info["runner_up"],
+                             "ratio": info["ratio"], "rank": info.get("rank")} for dim, info in detail.items()}
         case = {"id": case_id, "split": None, "kind": "injected", "injection_type": kind,
                 "injection": spec, "question": candidate["question"], "metric": candidate["metric"],
                 "period": period_of(spec["month"]), "base_period": period_of(month_prev(spec["month"])),
-                "gold": gold, "total_change": total_info["change_text"],
-                "quality": {dim: {"gold_delta": info["gold_delta"], "runner_up": info["runner_up"],
-                                  "ratio": info["ratio"], "rank": info.get("rank")}
-                            for dim, info in detail.items()}}
+                "gold": gold, "total_change": total_info["change_text"], "quality": quality}
         picked.setdefault(kind, []).append(case)
-        log(f"  通过 {case_id}: " + "; ".join(
-            f"{dim} gold={info['gold_delta']} runner={info['runner_up']} ratio={info['ratio']}"
-            for dim, info in detail.items()))
+        log(f"  通过 {case_id}: " + _describe(kind, detail))
     missing = [kind for kind in ("order_drop", "freight_up", "delivery_delay", "mix_shift", "price_cut", "seller_drop")
-               if len(picked.get(kind, [])) < 5]
+               if len(picked.get(kind, [])) < per_kind]
     if missing:
-        raise SystemExit(f"以下注入类型通过质量检查的候选不足 5 个：{missing}；请调整候选池或阈值")
+        raise SystemExit(f"以下注入类型通过质量检查的候选不足 {per_kind} 个：{missing}；请调整候选池或阈值")
     return [case for kind in sorted(picked) for case in picked[kind]]
 
 
-def _check_metric(candidate: dict) -> str:
-    """质量检查用的切片指标：直接用目标指标（允许对应维度分组）；mix_shift 用 gmv 切片看组规模主导。
-
-    mix_shift 复制后该组组内 aov 不变（aov 切片的组内 |Δ| ≈ 0），主导性体现在该组 gmv 变化上，
-    故用 gmv 按 payment_type 拆检查 boleto 组规模变化是否最大（结构效应的代理检查，只用 A1 语义层）。
-    """
-    return "gmv" if candidate["type"] == "mix_shift" else candidate["metric"]
+def _describe(kind: str, detail: dict) -> str:
+    """质量检查详情的一行日志文本。"""
+    if kind == "mix_shift":
+        return str(detail["payment_type"])
+    if kind == "order_drop":
+        return "; ".join(f"{dim}: gold={info.get('gold_delta')} ratio={info.get('ratio')} rank={info.get('rank')} "
+                         f"同向={info.get('same_direction')} 注入占比={info.get('injected_share')} 通过={info.get('passed')}"
+                         for dim, info in detail.items())
+    return "; ".join(f"{dim}: gold={info.get('gold_delta')} runner={info.get('runner_up')} ratio={info.get('ratio')}"
+                     for dim, info in detail.items())
 
 
 def materialize_all(cases: list[dict], folder: Path, log) -> None:
@@ -447,8 +586,8 @@ def materialize_all(cases: list[dict], folder: Path, log) -> None:
         log(f"  物化 {case['id']} → {TARGET_ROOT / case['id']}（{time.time() - started:.1f} 秒）")
 
 
-def freeze(cases: list[dict], raw_cases: list[dict], folder: Path, log) -> None:
-    """固定种子分层划分 dev/test，写冻结文件。"""
+def freeze(cases: list[dict], raw_cases: list[dict], holdout_cases: list[dict], folder: Path, log) -> None:
+    """固定种子分层划分 dev/test（与 revision 3 相同的抽样流程），留出集案例标记为 holdout，写冻结文件。"""
     all_cases = cases + raw_cases
     rng = random.Random(SEED)
     injected = [case for case in all_cases if case["kind"] == "injected"]
@@ -466,13 +605,16 @@ def freeze(cases: list[dict], raw_cases: list[dict], folder: Path, log) -> None:
     for case in all_cases:
         chosen = case["id"] in dev_injected or case["id"] in dev_raw
         case["split"] = "dev" if chosen else "test"
+    for case in holdout_cases:
+        case["split"] = "holdout"
+    all_cases = all_cases + holdout_cases
     import raw_questions
     metadata = json.loads((folder / "metadata.json").read_text(encoding="utf-8"))
-    frozen = {"meta": {"frozen_at": "2026-10-27", "revision": 3,
+    frozen = {"meta": {"frozen_at": "2026-10-27", "revision": 4,
                        "revision_history": [
                            {"revision": 1, "date": "2026-10-27",
                             "note": "首次冻结（先于 Agent 开发）"},
-                           {"revision": 2, "date": time.strftime("%Y-%m-%d"),
+                           {"revision": 2, "date": "2026-10-27",
                             "note": "复核发现构造缺陷并在任何 Agent 运行前修正：原始问题月份选择由"
                                     "「EP 最高」改为「变化显著（加法型 |环比|≥5%、比率型达指标阈值）且"
                                     "集中（0.3≤EP≤1.5）中取最显著者」；问题方向词全部由实际总变化方向"
@@ -482,12 +624,25 @@ def freeze(cases: list[dict], raw_cases: list[dict], folder: Path, log) -> None:
                             "note": "A2 算法修正后重算原始问题 gold（注入案例不变，其 gold 来自注入参数）："
                                     "比率型组间组内拆解的结构项改为以总比率均值居中；find_root_cause 的维度"
                                     "按候选集平均惊奇度排序、候选按解释力输出。原始问题 gold 由 A2 参考实现"
-                                    "定义，算法改动后必须重算；test 集未被任何 Agent 运行过"}],
+                                    "定义，算法改动后必须重算；test 集未被任何 Agent 运行过"},
+                           {"revision": 4, "date": "2026-10-28",
+                            "note": "mix_shift、order_drop 加质量约束后重建（其余四类案例的参数、gold 与物化数据不变）："
+                                    "mix_shift 要求 aov 在 payment_type 维的 gold 值 |structure|≥2×|within|、方向与总变化"
+                                    "一致、维内 |Σstructure|≥0.5×|总变化|（注入增加 copies 份数以压过自然组内波动）；"
+                                    "order_drop 要求不过滤的品类维或州维至少一个满足方向一致、|Δ| 第一且≥次大×1.3、"
+                                    "注入删除额≥该值 |Δ| 的 0.5 倍（提高删除比例并重选月份与组合）。"
+                                    "新增留出集 holdout 30 例（6 类注入各 4 + 6 个原始问题，ho-*），"
+                                    "原 dev 与 test 改作开发集使用，最终结果只在 holdout 上报告"}],
                        "base_version": metadata["dataset_version"],
                        "source_sha256": metadata["profile"]["source_sha256"],
                        "snapshot": {"version": SNAPSHOT.version, "included_statuses": list(SNAPSHOT.included_statuses),
                                     "amount_source": SNAPSHOT.amount_source},
                        "ratio_threshold": RATIO_THRESHOLD, "seed": SEED,
+                       "mix_shift_constraints": {"structure_within_ratio": MIX_STRUCTURE_WITHIN_RATIO,
+                                                 "sum_structure_share": MIX_STRUCTURE_TOTAL_SHARE},
+                       "order_drop_constraints": {"dimensions": list(ORDER_DROP_DIMENSIONS),
+                                                  "ratio_threshold": RATIO_THRESHOLD,
+                                                  "injection_share": ORDER_DROP_INJECTION_SHARE},
                        "raw_selection": {"min_rel_change": raw_questions.MIN_REL_CHANGE,
                                          "ratio_min_change": raw_questions.RATIO_MIN_CHANGE,
                                          "ep_range": [raw_questions.EP_MIN, raw_questions.EP_MAX]},
@@ -497,7 +652,8 @@ def freeze(cases: list[dict], raw_cases: list[dict], folder: Path, log) -> None:
     FROZEN_FILE.write_text(json.dumps(frozen, ensure_ascii=False, indent=2), encoding="utf-8")
     log(f"冻结 {len(all_cases)} 个案例 → {FROZEN_FILE}"
         f"（dev {sum(case['split'] == 'dev' for case in all_cases)} / "
-        f"test {sum(case['split'] == 'test' for case in all_cases)}）")
+        f"test {sum(case['split'] == 'test' for case in all_cases)} / "
+        f"holdout {sum(case['split'] == 'holdout' for case in all_cases)}）")
     import cases as cases_module
     cases_module.validate(frozen)
     log("加载校验通过")
@@ -507,6 +663,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--materialize-only", action="store_true", help="只物化注入案例，不冻结题集")
     parser.add_argument("--skip-materialize", action="store_true", help="跳过物化（物化目录已存在时复用）")
+    parser.add_argument("--only", nargs="*", default=None,
+                        help="只物化这些注入类型（revision 4 重建 mix_shift、order_drop 时避免改动其余物化目录）")
     parser.add_argument("--skip-raw", action="store_true", help="跳过原始数据问题（A2 未就绪时）")
     args = parser.parse_args()
     started = time.time()
@@ -517,31 +675,45 @@ def main():
     folder = base_folder()
     log(f"基础数据版本目录：{folder}")
     injected = build_injected(folder, log)
+    dev_keys = {combo_key(case["injection"]) for case in injected}
+    log("留出集注入案例")
+    holdout = build_injected(folder, log, pool=holdout_candidates(), prefix="ho", per_kind=4, exclude=dev_keys)
     if args.skip_materialize:
-        log(f"注入案例 {len(injected)} 个通过质量检查；--skip-materialize，复用已有物化目录")
+        log(f"注入案例 {len(injected)}+{len(holdout)} 个通过质量检查；--skip-materialize，复用已有物化目录")
     else:
-        log(f"注入案例 {len(injected)} 个通过质量检查，开始物化")
-        materialize_all(injected, folder, log)
+        log(f"注入案例 {len(injected)}+{len(holdout)} 个通过质量检查，开始物化"
+            f"（只物化 {sorted(args.only) if args.only else '全部'}）")
+        keep = [case for case in injected if not args.only or case["injection_type"] in args.only] + holdout
+        materialize_all(keep, folder, log)
     if args.materialize_only:
         log("仅物化，结束")
         return
     raw_cases = []
+    holdout_raw = []
     if not args.skip_raw:
         raw_cases = build_raw(folder, log)
+        used = {(case["metric"], case["gold"]["month"]) for case in raw_cases}
+        holdout_raw = build_raw(folder, log, holdout=True, used=used)
     else:
         log("跳过原始数据问题（--skip-raw）")
     if raw_cases:
-        freeze(injected, raw_cases, folder, log)
+        freeze(injected, raw_cases, holdout + holdout_raw, folder, log)
     else:
         log("原始数据问题 gold 待 A2；题集未冻结")
 
 
-def build_raw(folder: Path, log) -> list[dict]:
-    """原始数据问题（10 个）的 gold：由 A2 的 ReferenceSource + find_root_cause / contribution 计算。"""
-    from raw_questions import RAW_QUESTIONS, compute_gold
+def build_raw(folder: Path, log, holdout: bool = False, used: set | None = None) -> list[dict]:
+    """原始数据问题的 gold：由 A2 的 ReferenceSource + find_root_cause / contribution 计算。
+
+    开发集 10 个（raw-01..10）；holdout=True 时为留出集 6 个（ho-raw-01..06），候选月份去掉
+    used 中已被开发集选走的（指标, 月份），保证组合不重复。
+    """
+    from raw_questions import HOLDOUT_RAW_QUESTIONS, RAW_QUESTIONS, compute_gold
     results = []
-    for index, spec in enumerate(RAW_QUESTIONS, 1):
-        case_id = f"raw-{index:02d}"
+    for index, spec in enumerate(HOLDOUT_RAW_QUESTIONS if holdout else RAW_QUESTIONS, 1):
+        case_id = f"ho-raw-{index:02d}" if holdout else f"raw-{index:02d}"
+        if holdout:
+            spec = {**spec, "months": [m for m in spec["months"] if (spec["metric"], m) not in (used or set())]}
         gold = compute_gold(folder, SNAPSHOT, spec)
         question = gold.pop("question")
         gold_period = gold.pop("period")
@@ -549,10 +721,9 @@ def build_raw(folder: Path, log) -> list[dict]:
         results.append({"id": case_id, "split": None, "kind": "raw", "injection_type": "raw",
                         "question": question, "metric": spec["metric"],
                         "period": gold_period, "base_period": gold_base, "gold": gold})
-        log(f"  原始问题 {case_id}（{gold['month']}，首位 EP={gold['top_ep']}）: " +
+        log(f"  原始问题 {case_id}（{spec['metric']} {gold['month']}，首位 EP={gold['top_ep']}）: " +
             ", ".join(f"{item['dimension']}={item['value']}" for item in gold["dimensions"]))
     return results
-
 
 if __name__ == "__main__":
     main()

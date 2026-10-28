@@ -10,7 +10,7 @@
 - freight_up：某卖家州的卖家在某月的明细运费按比例上调。
 - delivery_delay：某客户州某月一部分已送达订单的送达日期推迟到预计送达日之后，并把其评价分数改为 1–2。
 - mix_shift：某支付方式（或某客户州）在某月的全部订单原样复制一份（新 order_id/customer_id/customer_unique_id，
-  子行同步复制），组内客单价不变、权重上升。
+  子行同步复制；可用 copies 指定复制份数，默认 1），组内客单价不变、权重上升。
 - price_cut：某品类某月明细价格按比例下调。
 - seller_drop：某卖家在某月的订单全部消失（订单只剩该卖家时整单删除及子行）。
 """
@@ -148,35 +148,38 @@ def inject_mix_shift(tables: dict, spec: dict, rng: random.Random) -> dict:
             continue
         targets.append(order["order_id"])
     tables = copy.deepcopy(tables)
-    suffix = spec.get("suffix", "zz")
-    order_map = {order_id: f"{order_id}{suffix}" for order_id in targets}
-    new_customers = []
-    for order_id in targets:
-        customer = next(row for row in tables["customers"] if row["customer_id"] == orders[order_id]["customer_id"])
-        clone = dict(customer)
-        clone["customer_id"] = f"{customer['customer_id']}{suffix}"
-        # customer_unique_id 也新建且按克隆客户行唯一：同一人在目标月有多单时各克隆互不相同，
-        # 避免克隆之间被误判为复购（改变新老客结构）。
-        clone["customer_unique_id"] = f"{clone['customer_id']}{suffix}"
-        new_customers.append(clone)
-    tables["customers"].extend(new_customers)
-    customer_by_order = {order_id: new_customers[index]["customer_id"] for index, order_id in enumerate(targets)}
-    for order_id in targets:
-        order = orders[order_id]
-        clone = dict(order)
-        clone["order_id"] = order_map[order_id]
-        clone["customer_id"] = customer_by_order[order_id]
-        tables["orders"].append(clone)
-    for name in ("order_items", "order_payments", "order_reviews"):
-        clones = []
-        for row in tables[name]:
-            if row["order_id"] in order_map:
-                clone = dict(row)
-                clone["order_id"] = order_map[row["order_id"]]
-                if name == "order_reviews":
-                    clone["review_id"] = f"{row['review_id']}{suffix}"
-                clones.append(clone)
-        tables[name].extend(clones)
+    customer_rows = {row["customer_id"]: row for row in tables["customers"]}
+    # copies（默认 1）为复制份数：份数越多结构效应越强，用来压过当月自然的组内波动；
+    # 第 1 份的后缀与早期案例一致（zz），第 n 份（n≥2）后缀为 zz{n}。
+    for copy_index in range(1, int(spec.get("copies", 1)) + 1):
+        suffix = spec.get("suffix", "zz") + ("" if copy_index == 1 else str(copy_index))
+        order_map = {order_id: f"{order_id}{suffix}" for order_id in targets}
+        new_customers = []
+        for order_id in targets:
+            customer = customer_rows[orders[order_id]["customer_id"]]
+            clone = dict(customer)
+            clone["customer_id"] = f"{customer['customer_id']}{suffix}"
+            # customer_unique_id 也新建且按克隆客户行唯一：同一人在目标月有多单时各克隆互不相同，
+            # 避免克隆之间被误判为复购（改变新老客结构）。
+            clone["customer_unique_id"] = f"{clone['customer_id']}{suffix}"
+            new_customers.append(clone)
+        tables["customers"].extend(new_customers)
+        customer_by_order = {order_id: new_customers[index]["customer_id"] for index, order_id in enumerate(targets)}
+        for order_id in targets:
+            clone = dict(orders[order_id])
+            clone["order_id"] = order_map[order_id]
+            clone["customer_id"] = customer_by_order[order_id]
+            tables["orders"].append(clone)
+        for name in ("order_items", "order_payments", "order_reviews"):
+            clones = []
+            for row in tables[name]:
+                if row["order_id"] in order_map:
+                    clone = dict(row)
+                    clone["order_id"] = order_map[row["order_id"]]
+                    if name == "order_reviews":
+                        clone["review_id"] = f"{row['review_id']}{suffix}"
+                    clones.append(clone)
+            tables[name].extend(clones)
     return tables
 
 

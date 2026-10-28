@@ -181,3 +181,14 @@ def _top_contribution(source, spec: dict, period, base, top: dict) -> str | None
         if row["group"] == top["value"]:
             return str(row.get("change"))
     return None
+
+# 留出集（holdout）的 6 个原始数据问题：指标 × 维度与开发集同类，月份候选为全部月份中
+# 去掉开发集已选（指标, 月份）的部分（由 build.py 在构建时过滤），仍按「显著 → 集中 → 最显著者」取月。
+HOLDOUT_RAW_QUESTIONS = [
+    _spec("gmv", ["customer_state"], list(ALL_MONTHS), "地区"),
+    _spec("item_gmv", ["product_category"], list(ALL_MONTHS), "品类"),
+    _spec("late_delivery_rate", ["customer_state"], list(ALL_MONTHS), "州"),
+    _spec("aov", ["payment_type"], list(ALL_MONTHS), "支付方式"),
+    _spec("bad_review_rate", ["customer_state"], list(ALL_MONTHS), "州"),
+    _spec("freight_ratio", ["seller_state"], list(ALL_MONTHS), "卖家州"),
+]
