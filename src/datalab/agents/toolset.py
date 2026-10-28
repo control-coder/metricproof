@@ -369,6 +369,7 @@ class InvestigationToolset:
                     outcome[result_id] = compared
                 elif tool in ATTRIBUTION_TOOLS and level == 'L1':
                     compared = verify_attribution(tool, result, self.folder, self.snapshot,
+                                                  _store=store_cache,
                                                   **self._attribution_args(tool, arguments))
                     compared['skipped'] = False
                     outcome[result_id] = compared

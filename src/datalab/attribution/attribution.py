@@ -575,13 +575,14 @@ def _ranks(values: list[float]) -> list[float]:
     return ranks
 
 
-def verify_attribution(kind: str, result: dict, folder: Path, snapshot, **arguments) -> dict:
+def verify_attribution(kind: str, result: dict, folder: Path, snapshot, _store=None, **arguments) -> dict:
     """L1 核验：用 ReferenceSource 独立重算同一归因函数，逐项比较并检查不变量。
 
     kind 为函数名（contribution / decompose_metric / detect_anomaly / find_root_cause /
     correlate）；arguments 是该函数除 source 外的全部参数（含 metric、period 等）。
     Fraction 精确结果比较格式化后的字符串/整数；LMDI 贡献与相关系数为浮点，允许
-    1e-9 相对误差。
+    1e-9 相对误差。_store 为内部复用参数：批量核验时传入同一份派生记录缓存，避免每条结果重读表；
+    省略时每次新建，行为不变。
     """
     from datalab.attribution.sources import ReferenceSource
     from datalab.semantic.reference import _Cache
@@ -593,7 +594,7 @@ def verify_attribution(kind: str, result: dict, folder: Path, snapshot, **argume
         # Agent 工具层显式给出历史期间（detect_anomaly_explicit）；A5 漏接此分支，核验恒报 TypeError。
         functions["detect_anomaly"] = detect_anomaly_explicit
     # 同一次核验内的全部复算共享一份派生记录缓存（真实数据上避免逐次读表与连接）。
-    reference = functions[kind](ReferenceSource(folder, snapshot, _store=_Cache()), **arguments)
+    reference = functions[kind](ReferenceSource(folder, snapshot, _store=_store or _Cache()), **arguments)
     differences = _diff(result, reference, "$")
     invariant = result.get("invariant", {})
     return {"passed": not differences and invariant.get("passed", True),
