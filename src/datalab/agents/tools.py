@@ -30,6 +30,8 @@ from typing import Annotated, Any, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, create_model
 
+from datalab.contracts import OLIST_STATUSES
+
 AGENTS = ('lead', 'subagent', 'reviewer')
 # 核验等级：L1 语义层与归因工具（独立参考复算）；L2 自由查询与沙箱（不变量与汇总比对）；None 不涉及数值。
 LEVELS = ('L1', 'L2', None)
@@ -139,8 +141,14 @@ def tool_params(catalog: dict) -> dict[str, type[BaseModel]]:
                         Field(default_factory=list, description='候选回答')),
         }),
         'propose_metric': _params('ProposeMetricParams', catalog, {
-            'definition': (Annotated[str, StringConstraints(max_length=2048)],
-                           Field(description='新口径定义；只写入 pending，须用户确认')),
+            'name': (Annotated[str, StringConstraints(min_length=1, max_length=120)],
+                     Field(description='口径名称，如 gmv_含取消订单')),
+            'definition': (Annotated[str, StringConstraints(min_length=1, max_length=1024)],
+                           Field(description='口径的文字定义')),
+            'included_statuses': (Annotated[list[Literal[OLIST_STATUSES]], Field(min_length=1, max_length=8)],
+                                  Field(description='纳入的订单状态')),
+            'amount_source': (Literal['payments', 'items'] | None,
+                              Field(default=None, description='订单金额来源（只对金额类指标有意义）')),
         }),
         'dispatch_subagent': _params('DispatchSubagentParams', catalog, {
             'branch': (ShortText, Field(description='分支描述：要排查的假设')),
@@ -179,7 +187,7 @@ DESCRIPTIONS = {
     'run_python': '在受限沙箱内执行 Python 代码；L2 核验（不变量与汇总比对）',
     'search_memory': '检索情景记忆中的历史归因案例',
     'ask_user': '向用户提问并等待确认（任务进入 WAITING_CONFIRMATION）',
-    'propose_metric': '提议新的指标口径；只写入 pending，必须用户确认后才生效',
+    'propose_metric': '提议新的指标口径；只写入 pending，本次调查暂停等待用户确认，确认前不生效',
     'dispatch_subagent': '分派子 Agent 排查一组维度；本工具的返回值就是子 Agent 的结构化发现（同一条消息里的多个分派并行执行）',
     'finish': '结束分析并提交报告；每个数字须引用 result_id 并标注核验等级',
     'verify_claims': '核验报告结论与 result_id 的绑定是否一致、是否出现因果断言',
@@ -191,7 +199,8 @@ DESCRIPTIONS = {
 # 第四节工具表的 finish 只画在主 Agent 行，这里按 A5 的实际需要给子 Agent 放开 finish）。
 PERMISSIONS = {
     'lead': frozenset({'list_metrics', 'describe_dimensions', 'get_profile', 'detect_anomaly',
-                       'decompose_metric', 'query_metric', 'ask_user', 'dispatch_subagent', 'finish', 'read_result'}),
+                       'decompose_metric', 'query_metric', 'ask_user', 'propose_metric', 'search_memory',
+                       'dispatch_subagent', 'finish', 'read_result'}),
     'subagent': frozenset({'query_metric', 'contribution', 'find_root_cause', 'correlate',
                            'run_sql', 'run_python', 'read_result', 'finish'}),
     'reviewer': frozenset({'verify_claims', 'read_result'}),

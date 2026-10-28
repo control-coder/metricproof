@@ -52,6 +52,7 @@ COMPACT_CHARS = 60_000
 KEEP_OBSERVATIONS = 6
 STOP_HINT_THRESHOLD = 0.8
 
+WAITING_TOOLS = ('ask_user', 'propose_metric')
 REVISION_MAX_STEPS = 2
 REVIEWER_MAX_STEPS = 3
 
@@ -122,6 +123,10 @@ class InvestigationResult:
     verification: dict
     trace: list[dict] = field(default_factory=list)
     branches: list[BranchResult] = field(default_factory=list)
+    # 人在回路（A7）：stop_reason 为 waiting_confirmation 时给出待确认事项
+    # {type: clarification|metric, question, options, memory_id?, result_id}。
+    pending: dict | None = None
+    episode_id: str | None = None
 
 
 def _report_ids(report: dict | None) -> list[str]:
@@ -168,6 +173,20 @@ def _compact(messages: list[dict], *, keep: int = KEEP_OBSERVATIONS) -> list[dic
                  'note': '较早观察已压缩；result 完整内容可用 read_result 分页读取'}
         messages[index] = {**message, 'content': json.dumps(brief, ensure_ascii=False)}
     return messages
+
+
+def _pending_of(call: dict, observation) -> dict:
+    """ask_user / propose_metric 的观察 → 待确认事项（问题、选项或 pending 口径编号）。"""
+    try:
+        result = json.loads(observation.content).get('result') or {}
+    except ValueError:
+        result = {}
+    if call['name'] == 'ask_user':
+        return {'type': 'clarification', 'question': result.get('question'),
+                'options': result.get('options') or [], 'result_id': observation.result_id}
+    return {'type': 'metric', 'question': f"是否确认新口径「{result.get('name')}」？",
+            'options': ['确认', '不确认'], 'memory_id': result.get('memory_id'),
+            'result_id': observation.result_id}
 
 
 def _observation_note(observation, note: str):
@@ -436,12 +455,14 @@ class Investigation:
     def __init__(self, question: str, folder: Path, snapshot: SemanticSnapshot, client, *,
                  parallel: bool, budget: InvestigationBudget | None, profile: dict | None,
                  toolset: InvestigationToolset | None = None, subagent_thinking: bool | None = False,
-                 review: bool = True):
+                 review: bool = True, memory=None):
         self.question = question
+        self.memory = memory
+        self.pending: dict | None = None
         # 子 Agent 只按固定套路调用归因工具，默认关闭思考（MiMo thinking.disabled）以压低时延；
         # 主 Agent 负责计划与汇总，保留供应商默认的思考模式。
         self.subagent_thinking = subagent_thinking
-        self.toolset = toolset or InvestigationToolset(Path(folder), snapshot, profile=profile)
+        self.toolset = toolset or InvestigationToolset(Path(folder), snapshot, profile=profile, memory=memory)
         self.owns_toolset = toolset is None
         self.client = client
         self.parallel = parallel
@@ -461,20 +482,28 @@ class Investigation:
     # ---------------------------------------------------------------- 主 Agent
 
     def run(self, *, metric: str | None, period: dict | None, base_period: dict | None,
-            dimensions_hint: list[str] | None) -> InvestigationResult:
+            dimensions_hint: list[str] | None, clarifications: list[dict] | None = None) -> InvestigationResult:
         started = time.perf_counter()
         self.base_period = base_period
         registry = self.toolset.registry
+        episodes = []
+        if self.memory is not None and metric and period:
+            # 少样本：同范围内最相似的一条历史归因（仅为数据，不能当作业务规则）；不额外占用模型调用。
+            from datalab.memory.episodes import search_episodes
+
+            episodes = search_episodes(*self.memory, self.question, k=1)
         history = [{'role': 'system', 'content': lead.SYSTEM + '\n' + BOUNDARY},
                    {'role': 'user', 'content': lead.opening_message(
                        self.question, metric=metric, period=period, base_period=base_period,
-                       dimensions_hint=dimensions_hint)}]
+                       dimensions_hint=dimensions_hint, clarifications=clarifications, episodes=episodes)}]
         tools = registry.schemas('lead')
         self._guard = _DuplicateGuard()
         self._dispatch_rounds = 0
         self._lead_steps = 0
         report, stop_reason = self._lead_loop(history, tools, LEAD_MAX_STEPS, nudge=True)
-        if report is None and self.branches:
+        if stop_reason == 'waiting_confirmation':
+            report = None
+        elif report is None and self.branches:
             report = self._degraded_report()
             if stop_reason in ('budget', 'max_steps', 'no_tool_calls', 'repeated_action'):
                 stop_reason = f'{stop_reason}_degraded'
@@ -492,6 +521,14 @@ class Investigation:
             graded['valid'] = bool(claims_check and claims_check['passed'])
             if review is not None:
                 graded['review'] = review
+        episode_id = None
+        if self.memory is not None and graded is not None and graded['valid'] and metric and period:
+            # 情景记忆只记录通过核对的报告（kind=summary，状态 recorded，永不升级为业务规则）。
+            from datalab.memory.episodes import record_episode
+
+            episode_id = record_episode(*self.memory, question=self.question, metric=metric, period=period,
+                                        base_period=base_period, report=graded,
+                                        run_id=f'investigation:{int(time.time())}').memory_id
         seconds = round(time.perf_counter() - started, 3)
         stats = registry.stats()
         tool_stats = {'total': stats.total, 'accuracy': round(stats.accuracy, 6),
@@ -502,7 +539,7 @@ class Investigation:
             {'lead': self._lead_steps, 'subagents': [branch.steps for branch in self.branches],
              'reviewer': (review or {}).get('steps', 0)},
             self.budget.calls, self.budget.tokens, seconds, tool_stats, verification,
-            trace=list(self.trace), branches=self.branches)
+            trace=list(self.trace), branches=self.branches, pending=self.pending, episode_id=episode_id)
 
     def _lead_loop(self, history: list, tools: list, max_steps: int, *, nudge: bool) -> tuple[dict | None, str]:
         """主 Agent 循环，直到 finish、无工具调用、停止条件或步数用尽；返回 (报告, 停止原因)。"""
@@ -563,6 +600,13 @@ class Investigation:
                 history.append({'role': 'tool', 'tool_call_id': call['id'], 'name': call['name'],
                                 'content': json.dumps(observation.message(), ensure_ascii=False)})
             if stop_reason == 'repeated_action':
+                break
+            waiting = next(((call, observation) for call, observation in observations
+                            if call['name'] in WAITING_TOOLS and observation.ok), None)
+            if waiting is not None:
+                # 澄清或新口径都要用户确认：调查暂停，不生成报告；确认后由调用方带着答复重新发起。
+                self.pending = _pending_of(*waiting)
+                stop_reason = 'waiting_confirmation'
                 break
             for call, observation in observations:
                 if call['name'] == 'finish' and observation.ok:
@@ -728,6 +772,16 @@ class Investigation:
             self.toolset.close()
 
 
+def snapshot_from_memory(entry) -> SemanticSnapshot:
+    """已确认的指标口径记忆 → 语义层快照；pending 或未记录确认人的条目一律拒绝
+    （沿用 MemoryService.metric_snapshot 的检查）。"""
+    from datalab.memory.service import MemoryService
+
+    MemoryService.metric_snapshot(entry)
+    return SemanticSnapshot(f'{entry.memory_id}:v{entry.version}', tuple(entry.content['included_statuses']),
+                            entry.content.get('amount_source'))
+
+
 def run_investigation(question: str, folder: Path, snapshot: SemanticSnapshot, client, *,
                       parallel: bool = True, budget: InvestigationBudget | None = None,
                       metric: str | None = None, period: dict | None = None,
@@ -735,17 +789,25 @@ def run_investigation(question: str, folder: Path, snapshot: SemanticSnapshot, c
                       dimensions_hint: list[str] | None = None,
                       toolset: InvestigationToolset | None = None,
                       subagent_thinking: bool | None = False,
-                      review: bool = True) -> InvestigationResult:
+                      review: bool = True, memory=None,
+                      clarifications: list[dict] | None = None) -> InvestigationResult:
     """一次完整调查：主 Agent 检测与拆解 → 分派 → 子 Agent 排查 → 汇总 → 按引用核验。
 
     client 为带 complete_tools 的模型客户端（roles.llm.ChatClient）；folder 为数据版本目录；
     snapshot 为已确认口径快照。parallel=True 时子 Agent 至多 3 个并行，否则串行（A5 时延对照）。
+
+    人在回路（A7）：主 Agent 调用 ask_user 或 propose_metric 后调查暂停，返回
+    stop_reason='waiting_confirmation' 与 result.pending；用户答复后由调用方重新发起调查，
+    clarifications=[{question, answer}] 写进首条消息（无状态恢复，不保存模型上下文）。
+    新口径确认后，调用方用 snapshot_from_memory 建立新快照再发起；未确认的口径不会进入快照。
+    memory=(MemoryService, Scope) 时开启情景记忆：首条消息附一条最相似的历史归因，
+    报告通过核对后写入情景记忆。
     """
     investigation = Investigation(question, folder, snapshot, client, parallel=parallel,
                                   budget=budget, profile=profile, toolset=toolset,
-                                  subagent_thinking=subagent_thinking, review=review)
+                                  subagent_thinking=subagent_thinking, review=review, memory=memory)
     try:
         return investigation.run(metric=metric, period=period, base_period=base_period,
-                                 dimensions_hint=dimensions_hint)
+                                 dimensions_hint=dimensions_hint, clarifications=clarifications)
     finally:
         investigation.close()
