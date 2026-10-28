@@ -52,7 +52,7 @@
 
 ### 固定种子评测（不调用模型）
 
-命令：`python -B evals/run_suite.py`。种子 20260926；三个角色都使用确定性固定后端，执行走真实 Docker 与 PostgreSQL。
+命令：`python -B evals/run_suite.py`。种子 20260926；三类 Agent都使用确定性固定后端，执行走真实 Docker 与 PostgreSQL。
 
 | 类别 | 结果 | 方法与边界 |
 | --- | --- | --- |

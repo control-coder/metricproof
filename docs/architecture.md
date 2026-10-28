@@ -153,7 +153,7 @@ L1 核验（`reference.py`）：纯 Python 逐行实现同一套指标与维度�
 
 ## 固定分析：Planner–Analyst–Reviewer 流水线与状态
 
-下面三个角色（Planner、Analyst、Reviewer）属于改造前的单表与 Olist 固定分析流水线，仍保留用于回归，与上面的调查流程相互独立。
+下面三类 Agent（Planner、Analyst、Reviewer）属于改造前的单表与 Olist 固定分析流水线，仍保留用于回归，与上面的调查流程相互独立。
 
 ### 上下文与权限
 
@@ -167,7 +167,7 @@ L1 核验（`reference.py`）：纯 Python 逐行实现同一套指标与维度�
 
 服务端 `BoundTools` 把角色和当前任务绑定到固定工具白名单，每个角色只有一个工具：Planner 读数据概况（`profile`），Analyst 提交沙箱运行（`execute_python`），Reviewer 调用独立核验（`verify`）。记忆读取与口径确认由编排层在调用前后完成，不作为角色工具。模型响应不能声明自身身份、启用 bash 或传入工具注册表。计划常量、CSV 读写、编码与公式注入防护由 `execution/analysis_frame.py` 生成，组装后的脚本仍进入同一容器并接受独立核验。角色交接中的计划不带 `checks`，核验项由服务端决定。
 
-Olist 数据的三个角色使用 `roles/olist_prompts.py` 中的提示：Planner 提示列出九类分析允许的分组与时间字段，Analyst 提示写明每类投影进容器的表与列和各自的输出契约，Reviewer 提示说明新类型与分组的含义。适配器按交接中的 `schema`（Planner、Reviewer 看概况视图，Analyst 看计划）选择提示。单表提示所在的 `roles/prompts.py` 没有改动，单表任务发给模型的提示与交接逐字节不变，由 `tests/datalab/test_prompt_compat.py` 检查（文件指纹与一条完整回退路径的请求摘要）。计划解析时 Olist 计划可以给 `time_field`；`schema` 与订单级分析的 `amount_source` 由服务端按数据版本和已确认口径填写，Planner 写出不同的金额来源时任务以 `MODEL_ERROR` 失败、不执行。
+Olist 数据的三类 Agent使用 `roles/olist_prompts.py` 中的提示：Planner 提示列出九类分析允许的分组与时间字段，Analyst 提示写明每类投影进容器的表与列和各自的输出契约，Reviewer 提示说明新类型与分组的含义。适配器按交接中的 `schema`（Planner、Reviewer 看概况视图，Analyst 看计划）选择提示。单表提示所在的 `roles/prompts.py` 没有改动，单表任务发给模型的提示与交接逐字节不变，由 `tests/datalab/test_prompt_compat.py` 检查（文件指纹与一条完整回退路径的请求摘要）。计划解析时 Olist 计划可以给 `time_field`；`schema` 与订单级分析的 `amount_source` 由服务端按数据版本和已确认口径填写，Planner 写出不同的金额来源时任务以 `MODEL_ERROR` 失败、不执行。
 
 ### 模型可见字段与 trace
 
