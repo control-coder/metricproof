@@ -25,6 +25,7 @@ import argparse
 import json
 import statistics
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -222,8 +223,11 @@ def summarize(rows: list[dict], kind: str) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--split", choices=("dev", "test"), default="dev",
+                        help="题集划分；test 只在 A10 用最终配置跑一次")
     parser.add_argument("--cases", nargs="*", default=None, help="只跑指定案例 ID（调提示词用）")
     parser.add_argument("--replay", action="store_true", help="用 cassette 离线回放，不发网络请求")
+    parser.add_argument("--resume", action="store_true", help="读取断点文件，跳过已完成的案例（中断后续跑）")
     parser.add_argument("--parallel-only", action="store_true", help="只跑并行（串行结果已存在时）")
     parser.add_argument("--serial-only", action="store_true", help="只跑串行")
     parser.add_argument("--workers", type=int, default=4, help="同时运行的调查数（案例间并发）")
@@ -242,20 +246,37 @@ def main():
     data = load_cases()
     snapshot = snapshot_of(data)
     base = base_folder_of(data)
-    dev = cases_module.by_split(data, "dev")
+    dev = cases_module.by_split(data, args.split)
     if args.cases:
         wanted = set(args.cases)
         dev = [case for case in dev if case["id"] in wanted]
         missing = wanted - {case["id"] for case in dev}
         if missing:
-            raise SystemExit(f"案例不在 dev 划分内：{sorted(missing)}")
-    log(started, f"dev 案例 {len(dev)} 个；基础版本 {base.name}")
+            raise SystemExit(f"案例不在 {args.split} 划分内：{sorted(missing)}")
+    log(started, f"{args.split} 案例 {len(dev)} 个；基础版本 {base.name}")
 
     modes = [True] if args.parallel_only else [False] if args.serial_only else [False, True]
     folders = {case["id"]: folder_of(case, base) for case in dev}
 
+    # 断点文件：每个案例结束即追加一行，进程中断后 --resume 跳过已完成的案例。
+    # 并行子 Agent 的结果编号与完成顺序有关，请求不完全确定，cassette 回放不能用来续跑。
+    checkpoint = args.output.with_suffix(".partial.jsonl")
+    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    done = {}
+    if args.resume and checkpoint.is_file():
+        for line in checkpoint.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                row = json.loads(line)
+                done[(row["case"], row["mode"])] = row
+        log(started, f"断点续跑：已完成 {len(done)} 个")
+    elif checkpoint.exists():
+        checkpoint.unlink()
+    lock = threading.Lock()
+
     def task(case, parallel):
         mode = "parallel" if parallel else "serial"
+        if (case["id"], mode) in done:
+            return done[(case["id"], mode)]
         cassette_path = args.cassette_dir / f"{case['id']}-{mode}.json"
         client, recorder = make_client(args.replay, cassette_path)
         outcome = run_case(case, folders[case["id"]], snapshot, client, parallel=parallel)
@@ -263,6 +284,8 @@ def main():
             recorder.save()
         outcome["kind"] = "raw" if case["kind"] == RAW_KIND else "injected"
         outcome["mode"] = mode
+        with lock, checkpoint.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(outcome, ensure_ascii=False) + "\n")
         log(started, f"{case['id']} [{mode}] stop={outcome.get('stop_reason')} "
                      f"ac1={outcome.get('ac1')} ac3={outcome.get('ac3')} "
                      f"calls={outcome.get('model_calls')} tokens={outcome.get('tokens')} "
@@ -276,10 +299,11 @@ def main():
     with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
         rows = list(pool.map(lambda job: task(*job), jobs))
 
-    result = {"meta": {"date": time.strftime("%Y-%m-%d %H:%M"),
+    result = {"meta": {"date": time.strftime("%Y-%m-%d %H:%M"), "split": args.split,
+                       "review": REVIEW, "sandbox": SANDBOX is not None,
                        "cases": [case["id"] for case in dev],
                        "budget": BUDGET, "replay": args.replay,
-                       "note": "A5 dev：10 案例 × 串行+并行；注入与原始分开统计；"
+                       "note": f"{args.split} 划分；注入与原始分开统计；"
                                "model_config 无单价，费用只记 token"},
               "rows": rows,
               "summary": {mode: {kind: summarize([row for row in rows if row["mode"] == mode], kind)
