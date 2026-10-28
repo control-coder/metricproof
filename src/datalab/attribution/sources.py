@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import csv
 import weakref
-from functools import lru_cache
 from pathlib import Path
 
 from datalab.semantic.reference import _Cache, _cache_key, python_reference
@@ -84,12 +83,14 @@ class ReferenceSource:
                                metric, compare_period[0], compare_period[1], _freeze(filters), group_by)
         return {**result, "compare": compare, "delta": _delta(result["total"], compare["total"])}
 
-    # 缓存键为 (folder, snapshot, metric, period, filters, group_by) 的模块级 LRU：
-    # 不带 self，同一数据版本目录上的多个 ReferenceSource 实例共享查询结果。
+    # 查询结果缓存挂在共享的 _Cache 上（键为 metric、期间、filters、group_by）：同一数据版本的
+    # 多个 ReferenceSource 仍共享结果；_Cache 不再被模块级 lru_cache 强引用，用完即可回收。
     @staticmethod
-    @lru_cache(maxsize=None)
     def _cached(folder: Path, snapshot, store: _Cache, metric: str,
                 start: str | None, end: str | None,
                 frozen_filters: tuple | None, group_by: str | None) -> dict:
-        return python_reference(folder, metric, (start, end), _thaw(frozen_filters), group_by,
-                                snapshot, store)
+        key = (metric, start, end, frozen_filters, group_by)
+        if key not in store.queries:
+            store.queries[key] = python_reference(folder, metric, (start, end), _thaw(frozen_filters),
+                                                  group_by, snapshot, store)
+        return store.queries[key]

@@ -55,6 +55,9 @@ class _Cache:
         self.orders: dict = {}
         self.items: dict = {}
         self.reviews: dict = {}
+        # ReferenceSource 的查询结果缓存：挂在实例上，随实例一同释放（原模块级 lru_cache 强引用
+        # 每个数据版本的 _Cache，长时间评测中每个案例约多占 2 GB 且永不释放）。
+        self.queries: dict = {}
 
 
 def _cache_key(folder: Path, snapshot: SemanticSnapshot):
