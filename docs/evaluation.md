@@ -497,6 +497,16 @@ python -B evals/report.py artifacts/evals/heldout-single-vs-roles.json --markdow
 - 真实数据：2018 年 3 月按卖家州汇总明细金额（三表连接），单次 run_sql 约 3 秒（含宿主投影、容器创建与清理），L2 通过。
 - 局限：自由 SQL 没有独立参考实现，不变量与置换检查不验证查询语义；只有模型给出 `reconcile` 时才与语义层比对。`run_python` 的 Agent 接线不在本轮范围内。`run_sql` 的工具 Schema 有变化，A5–A7 录制的 cassette 中子 Agent 的请求不再能回放。
 
+## API、前端与 MCP（A9，2026-10-28）
+
+调查作为任务类型接入既有任务表与 Celery worker，表结构不变。接口、状态序列与 `调查报告.json` 的结构见《API》的「异动归因调查」一节。前端仍为四个页面：分析任务页新增「归因调查」表单；报告详情页对调查任务展示结论摘要、根因表、发现与建议（带 L1/L2/L3 标记）、指标树、贡献度表、代码核对与审查结论、工具结果和轨迹时间线；等待确认时展示待答问题与选项。
+
+- 离线：`tests/datalab/test_investigation_task.py`（10 个）覆盖结果截断、报告组装，以及有效报告、无效报告、等待确认与答复后续跑四种状态序列；`tests/datalab/test_mcp_server.py` 共 11 个，含两个新工具。
+- 接口集成（`tests/datalab/test_app_integration.py`，本机 PostgreSQL、Redis 与 worker 全部运行）：20 个测试全部通过，其中 7 个是新增的调查接口测试。
+- 浏览器端完整走通一次（`frontend/tests/investigation-flow.mjs`，Edge，真实 MiMo，一次）：新导入的 Olist 数据（八表签名），确认的支付金额口径，问题为「2018 年 3 月 GMV 相比 2 月为什么变化」。从提交表单到报告页渲染共 182 秒，其中调查 168 秒、12 次模型调用、约 10.3 万 token。报告的根因为新客（customer_type=new）、信用卡支付与 SP 州，3 条都是 L1。审查后修订了一次，修订后的建议里仍有一个派生百分比（52.67%）在所引结果中找不到，报告判为无效，任务以 `FAILED/REPORT_INVALID` 结束；界面按设计标红该问题，内容照常展示。这与 A6 的严格核对口径一致，不是接线故障。
+- MCP 冒烟（`scripts/mcp_smoke.py`，stdio）：列出 9 个工具，含 `submit_investigation` 与 `get_investigation`；对上面的任务调用 `get_investigation`，返回状态、有效性、用量、根因与核验等级；不存在的任务返回错误。
+- 局限：取消只在调查开始前后检查；调查从头重跑，不保存模型上下文；浏览器流程只覆盖直接回答的问题，等待确认的界面路径由离线测试与组件实现覆盖，没有用真实模型在浏览器里答复过。
+
 ## 提示注入的结构性检查
 
 `tests/datalab/test_prompt_injection.py` 不调用模型。它在订单的编号、渠道、品类，上传的数据语义家族和口径来源里埋入带指令的金丝雀串，跑完整工作流，包括核验失败后的反馈回路，然后断言这些串没有出现在任何一次角色调用的交接或 trace 里。脚本化的 Analyst 第一次故意写出以订单文本为键名的 `result.json`，用来走到“错误位置”回流这条路径。
