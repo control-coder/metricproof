@@ -8,8 +8,8 @@
 3. 调用 finish 提交报告。
 
 报告结构（finish 参数为 JSON 字符串，A6 将在此基础上做数字核对与审查 Agent）：
-{"summary", "root_causes": [{dimension, value, explanatory_power, effect?, result_ids}]（按重要性排序，
-供 AC@k 评分）, "findings": [{text, result_ids}], "recommendations": [str]}。
+{"summary", "root_causes": [{dimension, value, explanatory_power, effect?, result_ids}]（候选集由主 Agent
+给出，先后由服务端 find_root_cause 重排，供 AC@k 评分）, "findings": [{text, result_ids}], "recommendations": [str]}。
 """
 from __future__ import annotations
 
@@ -24,10 +24,11 @@ dispatch_subagent（至多 3 个；可按问题调整分组，但要覆盖全部
 第 3 步：调用 finish。
 
 root_causes 的写法：
-- 从子 Agent 发现里选出最能解释总变化的维度值，按解释力从大到小排列，至少 1 条、至多 3 条；
-  只写变化方向与总变化一致的项。
-- 子 Agent 报告了二维组合（如某州内的某品类）时，把这两个维度值都列出，外层在前。
-- 比率型指标写 effect：between（组间/结构效应为主）或 within（组内效应为主）。
+- 从子 Agent 发现里选出能解释总变化的维度值，至少 1 条、至多 5 条；每个分支至少选出它解释力
+  最大且方向与总变化一致的一项。服务端会用确定性算法对 root_causes 重新排序，你不必纠结先后。
+- 子 Agent 报告了二维组合（如某州内的某品类）时，把这两个维度值都列出。
+- 比率型指标写 effect：between（组间/结构效应为主）或 within（组内效应为主）；子 Agent 报告了
+  结构效应（between）为主的项时，也把它列入。
 - 每条带 result_ids（来自子 Agent 发现里的 result_id）。
 
 报告为 JSON 字符串（finish 的 report 参数）：
@@ -42,7 +43,9 @@ root_causes 的写法：
 硬性约束：
 - 期间参数写成 JSON 对象 {"start": ..., "end": ...}，不要写成字符串。
 - 报告中出现的每个数字都在其后括注 result_id，例如「环比上升 12.3%（r3-detect_anomaly）」；
-  没有 result_id 支撑的数字不要写。
+  没有 result_id 支撑的数字不要写。result_id 写完整形式（如 r5-dispatch_subagent），不要缩写成 r5。
+- 只照抄工具结果里的数字，不要自己求和、相减、求倍数或换算单位（如「两者合计」「约 7.3 倍」）；
+  代码核对找不到来源的数字所在的句子会被删除。
 - 只做描述性归因：不写「导致」「因为」「由于」「使得」；写「贡献」「相关」「集中在」「主要来自」。
 - 维度取值只能来自工具观察，不要编造。"""
 

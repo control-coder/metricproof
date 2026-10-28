@@ -208,6 +208,23 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(result.report['root_causes'][0]['verification'], 'L1')
 
 
+class RedactionTests(unittest.TestCase):
+    def test_unsourced_finding_redacted_and_report_valid(self):
+        # 根因核对通过、但一条发现里的数字找不到来源：修订后仍不通过时删去该条，其余部分有效。
+        report = json.dumps({'summary': '订单量变化集中在新客（r3-dispatch_subagent）。',
+                             'root_causes': [{'dimension': 'customer_type', 'value': 'new',
+                                              'result_ids': ['r3-dispatch_subagent']}],
+                             'findings': [{'text': '新客贡献 987.654321（r3-dispatch_subagent）',
+                                           'result_ids': ['r3-dispatch_subagent']}],
+                             'recommendations': []}, ensure_ascii=False)
+        lead_steps = lead_script_basic()[:2] + [[tool_call('finish', {'report': report})]]
+        model = ScriptModel(lead_steps, sub_script_contribution())
+        result = run('2017 年 5 月订单量环比变化？', make_folder(self), model)
+        self.assertTrue(result.report['valid'], result.report['claims_check'])
+        self.assertEqual(result.report['findings'], [])
+        self.assertEqual([item['where'] for item in result.report['redacted']], ['findings[0]'])
+
+
 class ReplannAndLimitTests(unittest.TestCase):
     def test_replan_once_and_third_batch_rejected(self):
         dispatch = {'branch': 'b', 'dimensions': ['customer_type'], 'metric': 'order_count',
@@ -260,6 +277,29 @@ class TextOnlyReplyTests(unittest.TestCase):
         result = run('x', make_folder(self), model)
         self.assertEqual(result.stop_reason, 'no_tool_calls')
         self.assertEqual(result.steps['lead'], 2)
+
+
+class RankRootCausesTests(unittest.TestCase):
+    def test_root_causes_follow_find_root_cause_order(self):
+        from datalab.agents.investigation import Investigation
+
+        folder = make_folder(self)
+        client = ChatClient(profile(), transport=httpx.MockTransport(ScriptModel()))
+        investigation = Investigation('x', folder, SNAPSHOT, client, parallel=False, budget=None, profile=None)
+        self.addCleanup(investigation.close)
+        dimensions = ['customer_type', 'customer_state']
+        expected = investigation.toolset.rank_candidates('order_count', dimensions, P, B)['candidates']
+        self.assertGreaterEqual(len(expected), 2)
+        # 报告按与算法相反的顺序给出，外加一个不在候选集中的取值（应排到最后）。
+        items = [{'dimension': item['dimension'], 'value': item['value'], 'result_ids': ['r1-x']}
+                 for item in reversed(expected[:2])]
+        items.insert(0, {'dimension': 'customer_state', 'value': 'ZZ', 'result_ids': ['r1-x']})
+        ranked = investigation._rank_root_causes({'summary': 's', 'root_causes': items}, 'order_count', P, B)
+        self.assertEqual([(item['dimension'], item['value']) for item in ranked['root_causes']],
+                         [(item['dimension'], item['value']) for item in expected[:2]]
+                         + [('customer_state', 'ZZ')])
+        entry = investigation.toolset.registry.store.get(ranked['ranking']['result_id'])
+        self.assertEqual(entry['tool'], 'find_root_cause')
 
 
 class SubagentHintTests(unittest.TestCase):

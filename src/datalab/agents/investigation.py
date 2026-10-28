@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from datalab.agents import lead, reviewer, subagent
-from datalab.agents.claims import CAUSAL_WORDS, ClaimChecker, review_view
+from datalab.agents.claims import CAUSAL_WORDS, ClaimChecker, redact_report, review_view
 from datalab.agents.loop import BOUNDARY
 from datalab.agents.toolset import InvestigationToolset
 from datalab.semantic.snapshot import SemanticSnapshot
@@ -512,6 +512,18 @@ class Investigation:
         review = None
         if self.review and report is not None and not report.get('degraded'):
             report, stop_reason, review = self._review_and_revise(report, stop_reason, history, tools, checker)
+        redacted: list[dict] = []
+        if report is not None:
+            first = checker.check_report(report)
+            core_broken = any(str(item.get('where', '')).startswith(('root_causes', 'report'))
+                              for item in first['issues'])
+            if not first['passed'] and not core_broken:
+                # 修订后仍未通过、但根因本身核对通过：删除摘要、发现与建议中未通过核对的句子和条目
+                # （逐条列在 report['redacted']），其余内容再核对一次，通过才算有效。
+                # 根因是报告的核心结论，根因有问题时不剔除，整份报告判为无效。
+                report, redacted = redact_report(report, first['issues'])
+        if report is not None and metric and period and base_period:
+            report = self._rank_root_causes(report, metric, period, base_period)
         claims_check = checker.check_report(report) if report is not None else None
         referenced = [real for result_id in _report_ids(report) for real in checker.expand(result_id)]
         verification = self.toolset.verify_results(list(dict.fromkeys(referenced)))
@@ -520,6 +532,7 @@ class Investigation:
             graded['claims_check'] = claims_check
             # 计划第四节：报告数字与引用结果不一致（或缺引用、因果断言）即判为输出无效。
             graded['valid'] = bool(claims_check and claims_check['passed'])
+            graded['redacted'] = redacted
             if review is not None:
                 graded['review'] = review
         episode_id = None
@@ -720,6 +733,43 @@ class Investigation:
             if isinstance(payload, dict) and isinstance(payload.get('summary'), str):
                 return payload
         return None
+
+    def _rank_root_causes(self, report: dict, metric: str, period: dict, base_period: dict) -> dict:
+        """根因排序交给确定性算法：在报告根因涉及的维度上跑一次 find_root_cause，按其候选顺序重排，
+        比率型的 effect 以算法结果为准。候选集仍由 Agent 给出，算法只决定先后。
+
+        A10 test 中模型常把占比大、随总量同比例变化的维度值（如 customer_type=new、seller_state=SP）
+        排在第一；离线按本方法重排同一批报告，注入案例 AC@1 由 6/23 升至 11/23，AC@3 不变。
+        排序结果登记为一条 L1 工具结果，result_id 写在 report['ranking']，可追溯、可复算。
+        """
+        items = report.get('root_causes') or []
+        allowed = set(subagent.allowed_dimensions(metric))
+        dimensions = list(dict.fromkeys(item['dimension'] for item in items
+                                        if isinstance(item, dict) and item.get('dimension') in allowed))
+        if len(items) < 2 or not dimensions:
+            return report
+        try:
+            result = self.toolset.rank_candidates(metric, dimensions, period, base_period)
+        except Exception as error:
+            return {**report, 'ranking': {'method': 'find_root_cause', 'error': type(error).__name__}}
+        result_id = self.toolset.registry.store.add(
+            'find_root_cause', {'metric': metric, 'dimensions': dimensions, 'period': period,
+                                'base_period': base_period, 'purpose': 'rank_root_causes'}, 'L1', result)
+        order = {(item['dimension'], str(item['value'])): (index, item.get('effect'))
+                 for index, item in enumerate(result.get('candidates') or [])}
+        ranked = []
+        for position, item in enumerate(items):
+            key = (item.get('dimension'), str(item.get('value'))) if isinstance(item, dict) else None
+            if key in order:
+                index, effect = order[key]
+                if effect:
+                    item = {**item, 'effect': effect}
+                ranked.append(((0, index), item))
+            else:
+                ranked.append(((1, position), item))  # 不在算法候选集中的保持原相对顺序，排在后面
+        ranked.sort(key=lambda pair: pair[0])
+        return {**report, 'root_causes': [item for _, item in ranked],
+                'ranking': {'method': 'find_root_cause', 'result_id': result_id}}
 
     def _degraded_report(self) -> dict:
         """预算耗尽/步数用尽/提前停止时的降级报告：用已有子 Agent 发现拼最小报告并标注。"""

@@ -302,6 +302,12 @@ class InvestigationToolset:
         values = [row['group'] for row in result.get('rows', [])][:20]
         return (result, {'note': '维度取值', 'values': values}) if values else result
 
+    def rank_candidates(self, metric, dimensions, period, base_period) -> dict:
+        """编排层用：报告根因的确定性排序（不经 registry，不计入模型的工具调用）。"""
+        with self._lock:
+            return find_root_cause(self.engine, metric, list(dimensions), _period_tuple(period),
+                                   _period_tuple(base_period), top=len(dimensions))
+
     def _find_root_cause(self, metric, dimensions, period, base_period, filters=None):
         with self._lock:
             result = find_root_cause(self.engine, metric, list(dimensions), _period_tuple(period),

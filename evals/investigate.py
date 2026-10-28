@@ -180,7 +180,9 @@ def run_case(case: dict, folder: Path, snapshot, client, *, parallel: bool) -> d
             "valid": (result.report or {}).get("valid"),
             "final_issues": [item["issue"] for item in
                              ((result.report or {}).get("claims_check") or {}).get("issues") or []],
-            "degraded": bool((result.report or {}).get("degraded"))}
+            "degraded": bool((result.report or {}).get("degraded")),
+            "redacted": len((result.report or {}).get("redacted") or []),
+            "derived_numbers": ((result.report or {}).get("claims_check") or {}).get("derived_numbers", 0)}
 
 
 def percentile(values: list[float], q: float) -> float | None:

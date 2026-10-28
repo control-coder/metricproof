@@ -32,7 +32,8 @@ contribution。
 - 不要调用 read_result 翻页；工具结果已按变化大小排好序，前几行就是主要贡献项。
 - 数字都来自工具结果并带 result_id；维度取值只能来自工具观察。
 - 比率型指标（如客单价、差评率、运费占比）看 structure（组间/结构效应）与 within（组内效应）
-  哪个为主，写进 effect：between 或 within。
+  哪个为主，写进 effect：between 或 within；contribution 结果中 |structure| 最大的那一项即使
+  总解释力不是最大，也要列入 top_contributors（effect 写 between），结构变化常被组内波动掩盖。
 - 只写描述性结论（贡献、相关、集中在），不写「导致」「因为」。
 
 finish 的 report 参数为 JSON 字符串：
