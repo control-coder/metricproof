@@ -388,8 +388,29 @@ def verify(engine_result: dict, folder: Path, snapshot: SemanticSnapshot, *,
     period = (engine_result["period"]["start"], engine_result["period"]["end"])
     reference = python_reference(folder, engine_result["metric"], period, filters, group_by, snapshot,
                                  _store)
+    compare = engine_result.get("compare")
+    if isinstance(compare, dict) and isinstance(compare.get("period"), dict):
+        # 带对比期的查询：对比期同样独立复算，delta 由参考结果的两期总计重新相减。
+        compare_period = (compare["period"]["start"], compare["period"]["end"])
+        reference["compare"] = python_reference(folder, engine_result["metric"], compare_period, filters,
+                                                group_by, snapshot, _store)
+        reference["delta"] = _reference_delta(reference["total"], reference["compare"]["total"])
     differences = _diff(engine_result, reference, "$")
     return {"passed": not differences, "differences": differences[:20]}
+
+
+def _reference_delta(total: dict, compare: dict) -> dict:
+    """参考侧的两期总计之差：加法型为整数差；比率型分子、分母各相减，value 为 6 位小数之差。"""
+    from decimal import Decimal
+
+    if total["denominator"] is None:
+        return {"numerator": total["numerator"] - compare["numerator"], "denominator": None,
+                "value": total["value"] - compare["value"]}
+    value = None
+    if total["value"] is not None and compare["value"] is not None:
+        value = format(Decimal(total["value"]) - Decimal(compare["value"]), ".6f")
+    return {"numerator": total["numerator"] - compare["numerator"],
+            "denominator": total["denominator"] - compare["denominator"], "value": value}
 
 
 def _diff(left, right, path: str) -> list[dict]:

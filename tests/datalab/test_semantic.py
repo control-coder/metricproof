@@ -164,6 +164,11 @@ class ReferenceAgreementTests(Fixture):
                     expected = python_reference(folder, metric, (None, None), filters, group_by, SNAPSHOT)
                     self.assertEqual({k: actual[k] for k in ("metric", "total", "rows")},
                                      {k: expected[k] for k in ("metric", "total", "rows")})
+                    # 带对比期的结果整体核验通过（对比期与 delta 也独立复算），篡改 delta 被检出。
+                    checked = verify(actual, folder, SNAPSHOT, filters=filters, group_by=group_by)
+                    self.assertTrue(checked["passed"], checked["differences"])
+                    tampered = {**actual, "delta": {**actual["delta"], "numerator": actual["delta"]["numerator"] + 1}}
+                    self.assertFalse(verify(tampered, folder, SNAPSHOT, filters=filters, group_by=group_by)["passed"])
         finally:
             engine.close()
 
