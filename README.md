@@ -68,22 +68,41 @@ flowchart TD
 
 ## 界面
 
-以下截图由浏览器流程测试在固定演示模式（不调用模型）下自动生成，数据是 6 行模拟订单，展示的是固定分析的报告页。
+以下截图来自一次真实调用 MiMo（mimo-v2.6-flash）的归因调查，数据是 Olist 公开多表数据。问题为“2018 年 3 月送达延迟率环比为什么上升？”，本期 2018 年 3 月，对比期 2 月。
 
-![报告详情：核验结果、图表、模板说明与证据下载](docs/images/report.png)
+报告页上半部分：异动检测与 LMDI 拆解后，主 Agent 把维度分给 2 个并行的子 Agent，根因集中在新客组内与 MG、SP、ES 州，每条根因与发现都带核验等级和 `result_id` 引用。
+
+![归因报告：结论摘要、根因、发现、建议与指标树](docs/images/report.png)
 
 <details>
-<summary>其余三页：数据工作台、分析任务、项目记忆</summary>
+<summary>报告下半部分：贡献度表、核验与轨迹时间线</summary>
 
-![数据工作台](docs/images/workbench.png)
+子 Agent 的维度下钻结果，比率型指标拆成结构项与组内项，不变量残差为 0：
 
-![分析任务](docs/images/tasks.png)
+![贡献度表](docs/images/report-drilldown.png)
 
-![项目记忆](docs/images/memory.png)
+审查 Agent 发现一个数字在所引用的结果里找不到，要求修订一次，修订后的报告通过代码核对；轨迹时间线按主 Agent、子 Agent、审查 Agent 着色：
+
+![核验、工具结果与轨迹时间线](docs/images/report-trace.png)
 
 </details>
 
-重新生成：服务启动后运行 `DATALAB_SHOT_DIR=docs/images node frontend/tests/browser-flow.mjs`（需要本机 Edge）。
+<details>
+<summary>人在回路、数据工作台、分析任务与项目记忆</summary>
+
+问题没有给出指标和期间时，主 Agent 调用 `ask_user` 暂停调查，给出候选答复，等用户选择后继续：
+
+![等待确认：主 Agent 向用户澄清指标与期间](docs/images/pending.png)
+
+![数据工作台：导入 Olist 多表数据后的质量概况](docs/images/workbench.png)
+
+![分析任务：归因调查表单与任务记录](docs/images/tasks.png)
+
+![项目记忆：确认后的业务口径与来源](docs/images/memory.png)
+
+</details>
+
+重新生成：服务以 MiMo 模式启动后运行 `$env:DATALAB_SHOT_DIR='docs/images'; node frontend/tests/readme-shots.mjs`（需要本机 Edge 与已下载的 Olist 数据；会真实调用模型，每次调查约 6–15 次模型调用）。模型每次的分派与措辞不同，重新生成的截图内容会与上面略有差异。
 
 ## 架构
 

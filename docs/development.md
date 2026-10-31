@@ -108,7 +108,8 @@ npm run build --prefix frontend
 | `$env:DATALAB_DOCKER_TESTS='1'; python -B -m unittest discover -s tests/datalab -p test_execution.py -v` | 真实容器隔离：非 root、seccomp、只读输入、断网、越界、符号链接、内存与输出限制、超时、取消与清理 |
 | `python -B scripts/test_postgres.py` | 在临时 PostgreSQL 容器中测试跨连接复用、历史版本、并发确认只有一个胜者 |
 | `python -B scripts/test_app.py` | 真实 PostgreSQL、Redis/Celery 与 Docker 的应用集成：确认恢复、下载、重复投递、项目隔离、租约过期后的检查点恢复（含模拟 worker 消失后的端到端恢复）、产物围栏、Idempotency-Key、取消竞争、图表内联 |
-| `node frontend/tests/browser-flow.mjs` | 用本机 Edge 跑完整的四页面流程，包括桌面与移动宽度，以及“响应丢失后重试沿用同一个 Idempotency-Key 并拿回原任务”；设置 `DATALAB_SHOT_DIR` 时把四页截图写到该目录（README 的截图用 `docs/images`） |
+| `node frontend/tests/browser-flow.mjs` | 用本机 Edge 跑完整的四页面流程，包括桌面与移动宽度，以及“响应丢失后重试沿用同一个 Idempotency-Key 并拿回原任务”；设置 `DATALAB_SHOT_DIR` 时把四页截图写到该目录（固定演示模式，不调用模型） |
+| `node frontend/tests/readme-shots.mjs` | README 截图：MiMo 模式下新建项目、导入 Olist、确认口径，跑一次给定指标与期间的归因调查（不足 2 个子 Agent 分支时重跑，至多 3 次）和一次需要澄清的调查（人在回路）；截图写到 `DATALAB_SHOT_DIR`，默认 `artifacts/screenshots`。会真实调用模型 |
 | `python -B scripts/verify_scale.py` | 十万行模拟订单的规模验证 |
 | `python -B scripts/verify_olist.py [--metamorphic]` | 真实 Olist 数据（先运行 `fetch_olist.py`）：七个代表性计划在真实容器中的峰值内存与耗时，以及 `run_fixed` 完整核验；结果写入 `artifacts/olist/scale/olist-result.json` |
 | `python -B evals/run_suite.py` | 固定种子评测：20 项数值、8 项记忆、8 项故障，不调用模型 |
