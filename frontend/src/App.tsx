@@ -18,7 +18,7 @@ type ResultEntry={tool:string;level?:string;arguments?:Record<string,unknown>;re
 type RootCause={dimension?:string;value?:string;explanatory_power?:string|null;effect?:string;contribution?:string|null;result_ids?:string[];verification?:string;text?:string};
 type Finding={text?:string;result_ids?:string[];verification?:string};
 type ClaimsIssue={where?:string;issue?:string;number?:string;result_id?:string};
-type InvReport={summary?:string;root_causes?:RootCause[];findings?:Finding[];recommendations?:(string|{text?:string})[];valid?:boolean;degraded?:boolean;claims_check?:{passed?:boolean;issues?:ClaimsIssue[]};review?:{verdict?:string;revised?:boolean;issues?:{where?:string;issue?:string}[];code_issues_before?:ClaimsIssue[]};causal_assertions?:string[]};
+type InvReport={summary?:string;root_causes?:RootCause[];findings?:Finding[];recommendations?:(string|{text?:string})[];valid?:boolean;degraded?:boolean;claims_check?:{passed?:boolean;issues?:ClaimsIssue[]};review?:{verdict?:string;revised?:boolean;issues?:{where?:string;problem?:string;evidence?:string}[];code_issues_before?:ClaimsIssue[]};causal_assertions?:string[]};
 type TraceEntry={seq:number;agent:string;kind:string;tool?:string;result_id?:string;outcome?:string;tokens?:number;seconds?:number};
 type Pending={type:'clarification'|'metric';question:string;options?:string[];memory_id?:string};
 type Investigation={type:string;task_id:string;state:string;stop_reason?:string;question?:string;metric?:string|null;period?:Period|null;base_period?:Period|null;snapshot?:{version:string;included_statuses:string[];amount_source?:string|null};clarifications?:{question:string;answer:string}[];pending?:Pending|null;report?:InvReport|null;metric_tree?:{tool:string;arguments?:Record<string,unknown>;result:unknown}|null;results?:Record<string,ResultEntry>;verification?:Record<string,Verification>;trace?:TraceEntry[];branches?:{branch?:string;dimensions?:string[];stop_reason?:string;steps?:number}[];usage?:{model_calls:number;tokens:number;seconds:number};episode_id?:string|null};
@@ -26,7 +26,7 @@ type Task={task_id:string;state:string;snapshot:Snapshot;created_at:string;type?
 const labels:Record<string,string>={QUEUED:'排队中',PROFILING:'数据概况',PLANNING:'制定计划',WAITING_CONFIRMATION:'等待口径确认',EXECUTING:'容器执行中',VERIFYING:'独立核验中',SUCCEEDED:'核验通过',FAILED:'失败',CANCELLED:'已取消',confirmed:'已确认',pending:'待确认',superseded:'历史版本',invalidated:'已失效',summary:'汇总',trend:'趋势',ranking:'排行',share:'占比',comparison:'期间对比',quality:'数据质量',repeat_rate:'复购率',cohort_retention:'留存',delivery_delay:'送达延迟',category_sales:'品类销售',
  channel:'渠道',category:'品类',payment_date:'支付日期',customer_state:'客户州',purchase_date:'下单日期',purchase_month:'下单月份',product_category:'商品品类',payments:'支付合计',items:'明细价格加运费',
  analysis:'分析',investigation:'调查',model_call:'模型调用',tool_call:'工具调用',dispatch:'分派',note:'备注',lead:'主 Agent',reviewer:'审查 Agent',
- L1:'L1 已核验',L2:'L2 部分核验',L3:'L3 未核验',pass:'通过',revise:'要求修订',none:'未裁决',finish:'正常收尾',budget:'预算耗尽',max_steps:'步数用尽',
+ L1:'L1 已核验',L2:'L2 部分核验',L3:'L3 未核验',pass:'通过',revise:'要求修订',none:'未裁决',finish:'正常收尾',budget:'预算耗尽',max_steps:'步数用尽',waiting_confirmation:'等待用户答复',
  customer_type:'客户类型',delivery_status:'送达状态',payment_type:'支付方式',payment_installments:'分期数',seller_id:'卖家',seller_state:'卖家州',price_band:'价格带'};
 // 核验等级徽标的说明文案（title 提示）。
 const LEVEL_TIPS:Record<string,string>={L1:'L1 已核验：独立参考复算',L2:'L2 部分核验：不变量与汇总比对',L3:'L3 未核验文字'};
@@ -249,7 +249,7 @@ function InvestigationReport({task,busy,answer,setAnswer,onAnswer,onConfirmMetri
   {report&&((report.claims_check?.issues||[]).length>0||report.review)&&<section className="card"><h2>核验</h2>
    {report.claims_check&&<p>{report.claims_check.passed?'代码核对通过：报告数字与所引用工具结果一致。':'代码核对未通过：'} {(report.claims_check.issues||[]).length?`共 ${report.claims_check.issues!.length} 处问题。`:''}</p>}
    {(report.claims_check?.issues||[]).length>0&&<div className="table-wrap"><table className="issue-table"><thead><tr><th>位置</th><th>问题</th><th>数字</th><th>引用</th></tr></thead><tbody>{report.claims_check!.issues!.map((issue,index)=><tr key={index} className="issue-row"><td>{issue.where||'—'}</td><td>{issue.issue||'—'}</td><td className="mono">{issue.number||'—'}</td><td>{issue.result_id?<ResultChip id={issue.result_id}/>:'—'}</td></tr>)}</tbody></table></div>}
-   {report.review&&<p>审查 Agent：{labels[report.review.verdict||'none']||report.review.verdict}{report.review.revised?'，报告已按要求修订一次':''}{(report.review.issues||[]).length?`；意见：${report.review.issues!.map(item=>item.issue).join('；')}`:''}</p>}
+   {report.review&&<p>审查 Agent：{labels[report.review.verdict||'none']||report.review.verdict}{report.review.revised?'，报告已按要求修订一次':''}{(report.review.issues||[]).length?`；意见：${report.review.issues!.map(item=>(item.where?item.where+'：':'')+(item.problem||'')).join('；')}`:''}</p>}
   </section>}
   <section className="card"><h2>工具结果</h2><ResultList results={results} verification={verification}/></section>
   {(inv.trace||[]).length>0&&<section className="card"><h2>轨迹时间线</h2><TraceTimeline trace={inv.trace!}/></section>}
