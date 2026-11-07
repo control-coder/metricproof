@@ -157,7 +157,7 @@ def create_app(settings: Settings | None = None):
     repository = Repository(settings.database_url)
     memory = MemoryService(PostgresMemoryRepository(settings.database_url))
     datasets = DatasetStore(settings.artifact_root / 'datasets')
-    app = FastAPI(title='OrderProof 本地分析',version='0.1.0',docs_url='/api/docs',openapi_url='/api/openapi.json')
+    app = FastAPI(title='MetricProof',version='0.1.0',docs_url='/api/docs',openapi_url='/api/openapi.json')
     app.add_middleware(RequestBoundary)
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=['127.0.0.1','localhost','testserver'])
 

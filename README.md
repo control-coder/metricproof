@@ -33,19 +33,19 @@
 | Agent | 职责 | 可用工具（节选） |
 | --- | --- | --- |
 | 主 Agent（Plan-and-Solve） | 检测异动、拆解指标；把待排查维度分成至多 3 组分派给子 Agent；汇总写报告 | `detect_anomaly`、`decompose_metric`、`dispatch_subagent`、`ask_user`、`finish` |
-| 子 Agent（ReAct，至多 3 个并行） | 负责一组维度（如地域、商品与卖家、支付与履约），计算贡献度并继续维度下钻，交回结构化发现 | `contribution`、`find_root_cause`、`correlate`、`run_sql`、`run_python` |
+| 子 Agent（ReAct，至多 3 个并行） | 负责一组维度（如地域、商品与卖家、支付与履约），计算贡献度并继续维度下钻，只回传贡献最大的维度取值及结果编号 | `contribution`、`find_root_cause`、`correlate`、`run_sql`、`run_python` |
 | 审查 Agent（Reflection） | 只看报告与自动校验结果，指出问题后让主 Agent 修订一次 | `verify_claims`、`read_result` |
 
 ## 工作流程
 
 ```mermaid
 flowchart TD
-    Q[用户提问：3 月延迟率为什么上升？] --> L1[主 Agent：detect_anomaly 判断是否异动<br/>decompose_metric 拆解指标]
+    Q[用户提问：4 月销售额为什么下降？] --> L1[主 Agent：detect_anomaly 判断是否异动<br/>decompose_metric 拆解指标]
     L1 --> D{分派子 Agent<br/>至多 3 个并行}
     D --> S1[子 Agent：地域]
     D --> S2[子 Agent：商品与卖家]
-    D --> S3[子 Agent：支付与履约]
-    S1 & S2 & S3 --> L2[主 Agent：汇总发现，写报告<br/>每个数字引用 result_id]
+    D -.->|销售额不允许订单级维度，不派发| S3[子 Agent：客户、支付与履约]
+    S1 & S2 --> L2[主 Agent：汇总发现，写报告<br/>每个数字引用 result_id]
     L2 --> C[自动校验：数字、引用、因果表述]
     C --> R[审查 Agent<br/>有问题时要求修订一次]
     R --> V[确定性算法排序根因<br/>参考实现复算，标注 L1 / L2 / L3]
