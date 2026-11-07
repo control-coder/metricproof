@@ -11,7 +11,8 @@ QUEUED → PROFILING → PLANNING（整个主/子/审查 Agent 运行在此阶�
 本模块只在调查开始前与结束后检查 cancelled。结束后收到取消时按 CANCELLED 收尾，
 已生成的调查报告只保存不带成功结论（报告 state 改写为 CANCELLED），与统计任务一致。
 
-租约恢复：调查无状态（resume 不保存模型上下文），恢复到非 QUEUED 检查点时从头重跑。
+租约恢复：调查无状态，恢复到非 QUEUED 检查点时从头重跑。各 Agent 的消息列表随报告另存为
+消息列表.json 供查阅，不用于续跑。
 """
 from __future__ import annotations
 
@@ -128,6 +129,13 @@ def report_payload(task: Task, result, store, *, request: dict) -> dict:
             'branches': branches, 'usage': usage, 'episode_id': result.episode_id}
 
 
+def messages_payload(run_id: str, result) -> dict:
+    """消息列表.json 的内容：主 Agent、子 Agent（按分派顺序）与审查 Agent 的消息列表。"""
+    messages = result.messages or {}
+    return {'schema_version': 1, 'run_id': run_id, 'lead': messages.get('lead') or [],
+            'subagents': messages.get('subagents') or [], 'reviewer': messages.get('reviewer') or []}
+
+
 def _sandbox(settings):
     """run_sql 的执行沙箱；没有 Docker 时返回 None（run_sql 观察为「未配置」），不拖垮任务。"""
     try:
@@ -209,6 +217,11 @@ def run_task(task: Task, row: dict, repository, token, settings, cancelled, *,
     payload = report_payload(task, result, store, request=request)
     (folder_out / name).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
     repository.add_artifact(task.task_id, run_id, '调查报告.json', f'runs/{run_id}/{name}', token)
+    # 消息列表单独成文件：不进报告 JSON，避免撑大 investigation 接口与 MCP 返回；仅供查阅，不用于续跑。
+    messages_name = f'messages.{row["fence"]}.json'
+    (folder_out / messages_name).write_text(
+        json.dumps(messages_payload(run_id, result), ensure_ascii=False, indent=2), encoding='utf-8')
+    repository.add_artifact(task.task_id, run_id, '消息列表.json', f'runs/{run_id}/{messages_name}', token)
     repository.save(task, token, release=True)
     if task.state == State.CANCELLED:
         # 终态提交吸收了并发取消：报告只保留过程证据，不保留成功结论。

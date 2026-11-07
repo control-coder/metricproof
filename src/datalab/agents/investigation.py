@@ -22,6 +22,8 @@ metric=None, period=None, base_period=None, profile=None) -> InvestigationResult
 - 预算：InvestigationBudget（线程安全）管模型调用次数、token 与墙钟时间；不复用
   roles.runtime.CallBudget（其 600 秒上限与并行子 Agent 共享语义不符）。超预算时优雅收尾：
   主 Agent 未 finish 时用已有子 Agent 发现生成降级报告并标注 stop_reason 与 degraded。
+- 消息列表：结束时把主 Agent、各子 Agent、审查 Agent 实际发给模型的消息列表复制到
+  result.messages（去掉 reasoning_content），由任务层另存为 消息列表.json；只读输出，不参与续跑。
 - trace：每次模型调用与工具调用记录 {seq, agent, kind, tool?, result_id?, tokens?, seconds,
   outcome}；不保存提示、响应原文或数据内容。
 - 核验：结束后对报告 root_causes/findings 引用的 result_id 调用 toolset.verify_results
@@ -30,6 +32,7 @@ metric=None, period=None, base_period=None, profile=None) -> InvestigationResult
 """
 from __future__ import annotations
 
+import copy
 import json
 import re
 import threading
@@ -108,6 +111,9 @@ class BranchResult:
     steps: int
     stop_reason: str
     result_ids: list[str] = field(default_factory=list)
+    # 分派序号（trace 中的 subagent-N）与该子 Agent 的消息列表（仅供落盘，见 _export_messages）。
+    index: int = 0
+    messages: list = field(default_factory=list)
 
 
 @dataclass
@@ -128,6 +134,14 @@ class InvestigationResult:
     # {type: clarification|metric, question, options, memory_id?, result_id}。
     pending: dict | None = None
     episode_id: str | None = None
+    # 各 Agent 的消息列表（{lead, subagents, reviewer}），随报告另存为 消息列表.json，仅供查阅。
+    messages: dict = field(default_factory=dict)
+
+
+def _export_messages(history: list) -> list[dict]:
+    """消息列表副本：去掉 reasoning_content（模型思考不落盘），其余原样保留。"""
+    return [{key: value for key, value in item.items() if key != 'reasoning_content'}
+            for item in copy.deepcopy(history)]
 
 
 def _report_ids(report: dict | None) -> list[str]:
@@ -376,7 +390,7 @@ def run_subagent(investigation: 'Investigation', branch: dict, index: int,
     cited = [item for item in REPORT_ID.findall(json.dumps(findings or {}, ensure_ascii=False))
              if item in produced]
     return BranchResult(branch, findings, report, steps, stop_reason,
-                        list(dict.fromkeys(cited)) or produced)
+                        list(dict.fromkeys(cited)) or produced, index, history)
 
 
 def run_reviewer(investigation: 'Investigation', report: dict, code_check: dict) -> dict:
@@ -389,6 +403,7 @@ def run_reviewer(investigation: 'Investigation', report: dict, code_check: dict)
     history = [{'role': 'system', 'content': reviewer.SYSTEM + '\n' + BOUNDARY},
                {'role': 'user', 'content': reviewer.opening_message(review_view(report), code_check)}]
     tools = registry.schemas('reviewer')
+    investigation.reviewer_histories.append(history)
     steps = 0
     for step in range(1, REVIEWER_MAX_STEPS + 1):
         steps = step
@@ -479,6 +494,7 @@ class Investigation:
         self.catalog_view = {'metrics': [{'name': name} for name in self.toolset.catalog['metrics']],
                              'dimensions': [{'name': name} for name in self.toolset.catalog['dimensions']]}
         self.branches: list[BranchResult] = []
+        self.reviewer_histories: list[list] = []
         # dispatch_subagent 的 result_id → 该分支子 Agent 的工具结果（报告核对与核验等级用）。
         self.branch_results: dict[str, list[str]] = {}
         self.review = review
@@ -554,12 +570,21 @@ class Investigation:
         tool_stats = {'total': stats.total, 'accuracy': round(stats.accuracy, 6),
                       'denied': stats.denied, 'duplicate': stats.duplicate,
                       'duplicate_ratio': round(stats.duplicate_ratio, 6)}
+        # 主 Agent 的 history 是原地压缩后的版本，即模型实际看到的上下文，不是原始观察全文。
+        messages = {'lead': _export_messages(history),
+                    'subagents': [{'index': branch.index, 'group': branch.branch.get('branch'),
+                                   'dimensions': branch.branch.get('dimensions'),
+                                   'stop_reason': branch.stop_reason,
+                                   'messages': _export_messages(branch.messages)}
+                                  for branch in self.branches],
+                    'reviewer': [_export_messages(item) for item in self.reviewer_histories]}
         return InvestigationResult(
             self.question, graded, stop_reason, self.parallel,
             {'lead': self._lead_steps, 'subagents': [branch.steps for branch in self.branches],
              'reviewer': (review or {}).get('steps', 0)},
             self.budget.calls, self.budget.tokens, seconds, tool_stats, verification,
-            trace=list(self.trace), branches=self.branches, pending=self.pending, episode_id=episode_id)
+            trace=list(self.trace), branches=self.branches, pending=self.pending, episode_id=episode_id,
+            messages=messages)
 
     def _lead_loop(self, history: list, tools: list, max_steps: int, *, nudge: bool) -> tuple[dict | None, str]:
         """主 Agent 循环，直到 finish、无工具调用、停止条件或步数用尽；返回 (报告, 停止原因)。"""

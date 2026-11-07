@@ -152,6 +152,60 @@ class ReportPayloadTests(unittest.TestCase):
         self.assertIsNone(payload['metric_tree'])
 
 
+def with_reasoning(model):
+    """给假模型的每个回复加上 reasoning_content，用来检查它不会落盘。"""
+    def handler(request):
+        response = model(request)
+        body = json.loads(response.content)
+        body['choices'][0]['message']['reasoning_content'] = '内部思考-不应落盘'
+        return httpx.Response(200, json=body)
+    handler.requests = model.requests
+    return handler
+
+
+class MessagesArtifactTests(unittest.TestCase):
+    def test_messages_file_saved_beside_report(self):
+        folder = make_folder(self)
+        task = make_task(folder)
+        model = ScriptModel(lead_script_basic()[:2] + [[tool_call('finish', {'report': GOOD_REPORT})]],
+                            sub_script_contribution())
+        settings = FakeSettings()
+        task, repository = run_investigation_task(task, run_row(task), folder, with_reasoning(model))
+        names = [item['name'] for item in repository.artifacts]
+        self.assertEqual(names, ['调查报告.json', '消息列表.json'])
+        report_item, messages_item = repository.artifacts
+        self.assertEqual(Path(report_item['relative_path']).parent, Path(messages_item['relative_path']).parent)
+        report_text = (settings.artifact_root / report_item['relative_path']).read_text(encoding='utf-8')
+        text = (settings.artifact_root / messages_item['relative_path']).read_text(encoding='utf-8')
+        # 报告 JSON 不含消息列表；消息列表不含思考内容。
+        self.assertNotIn('messages', json.loads(report_text))
+        self.assertNotIn('reasoning_content', text)
+        self.assertNotIn('内部思考', text)
+        data = json.loads(text)
+        self.assertEqual(data['schema_version'], 1)
+        self.assertEqual(data['run_id'], messages_item['run_id'])
+        self.assertEqual(len(data['subagents']), 1)
+        self.assertEqual(data['subagents'][0]['group'], '新老客结构是否解释了订单量变化')
+        self.assertEqual(data['subagents'][0]['index'], 1)
+        self.assertEqual(len(data['reviewer']), 1)
+        lists = [data['lead'], data['subagents'][0]['messages'], data['reviewer'][0]]
+        for messages in lists:
+            self.assertEqual(messages[0]['role'], 'system')
+            self.assertEqual(messages[1]['role'], 'user')
+        self.assertEqual(lists[2][-1]['role'], 'assistant')
+        # 主 Agent 与子 Agent：每条 tool 消息的 tool_call_id 都对应此前 assistant 的 tool_calls。
+        for messages in lists[:2]:
+            seen = set()
+            tool_count = 0
+            for message in messages:
+                if message['role'] == 'assistant':
+                    seen.update(call['id'] for call in message.get('tool_calls') or [])
+                elif message['role'] == 'tool':
+                    tool_count += 1
+                    self.assertIn(message['tool_call_id'], seen)
+            self.assertGreater(tool_count, 0)
+
+
 class StateSequenceTests(unittest.TestCase):
     def test_finish_valid_report_succeeds(self):
         folder = make_folder(self)
@@ -164,8 +218,7 @@ class StateSequenceTests(unittest.TestCase):
         states = [item['to'] for item in task.timeline]
         self.assertEqual(states, ['PROFILING', 'PLANNING', 'EXECUTING', 'VERIFYING', 'SUCCEEDED'])
         self.assertIsNone(task.failure)
-        self.assertEqual(len(repository.artifacts), 1)
-        self.assertEqual(repository.artifacts[0]['name'], '调查报告.json')
+        self.assertEqual([item['name'] for item in repository.artifacts], ['调查报告.json', '消息列表.json'])
         self.assertEqual(repository.saves[-1]['state'], 'SUCCEEDED')
         self.assertTrue(repository.saves[-1]['release'])
 
@@ -186,7 +239,8 @@ class StateSequenceTests(unittest.TestCase):
         states = [item['to'] for item in task.timeline]
         self.assertEqual(states, ['PROFILING', 'PLANNING', 'EXECUTING', 'VERIFYING', 'FAILED'])
         self.assertEqual(task.failure, 'REPORT_INVALID')
-        self.assertEqual(len(repository.artifacts), 1)  # 报告仍保存
+        self.assertEqual([item['name'] for item in repository.artifacts],
+                         ['调查报告.json', '消息列表.json'])  # 报告仍保存
         self.assertEqual(repository.saves[-1]['state'], 'FAILED')
 
     def test_waiting_confirmation_stops(self):
@@ -200,7 +254,7 @@ class StateSequenceTests(unittest.TestCase):
         self.assertEqual(task.state, State.WAITING_CONFIRMATION)
         self.assertEqual(task.confirmation, '指哪个指标？')
         # 等待态也写调查报告，界面从中读取 pending 的问题与选项。
-        self.assertEqual([item['name'] for item in repository.artifacts], ['调查报告.json'])
+        self.assertEqual([item['name'] for item in repository.artifacts], ['调查报告.json', '消息列表.json'])
         self.assertEqual(len(repository.saves), 1)
         self.assertEqual(repository.saves[0]['state'], 'WAITING_CONFIRMATION')
         self.assertTrue(repository.saves[0]['release'])

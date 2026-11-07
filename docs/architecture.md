@@ -141,6 +141,8 @@ L1 核验（`reference.py`）：纯 Python 逐行实现同一套指标与维度�
 - 子 Agent（ReAct）：至多 3 个并行，各自独立上下文，负责一组维度，用 `contribution`、`find_root_cause`、`correlate`、`run_sql` 排查，只回传结构化发现。
 - 审查 Agent（Reflection）：只收到报告和自动校验结果，看不到生成过程，至多 3 步后给出 pass 或 revise；要求修订时主 Agent 修订一次，修订后不再送审。
 
+每次调查结束时，三类 Agent 实际发给模型的消息列表（去掉 `reasoning_content`，主 Agent 的是压缩后的版本）与报告一起另存为 `消息列表.json`，供事后查看某个 Agent 当时看到了什么。trace 仍只记录用量与结果类别，不含提示原文。消息列表不用于续跑，调查仍从头重跑。
+
 工具层（`agents/tools.py`）使用 Function Calling：参数由服务端按 JSON Schema 校验，工具按 Agent 授权，模型只看到本 Agent 的工具，越权调用不会到达 handler。授权表：主 Agent 为元数据、`detect_anomaly`、`decompose_metric`、`query_metric`、`ask_user`、`propose_metric`、`search_memory`、`dispatch_subagent`、`finish`、`read_result`；子 Agent 为 `query_metric`、`contribution`、`find_root_cause`、`correlate`、`run_sql`、`read_result`、`finish`（`run_python` 的接线不在当前范围内）；审查 Agent 为 `verify_claims`、`read_result`。
 
 报告中的每个数字必须引用工具结果的 `result_id` 并标注核验等级：L1 由语义层与独立参考复算，L2 为 `run_sql` 的不变量、蜕变关系与汇总比对，L3 为未核验的文字。`agents/claims.py` 由代码逐条校验数字、引用与因果表述，不由模型自评：

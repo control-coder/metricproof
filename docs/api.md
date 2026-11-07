@@ -119,7 +119,8 @@
 - `report` 为带核验等级标注的归因报告；未通过自动校验时 `valid` 为 `false`，任务以 `FAILED/REPORT_INVALID` 结束但报告仍保存。`redacted` 列出因未通过校验而被删去的句子或条目，包括位置、原文和问题类型。`ranking.result_id` 指向决定根因先后的 `find_root_cause` 结果，`ranking.supplemented` 为由算法补入的根因条数（这些根因带 `source: "ranking"`）。没有产出报告时 `report` 为 `null`，任务以 `FAILED/INVESTIGATION_STOPPED` 结束。
 - `pending` 为 `waiting_confirmation` 时的待确认事项（`type: clarification|metric`，含问题、选项或 `memory_id`）；否则为 `null`。
 - `usage` 为本次调查的模型调用数、token 与墙钟秒数。
-- 状态序列：`QUEUED → PROFILING → PLANNING`（主 Agent、子 Agent 与审查 Agent 都在此阶段运行）→ `WAITING_CONFIRMATION`，或 `EXECUTING → VERIFYING → SUCCEEDED/FAILED`。等待态同样写调查报告，`pending` 从中读取。答复后从 `PLANNING` 重新发起整次调查，并带上全部澄清答复（无状态恢复，不保存模型上下文）；租约过期后同样从头重跑。
+- 状态序列：`QUEUED → PROFILING → PLANNING`（主 Agent、子 Agent 与审查 Agent 都在此阶段运行）→ `WAITING_CONFIRMATION`，或 `EXECUTING → VERIFYING → SUCCEEDED/FAILED`。等待态同样写调查报告，`pending` 从中读取。答复后从 `PLANNING` 重新发起整次调查，并带上全部澄清答复（无状态恢复，不据消息列表续跑）；租约过期后同样从头重跑。
+- 主 Agent、子 Agent 与审查 Agent 各自实际发给模型的消息列表（含工具调用与工具观察，不含 `reasoning_content`；主 Agent 的是压缩后的版本）与报告同目录另存为产物 `消息列表.json`，等待态也会写，可经产物下载接口取得。它不在 `investigation` 字段里，也不用于续跑，仅供事后查阅。结构为 `{"schema_version": 1, "run_id": "...", "lead": [消息...], "subagents": [{"index": 1, "group": "...", "dimensions": [...], "stop_reason": "...", "messages": [消息...]}], "reviewer": [[消息...]]}`，`subagents` 按分派顺序排列。
 - 取消只在调查开始前和结束后检查，进行中的模型调用与沙箱执行不会被中断。
 
 ## MCP 服务
